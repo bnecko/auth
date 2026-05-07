@@ -42,4 +42,26 @@ Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
 
 External apps create activation requests with a bearer API key stored as a SHA-256 hash in `external_apps.api_key_hash`.
 
-External app integration details are in `docs/external-apps.md`.
+## Documentation
+
+Detailed documentation and prompt instructions are available in the `docs/` directory:
+- `docs/backend-stack.md`: Core architecture, domain boundaries, and database schema.
+- `docs/external-apps.md`: Guide for integrating external apps with the activation API.
+- `docs/anti-slop-coding-prompt.md` & `docs/pr-universal-prompt.md`: AI coding guidelines and PR standards.
+- `docs/pre-public-hygiene.md`: Pre-launch security checklist.
+
+## Testing
+
+You can test the external app activation API flow locally or against production using the provided `test.py` script.
+
+Make sure you have your external app bearer token set in your `.env` file:
+```env
+TEST_BEARER="your-app-api-key"
+```
+
+Then run the script:
+```sh
+python test.py
+```
+
+The script will generate an activation request, print a URL for you to open in your browser to approve, and automatically poll for the resulting profile data.
