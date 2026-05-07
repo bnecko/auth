@@ -9,7 +9,25 @@ cp .env.example .env
 docker compose up --build
 ```
 
+Set `CLOUDFLARED_TOKEN` in `.env` before starting the stack. The app is not published on a host port by default; Cloudflare Tunnel connects to `http://app:3000` inside the Compose network.
+
+In the Cloudflare Tunnel public hostname settings, use:
+
+```text
+Service: http://app:3000
+```
+
 The schema is loaded from `db/schema.sql` on first Postgres startup.
+
+## Resource profile
+
+The default Compose file is tuned for a small always-on host:
+
+- app: 384 MB, Node old-space capped at 256 MB
+- Postgres: 512 MB, 30 connections, small working memory
+- cloudflared: 128 MB
+
+Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
 
 ## Main flows
 
