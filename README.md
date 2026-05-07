@@ -39,3 +39,5 @@ Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
 - `POST /api/telegram/bot/verify`
 
 External apps create activation requests with a bearer API key stored as a SHA-256 hash in `external_apps.api_key_hash`.
+
+External app integration details are in `docs/external-apps.md`.
