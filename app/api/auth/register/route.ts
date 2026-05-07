@@ -21,12 +21,12 @@ export async function POST(req: NextRequest) {
     const result = await registerUser(input, req, telegram);
 
     if (result.kind === "pending_telegram") {
+      const botUsername = process.env.TELEGRAM_BOT_USERNAME || "bottleneck_auth_bot";
       return json(
         {
           verificationId: result.verificationId,
-          code: result.code,
           expiresAt: result.expiresAt,
-          botUrl: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME || "bottleneck_auth_bot"}?start=${result.code}`,
+          botUrl: `https://t.me/${botUsername}?start=${result.startToken}`,
         },
         202,
       );

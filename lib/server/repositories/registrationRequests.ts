@@ -76,7 +76,7 @@ export async function createRegistrationRequest(input: {
   email: string;
   dob: string | null;
   passwordHash: string;
-  codeHash: string;
+  startTokenHash: string;
   ip: string;
   userAgent: string;
   expiresAt: Date;
@@ -109,7 +109,7 @@ export async function createRegistrationRequest(input: {
       normalizeIdentifier(input.email),
       input.dob,
       input.passwordHash,
-      input.codeHash,
+      input.startTokenHash,
       input.ip,
       input.userAgent,
       input.expiresAt.toISOString(),
@@ -134,7 +134,7 @@ export async function findRegistrationRequest(publicId: string) {
 }
 
 export async function verifyRegistrationRequest(
-  codeHash: string,
+  startTokenHash: string,
   telegram: TelegramIdentity,
 ) {
   const row = await queryOne<RegistrationRequestRow>(
@@ -147,7 +147,7 @@ export async function verifyRegistrationRequest(
         and status = 'pending'
         and expires_at > now()
       returning ${registrationSelect}`,
-    [codeHash, telegram.id, telegram.username],
+    [startTokenHash, telegram.id, telegram.username],
   );
   return row ? mapRegistrationRequest(row) : null;
 }

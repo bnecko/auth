@@ -13,19 +13,19 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await requestBody(req);
-  const code = typeof body.code === "string" ? body.code : "";
+  const startToken = readStartToken(body);
   const telegram = {
     id: String(body.telegram_id || ""),
     firstName: String(body.telegram_first_name || ""),
     username: body.telegram_username ? String(body.telegram_username) : null,
   };
 
-  if (!code || !telegram.id) {
-    return badRequest("code and telegram id are required");
+  if (!startToken || !telegram.id) {
+    return badRequest("start token and telegram id are required");
   }
 
   try {
-    const request = await verifyRegistrationByTelegram(code, telegram, req);
+    const request = await verifyRegistrationByTelegram(startToken, telegram, req);
     return json({
       verificationId: request.publicId,
       verificationHash: hashToken(request.publicId),
@@ -34,4 +34,20 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return badRequest(err instanceof Error ? err.message : "verification failed");
   }
+}
+
+function readStartToken(body: Record<string, unknown>) {
+  if (typeof body.startToken === "string") {
+    return body.startToken;
+  }
+
+  if (typeof body.token === "string") {
+    return body.token;
+  }
+
+  if (typeof body.code === "string") {
+    return body.code;
+  }
+
+  return "";
 }

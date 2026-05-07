@@ -22,8 +22,6 @@ export function normalizeIdentifier(value: string) {
   return value.trim().toLowerCase();
 }
 
-export function verificationCode() {
-  const left = randomBytes(3).toString("hex").toUpperCase();
-  const right = randomBytes(3).toString("hex").toUpperCase();
-  return `BN-${left}-${right}`;
+export function telegramStartToken() {
+  return randomToken(24);
 }

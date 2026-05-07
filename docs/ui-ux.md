@@ -192,12 +192,13 @@ Use if widget limitations make the flow awkward.
 Flow:
 
 1. User clicks `Verify with Telegram and complete`.
-2. Page shows a one-time code and a button to open the bot.
-3. User sends `/start <code>` to the bot.
+2. Page shows a button to open the bot.
+3. The button opens Telegram with a one-time token embedded in `/start`.
 4. Page updates when verified.
 5. Account is completed.
 
 The bot must be separate from the current readme-bottleneck bot.
+The `/start` payload must be an opaque token, not user profile data.
 
 ## Activation Approval
 

@@ -299,11 +299,13 @@ Do not rely on hardware bans for web users. They are unreliable and easy to bypa
 3. Server validates username, email, and password.
 4. Cloudflare Turnstile is checked when enabled.
 5. User clicks `Verify with Telegram and complete`.
-6. Telegram identity is verified.
-7. Account is created as `active`, or `pending` if manual review is required.
-8. Session is created.
-9. If an activation request was pending, user is returned to activation approval.
-10. Otherwise user is sent to dashboard.
+6. The auth service creates a one-time Telegram `/start` token.
+7. The bot receives `/start <token>` and sends the token plus Telegram identity to the auth service.
+8. Telegram identity is verified.
+9. Account is created as `active`, or `pending` if manual review is required.
+10. Session is created.
+11. If an activation request was pending, user is returned to activation approval.
+12. Otherwise user is sent to dashboard.
 
 ## Login Flow
 

@@ -4,7 +4,7 @@ import {
   hashToken,
   normalizeIdentifier,
   publicId,
-  verificationCode,
+  telegramStartToken,
 } from "../crypto";
 import { requestContext } from "../http";
 import { hashPassword, verifyPassword } from "../password";
@@ -38,7 +38,7 @@ export type RegisterResult =
   | {
       kind: "pending_telegram";
       verificationId: string;
-      code: string;
+      startToken: string;
       expiresAt: string;
     };
 
@@ -98,7 +98,7 @@ export async function registerUser(
     return { kind: "created", user };
   }
 
-  const code = verificationCode();
+  const startToken = telegramStartToken();
   const expiresAt = new Date(Date.now() + registrationTtlMinutes() * 60_000);
   const request = await createRegistrationRequest({
     publicId: publicId("reg"),
@@ -108,7 +108,7 @@ export async function registerUser(
     email: input.email,
     dob: input.dob,
     passwordHash,
-    codeHash: hashToken(code),
+    startTokenHash: hashToken(startToken),
     ip: context.ip,
     userAgent: context.userAgent,
     expiresAt,
@@ -124,7 +124,7 @@ export async function registerUser(
   return {
     kind: "pending_telegram",
     verificationId: request.publicId,
-    code,
+    startToken,
     expiresAt: request.expiresAt,
   };
 }
@@ -194,19 +194,19 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
 }
 
 export async function verifyRegistrationByTelegram(
-  code: string,
+  startToken: string,
   telegram: TelegramIdentity,
   req: NextRequest,
 ) {
   const context = requestContext(req);
-  const request = await verifyRegistrationRequest(hashToken(code), telegram);
+  const request = await verifyRegistrationRequest(hashToken(startToken), telegram);
   if (!request) {
     await recordSecurityEvent({
       eventType: "telegram_verify_failure",
-      result: "invalid_code",
+      result: "invalid_start_token",
       context,
     });
-    throw new Error("invalid verification code");
+    throw new Error("invalid verification token");
   }
 
   await recordSecurityEvent({

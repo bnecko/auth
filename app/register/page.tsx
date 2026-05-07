@@ -33,7 +33,7 @@ export default function RegisterPage() {
     const data = (await response.json()) as {
       redirectTo?: string;
       verificationId?: string;
-      code?: string;
+      botUrl?: string;
       error?: string;
       errors?: FieldErrors;
     };
@@ -45,8 +45,12 @@ export default function RegisterPage() {
       return;
     }
 
-    if (response.status === 202 && data.verificationId && data.code) {
-      window.location.href = `/verify?id=${encodeURIComponent(data.verificationId)}&code=${encodeURIComponent(data.code)}`;
+    if (response.status === 202 && data.verificationId && data.botUrl) {
+      sessionStorage.setItem(
+        `bn_telegram_bot_url_${data.verificationId}`,
+        data.botUrl,
+      );
+      window.location.href = `/verify?id=${encodeURIComponent(data.verificationId)}`;
       return;
     }
 

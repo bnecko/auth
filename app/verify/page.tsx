@@ -1,31 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 
-type Status = "waiting" | "verified" | "completed" | "failed";
+type Status = "waiting" | "completed" | "failed";
 
 export default function VerifyPage() {
   const [status, setStatus] = useState<Status>("waiting");
   const [error, setError] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(180);
-  const [query, setQuery] = useState({ id: "", code: "" });
+  const [verificationId, setVerificationId] = useState("");
+  const [botUrl, setBotUrl] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setQuery({
-      id: params.get("id") || "",
-      code: params.get("code") || "",
-    });
+    const id = params.get("id") || "";
+    setVerificationId(id);
+    if (id) {
+      setBotUrl(sessionStorage.getItem(`bn_telegram_bot_url_${id}`) || "");
+    }
   }, []);
-
-  const botUrl = useMemo(() => {
-    const username =
-      process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "bottleneck_auth_bot";
-    return `https://t.me/${username}?start=${encodeURIComponent(query.code)}`;
-  }, [query.code]);
 
   async function complete(id: string) {
     const response = await fetch(`/api/telegram/verification/${id}/complete`, {
@@ -39,15 +35,16 @@ export default function VerifyPage() {
     }
 
     setStatus("completed");
+    sessionStorage.removeItem(`bn_telegram_bot_url_${id}`);
     window.location.href = data.redirectTo || "/";
   }
 
   async function checkStatus() {
-    if (!query.id) {
+    if (!verificationId) {
       return;
     }
 
-    const response = await fetch(`/api/telegram/verification/${query.id}`);
+    const response = await fetch(`/api/telegram/verification/${verificationId}`);
     const data = (await response.json()) as { status?: string; error?: string };
 
     if (!response.ok) {
@@ -57,8 +54,7 @@ export default function VerifyPage() {
     }
 
     if (data.status === "verified") {
-      setStatus("verified");
-      await complete(query.id);
+      await complete(verificationId);
     }
   }
 
@@ -71,12 +67,12 @@ export default function VerifyPage() {
   }, [status]);
 
   useEffect(() => {
-    if (status !== "waiting" || !query.id) return;
+    if (status !== "waiting" || !verificationId) return;
     const poll = setInterval(() => {
       checkStatus();
     }, 2500);
     return () => clearInterval(poll);
-  }, [query.id, status]);
+  }, [verificationId, status]);
 
   return (
     <AuthShell tag="auth/verify">
@@ -84,32 +80,40 @@ export default function VerifyPage() {
         verify with telegram
       </h1>
       <p className="text-meta text-muted mb-5">
-        open the bot and send the code below to finish signing up.
+        open the bot to finish signing up.
       </p>
 
       <div className="bg-bg border border-border rounded-sm p-4 mb-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-micro uppercase text-faint">code</span>
+          <span className="text-micro uppercase text-faint">telegram</span>
           <span className="text-meta text-muted tabular-nums">
             expires in {Math.floor(secondsLeft / 60)}:
             {(secondsLeft % 60).toString().padStart(2, "0")}
           </span>
         </div>
-        <div className="text-fg font-mono text-[20px] tracking-[0.15em] mt-2 select-all">
-          {query.code || "missing code"}
-        </div>
+        <p className="text-[13px] text-secondary mt-2">
+          The button opens Telegram with a one-time start token attached.
+        </p>
       </div>
 
       <a
-        href={botUrl}
+        href={botUrl || undefined}
         target="_blank"
         rel="noreferrer"
         className="block mb-3"
       >
-        <Button type="button" disabled={!query.code}>
+        <Button type="button" disabled={!botUrl}>
           open telegram bot
         </Button>
       </a>
+
+      {!botUrl && (
+        <div className="mb-4">
+          <Alert tone="warning">
+            verification link missing. start registration again.
+          </Alert>
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-2 text-meta text-muted my-4">
         <span className="animate-pulse">|</span>
