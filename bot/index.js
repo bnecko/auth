@@ -12,8 +12,20 @@ async function main() {
   while (true) {
     const updates = await getUpdates();
     for (const update of updates) {
+      // Process the update before advancing the offset so that a crash
+      // in handleUpdate doesn't acknowledge the update to Telegram and
+      // drop it. Re-processing on restart is safe: registrationRequests
+      // verifyRegistrationRequest only marks a pending request once,
+      // and replies are idempotent at the user-facing layer.
+      try {
+        await handleUpdate(update);
+      } catch (err) {
+        console.error("handleUpdate error:", err && err.message);
+        // Stop advancing past a failing update so it's retried on the
+        // next poll. Telegram caps retention at ~24h.
+        break;
+      }
       offset = Math.max(offset, update.update_id + 1);
-      await handleUpdate(update);
     }
   }
 }

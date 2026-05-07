@@ -165,3 +165,25 @@ export async function completeRegistrationRequest(
     [publicId, userId],
   );
 }
+
+// Removes expired/abandoned registration requests. Each row holds the
+// password hash, email, and date of birth a user submitted before
+// completing Telegram verification, so leaving them around indefinitely
+// keeps PII for accounts that were never created. Verified/completed
+// rows are kept long enough for audit; pending rows are deleted shortly
+// after expiry.
+export async function purgeStaleRegistrationRequests() {
+  const result = await query(
+    `delete from registration_requests
+      where (
+              status in ('pending', 'expired', 'cancelled')
+              and expires_at < now() - interval '1 day'
+            )
+         or (
+              status in ('verified', 'completed')
+              and expires_at < now() - interval '30 days'
+            )`,
+    [],
+  );
+  return result;
+}
