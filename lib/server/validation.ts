@@ -46,12 +46,19 @@ export function parseRegistrationInput(body: Record<string, unknown>) {
     errors.username = "username must be 3-32 letters, numbers, or underscores";
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) {
+  if (input.bio && input.bio.length > 240) {
+    errors.bio = "bio must be 240 characters or fewer";
+  }
+
+  if (input.email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) {
     errors.email = "email is invalid";
   }
 
-  if (input.password.length < 10) {
-    errors.password = "password must be at least 10 characters";
+  // Cap password length: scrypt hashes the input regardless of length,
+  // so an unbounded password lets a single request burn 64 MiB and
+  // significant CPU. 256 chars is well above any reasonable passphrase.
+  if (input.password.length < 10 || input.password.length > 256) {
+    errors.password = "password must be 10-256 characters";
   }
 
   if (input.dob) {
@@ -86,20 +93,39 @@ export function parseLoginInput(body: Record<string, unknown>) {
   return { input, errors };
 }
 
+// Allowlist of scopes external apps may request. Documented in
+// docs/external-apps.md. The activation approval UI only renders scopes
+// it knows how to label, so accepting unknown scope strings would let
+// an external app trick a user into approving a scope they never see.
+const ALLOWED_SCOPES = new Set([
+  "profile:read",
+  "email:read",
+  "dob:read",
+  "subscription:read",
+]);
+
 export function parseScopes(value: unknown) {
+  let candidates: string[];
+
   if (Array.isArray(value)) {
-    return value
-      .filter(item => typeof item === "string")
+    candidates = value
+      .filter((item): item is string => typeof item === "string")
       .map(item => item.trim())
       .filter(Boolean);
-  }
-
-  if (typeof value === "string") {
-    return value
+  } else if (typeof value === "string") {
+    candidates = value
       .split(",")
       .map(item => item.trim())
       .filter(Boolean);
+  } else {
+    return ["profile:read"];
   }
 
-  return ["profile:read"];
+  const filtered = candidates.filter(scope => ALLOWED_SCOPES.has(scope));
+  if (candidates.length > 0 && filtered.length !== candidates.length) {
+    const unknown = candidates.find(scope => !ALLOWED_SCOPES.has(scope));
+    throw new Error(`unknown scope: ${unknown}`);
+  }
+
+  return filtered.length > 0 ? filtered : ["profile:read"];
 }

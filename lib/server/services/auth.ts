@@ -129,6 +129,15 @@ export async function registerUser(
   };
 }
 
+// Pre-computed scrypt hash of a random throwaway password used to
+// equalize login timing for unknown identifiers. The cost parameters
+// match the defaults in lib/server/password.ts so a verifyPassword call
+// against this value takes roughly the same amount of CPU as a real
+// verification. The salt and hash are random; nothing here authenticates
+// a real account.
+const DUMMY_PASSWORD_HASH =
+  "scrypt$16384$8$1$LOfuL5Js1gMmgd5fmNLLpw$-eyiwUeTU103yza20v-uLYzbSWAPFPNbO7cWbCWYT2To37kJMpKTMC2bJd5-ELmcWsGPiNvkZT-DCJBX9V4f4A";
+
 // After this many login_failure events from the same IP within the rate
 // window we hard-block further attempts and surface a generic error
 // instead of relying solely on a Turnstile gate. Turnstile alone is
@@ -172,6 +181,12 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
 
   const credentials = await findPasswordHash(input.identifier);
   if (!credentials) {
+    // Equalize timing for unknown identifiers: scrypt against a static
+    // dummy hash so the request takes roughly as long as a real password
+    // verification. Without this, an attacker can distinguish "no such
+    // user" (instant return) from "user exists" (~100ms scrypt) and
+    // enumerate accounts.
+    await verifyPassword(input.password, DUMMY_PASSWORD_HASH);
     await recordSecurityEvent({
       eventType: "login_failure",
       result: "invalid",
