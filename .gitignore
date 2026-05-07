@@ -25,3 +25,4 @@ scratch/
 _ai/
 docs/*prompt.md
 docs/pre-public-hygiene.md
+test.py
