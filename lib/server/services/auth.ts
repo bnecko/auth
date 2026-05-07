@@ -129,13 +129,36 @@ export async function registerUser(
   };
 }
 
+// After this many login_failure events from the same IP within the rate
+// window we hard-block further attempts and surface a generic error
+// instead of relying solely on a Turnstile gate. Turnstile alone is
+// bypassable (the Turnstile module fails open without a configured
+// secret) and Cloudflare Turnstile farms do exist; a hard limit forces
+// attackers to rotate IPs.
+const LOGIN_FAILURE_TURNSTILE_THRESHOLD = 5;
+const LOGIN_FAILURE_HARD_LIMIT = 30;
+const LOGIN_FAILURE_WINDOW_MINUTES = 15;
+
 export async function loginUser(input: LoginInput, req: NextRequest) {
   const context = requestContext(req);
   const failures = context.ip
-    ? await countRecentEventsByIp(context.ip, "login_failure", 15)
+    ? await countRecentEventsByIp(
+        context.ip,
+        "login_failure",
+        LOGIN_FAILURE_WINDOW_MINUTES,
+      )
     : 0;
 
-  if (failures >= 5) {
+  if (failures >= LOGIN_FAILURE_HARD_LIMIT) {
+    await recordSecurityEvent({
+      eventType: "login_failure",
+      result: "rate_limited",
+      context,
+    });
+    throw new Error("too many attempts, try again later");
+  }
+
+  if (failures >= LOGIN_FAILURE_TURNSTILE_THRESHOLD) {
     const turnstileOk = await verifyTurnstile(input.turnstileToken, context.ip);
     if (!turnstileOk) {
       await recordSecurityEvent({
