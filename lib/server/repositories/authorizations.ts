@@ -57,3 +57,13 @@ export async function countAuthorizations(userId: number) {
   );
   return Number(row?.count || 0);
 }
+
+export async function findAuthorization(userId: number, appId: number) {
+  const row = await queryOne<{ scopes: string[] }>(
+    `select scopes
+       from app_authorizations
+      where user_id = $1 and external_app_id = $2 and revoked_at is null`,
+    [userId, appId],
+  );
+  return row ? { scopes: row.scopes || [] } : null;
+}

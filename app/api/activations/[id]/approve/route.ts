@@ -16,7 +16,18 @@ export async function POST(
 
   try {
     const { id } = await params;
-    const result = await approveActivationForUser(id, auth.session.user, req);
+    
+    let grantedScopes: string[] | undefined;
+    try {
+      const formData = await req.formData();
+      if (formData.has("scopes")) {
+        grantedScopes = formData.getAll("scopes").map(String);
+      }
+    } catch {
+      // Ignore body parsing errors if no formData was sent
+    }
+
+    const result = await approveActivationForUser(id, auth.session.user, req, grantedScopes);
     return NextResponse.redirect(new URL(result.redirectTo, req.url));
   } catch (err) {
     return badRequest(err instanceof Error ? err.message : "activation failed");

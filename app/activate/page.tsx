@@ -97,10 +97,27 @@ export default async function ActivatePage({
                 key={scope}
                 className="flex items-center justify-between px-3 py-2 text-[13px]"
               >
-                <span className="text-fg">{item.label}</span>
+                {item.sensitive ? (
+                  <label className="flex items-center gap-2 cursor-pointer text-fg">
+                    <input 
+                      type="checkbox" 
+                      name="scopes" 
+                      value={scope} 
+                      defaultChecked 
+                      form="approve-form"
+                      className="rounded-sm border-border bg-transparent focus:ring-1 focus:ring-border accent-fg"
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                ) : (
+                  <>
+                    <span className="text-fg">{item.label}</span>
+                    <input type="hidden" name="scopes" value={scope} form="approve-form" />
+                  </>
+                )}
                 {item.sensitive && (
                   <span className="text-micro uppercase text-warning">
-                    private
+                    optional
                   </span>
                 )}
               </li>
@@ -123,7 +140,7 @@ export default async function ActivatePage({
             deny
           </Button>
         </form>
-        <form action={`/api/activations/${activation.publicId}/approve`} method="post">
+        <form id="approve-form" action={`/api/activations/${activation.publicId}/approve`} method="post">
           <Button type="submit" disabled={expired || blocked}>
             approve
           </Button>

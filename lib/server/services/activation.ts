@@ -85,6 +85,7 @@ export async function approveActivationForUser(
   publicIdValue: string,
   user: User,
   req: NextRequest,
+  grantedScopes?: string[],
 ) {
   const context = requestContext(req);
   const activation = await findActivationByPublicId(publicIdValue);
@@ -108,10 +109,14 @@ export async function approveActivationForUser(
     throw new Error("activation could not be approved");
   }
 
+  const finalScopes = grantedScopes
+    ? grantedScopes.filter(s => activation.scopes.includes(s))
+    : activation.scopes;
+
   await upsertAuthorization({
     userId: user.id,
     appId: activation.app.id,
-    scopes: activation.scopes,
+    scopes: finalScopes,
   });
 
   await recordSecurityEvent({
