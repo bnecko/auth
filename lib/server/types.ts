@@ -63,6 +63,28 @@ export type ActivationWithApp = ActivationRequest & {
   app: ExternalApp;
 };
 
+export type BearerRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cleared";
+
+export type BearerRequest = {
+  id: number;
+  publicId: string;
+  userId: number;
+  appName: string;
+  reason: string;
+  status: BearerRequestStatus;
+  externalAppId: number | null;
+  hasPlaintext: boolean;
+  decidedByTelegramId: string | null;
+  decidedAt: string | null;
+  revealedAt: string | null;
+  clearedAt: string | null;
+  createdAt: string;
+};
+
 export type TelegramIdentity = {
   id: string;
   firstName: string;

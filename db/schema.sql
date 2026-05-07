@@ -139,6 +139,32 @@ create table security_events (
 create index security_events_user_id_idx on security_events(user_id);
 create index security_events_ip_created_at_idx on security_events(ip, created_at);
 
+-- User-initiated requests for an external_apps API bearer key. The
+-- requesting user fills in app name + reason; an admin reviews via
+-- Telegram inline buttons. On approval we generate a key, insert an
+-- external_apps row with its sha256 hash, and stash the plaintext on
+-- this row so the user can reveal it once on their dashboard. On the
+-- "I saved it" click we clear plaintext_key and only the hash remains.
+create table bearer_requests (
+  id bigserial primary key,
+  public_id text not null unique,
+  user_id bigint not null references users(id) on delete cascade,
+  app_name text not null,
+  reason text not null,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected', 'cleared')),
+  external_app_id bigint references external_apps(id) on delete set null,
+  plaintext_key text,
+  decided_by_telegram_id text,
+  decided_at timestamptz,
+  revealed_at timestamptz,
+  cleared_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index bearer_requests_user_id_idx on bearer_requests(user_id);
+create index bearer_requests_status_idx on bearer_requests(status);
+
 create table bans (
   id bigserial primary key,
   user_id bigint references users(id) on delete cascade,
