@@ -14,6 +14,9 @@ try:
 except FileNotFoundError:
     pass
 
+import time
+import json
+
 def test_auth_api():
     token = os.environ.get("TEST_BEARER")
     if not token:
@@ -31,27 +34,54 @@ def test_auth_api():
         "scopes": ["profile:read"]
     }
     
-    print(f"Testing POST {base_url}/api/activation-requests ...")
+    print(f"Creating activation request at {base_url}/api/activation-requests ...")
     
     try:
         response = requests.post(f"{base_url}/api/activation-requests", headers=headers, json=payload)
-        print(f"Status Code: {response.status_code}")
-        try:
-            data = response.json()
-            print("Response JSON:")
-            import json
-            print(json.dumps(data, indent=2))
-        except Exception:
-            print("Response Text:")
+        
+        if not response.ok:
+            print("Failed to create activation request.")
             print(response.text)
+            return
+
+        data = response.json()
+        activation_id = data['id']
+        activation_url = data['activationUrl']
+        
+        print("\n" + "="*50)
+        print("ACTION REQUIRED:")
+        print("Please open the following URL in your browser, log in, and approve the request:")
+        print(activation_url)
+        print("="*50 + "\n")
+        
+        print(f"Polling activation status for {activation_id}...")
+        
+        while True:
+            poll_resp = requests.get(f"{base_url}/api/activation-requests/{activation_id}", headers=headers)
+            if not poll_resp.ok:
+                print("\nError polling status:")
+                print(poll_resp.text)
+                break
+                
+            poll_data = poll_resp.json()
+            status = poll_data.get("status")
             
-        if response.ok:
-            print("Success!")
-        else:
-            print("Failed.")
+            if status == "pending":
+                sys.stdout.write(".")
+                sys.stdout.flush()
+                time.sleep(3)
+            elif status == "approved":
+                print("\n\nSuccess! Activation approved.")
+                print("Resulting Auth Data (including approvedUserId):")
+                print(json.dumps(poll_data, indent=2))
+                print("\nNote: Bottleneck Auth currently only returns 'approvedUserId' to external apps.")
+                break
+            else:
+                print(f"\n\nActivation ended with status: {status}")
+                break
             
     except Exception as e:
-        print(f"Error connecting to API: {e}")
+        print(f"\nError connecting to API: {e}")
 
 if __name__ == "__main__":
     test_auth_api()
