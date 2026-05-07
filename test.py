@@ -45,7 +45,7 @@ def test_auth_api():
             print("Response Text:")
             print(response.text)
             
-        if response.status_code == 200:
+        if response.ok:
             print("Success!")
         else:
             print("Failed.")
