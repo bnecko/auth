@@ -19,7 +19,7 @@ services:
     environment:
       POSTGRES_DB: auth
       POSTGRES_USER: auth
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-auth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
     environment:
       AUTH_BASE_URL: ${AUTH_BASE_URL:-https://auth.bottleneck.cc}
-      DATABASE_URL: postgres://auth:${POSTGRES_PASSWORD:-auth}@db:5432/auth
+      DATABASE_URL: postgres://auth:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/auth
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-4}
       NODE_OPTIONS: ${APP_NODE_OPTIONS:---max-old-space-size=256}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -82,7 +82,7 @@ services:
       - --no-autoupdate
       - run
       - --token
-      - ${CLOUDFLARED_TOKEN}
+      - ${CLOUDFLARED_TOKEN:?set CLOUDFLARED_TOKEN}
     depends_on:
       app:
         condition: service_healthy

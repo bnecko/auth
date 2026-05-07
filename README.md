@@ -9,7 +9,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Set `CLOUDFLARED_TOKEN` in `.env` before starting the stack. The app is not published on a host port by default; Cloudflare Tunnel connects to `http://app:3000` inside the Compose network.
+Set `POSTGRES_PASSWORD` and `CLOUDFLARED_TOKEN` in `.env` before starting the stack. The app is not published on a host port by default; Cloudflare Tunnel connects to `http://app:3000` inside the Compose network.
 
 In the Cloudflare Tunnel public hostname settings, use:
 
