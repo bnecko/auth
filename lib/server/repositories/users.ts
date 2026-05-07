@@ -144,17 +144,34 @@ export async function createUser(input: CreateUserInput) {
 }
 
 export async function linkTelegram(userId: number, telegram: TelegramIdentity) {
-  const row = await queryOne<UserRow>(
-    `update users
-        set telegram_id = $2,
-            telegram_username = $3,
-            telegram_verified_at = now(),
-            updated_at = now()
-      where id = $1
-      returning ${userSelect}`,
-    [userId, telegram.id, telegram.username],
-  );
-  return row ? mapUser(row) : null;
+  // Refuse to overwrite an existing telegram link — preventing a CSRF on
+  // GET /api/telegram/callback from rebinding a logged-in user's account to
+  // an attacker-controlled Telegram identity. The unique constraint on
+  // users.telegram_id additionally prevents the same TG id being attached
+  // to a second user; we surface that as a domain error rather than letting
+  // the raw DB error escape.
+  try {
+    const row = await queryOne<UserRow>(
+      `update users
+          set telegram_id = $2,
+              telegram_username = $3,
+              telegram_verified_at = now(),
+              updated_at = now()
+        where id = $1
+          and telegram_id is null
+        returning ${userSelect}`,
+      [userId, telegram.id, telegram.username],
+    );
+    return row ? mapUser(row) : null;
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      (err as Error & { code?: string }).code === "23505"
+    ) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function setUserStatus(

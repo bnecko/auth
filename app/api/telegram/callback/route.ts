@@ -14,8 +14,17 @@ export async function GET(req: NextRequest) {
 
   const current = await getSessionFromRequest(req);
   if (current) {
-    await linkTelegram(current.user.id, telegram);
-    return NextResponse.redirect(new URL("/", req.url));
+    // linkTelegram refuses to overwrite an existing link or to bind a TG id
+    // already used by another account. A null return surfaces both cases to
+    // the user; the intent is to make this path safe against CSRF where an
+    // attacker's signed Telegram payload would otherwise rebind the victim
+    // account to the attacker's TG identity on a cross-site GET.
+    const linked = await linkTelegram(current.user.id, telegram);
+    const url = new URL("/", req.url);
+    if (!linked) {
+      url.searchParams.set("error", "telegram_link_failed");
+    }
+    return NextResponse.redirect(url);
   }
 
   const user = await findUserByTelegramId(telegram.id);
