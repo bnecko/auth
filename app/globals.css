@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background-color: #070707;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+  font-feature-settings: "ss01", "cv01", "calt";
+}
+
+:root {
+  color-scheme: dark;
+}
+
+::selection {
+  background: #2a2a2e;
+  color: #f4f4f5;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f4f4f5;
+  -webkit-box-shadow: 0 0 0 1000px #0d0d0e inset;
+  caret-color: #f4f4f5;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+*:focus-visible {
+  outline: 1px solid #f4f4f5;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f1f22;
+  border: 2px solid #070707;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2e;
+}
+
+/* Hide native arrows on number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
