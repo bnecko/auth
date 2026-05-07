@@ -43,12 +43,12 @@ node -e "const { createHash } = require('crypto'); process.stdout.write(createHa
 
 Supported scopes:
 
-- `profile:read`
-- `email:read`
-- `dob:read`
+- `profile:read` (provides `id`, `firstName`, `username`, `bio`)
+- `email:read` (optional for user)
+- `dob:read` (optional for user)
 - `subscription:read`
 
-Only request scopes your app actually needs. Sensitive scopes are shown to the user before approval.
+Only request scopes your app actually needs. Sensitive scopes (`email:read`, `dob:read`) are shown to the user with checkboxes and can be opted out of during the approval flow. If opted out, the API will return `null` for those fields.
 
 ## Activation Flow
 
@@ -123,9 +123,19 @@ Response:
   "id": "act_xxx",
   "status": "approved",
   "approvedUserId": 123,
-  "expiresAt": "2026-05-07 19:15:00+00"
+  "expiresAt": "2026-05-07 19:15:00+00",
+  "profile": {
+    "id": "usr_abc123",
+    "firstName": "Matthew",
+    "username": "admin",
+    "bio": "example bio",
+    "email": "user@example.com",
+    "dob": "2004-10-29"
+  }
 }
 ```
+
+If the user unchecked `email:read` or `dob:read` during the approval flow, those respective fields in the `profile` object will be `null`.
 
 Statuses:
 
@@ -239,6 +249,14 @@ export async function getBottleneckAuthStatus(id: string) {
     status: "pending" | "approved" | "denied" | "expired" | "cancelled";
     approvedUserId: number | null;
     expiresAt: string;
+    profile?: {
+      id: string;
+      firstName: string;
+      username: string;
+      bio: string | null;
+      email: string | null;
+      dob: string | null;
+    };
   };
 }
 ```
