@@ -47,7 +47,6 @@ External apps create activation requests with a bearer API key stored as a SHA-2
 Detailed documentation is available in the `docs/` directory:
 - `docs/backend-stack.md`: Core architecture, domain boundaries, and database schema.
 - `docs/external-apps.md`: Guide for integrating external apps with the activation API.
-- `docs/pre-public-hygiene.md`: Pre-launch security checklist.
 
 ## Testing
 
