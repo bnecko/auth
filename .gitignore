@@ -26,3 +26,19 @@ _ai/
 docs/*prompt.md
 docs/pre-public-hygiene.md
 test.py
+
+# Python
+venv/
+.venv/
+path/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# macOS
+.DS_Store
