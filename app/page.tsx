@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BearerSection } from "@/components/BearerSection";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
@@ -169,6 +170,9 @@ export default async function DashboardPage() {
               ))
             )}
           </Section>
+
+          <div id="bearers" />
+          <BearerSection bearers={dashboard.bearers} />
 
           <div id="sessions" />
           <Section title="sessions" hint="// devices currently signed in">

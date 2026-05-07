@@ -35,13 +35,8 @@ export async function createExternalActivationRequest(
   const callbackUrl =
     typeof body.callbackUrl === "string" ? body.callbackUrl : app.callbackUrl;
 
-  if (returnUrl && app.allowedRedirectUrls.length > 0) {
-    const allowed = app.allowedRedirectUrls.some(prefix =>
-      returnUrl.startsWith(prefix),
-    );
-    if (!allowed) {
-      throw new Error("return url is not allowed");
-    }
+  if (returnUrl && !isAllowedReturnUrl(returnUrl, app.allowedRedirectUrls)) {
+    throw new Error("return url is not allowed");
   }
 
   const request = await createActivationRequest({
@@ -127,9 +122,19 @@ export async function approveActivationForUser(
     metadata: { activationId: publicIdValue, app: activation.app.slug },
   });
 
+  // Re-validate the stored return URL against the app's current allowlist
+  // before redirecting. The list may have been tightened since creation,
+  // and the validator hardening means previously-stored values that only
+  // passed the old startsWith check should no longer be honoured.
+  const safeRedirect =
+    activation.returnUrl &&
+    isAllowedReturnUrl(activation.returnUrl, activation.app.allowedRedirectUrls)
+      ? activation.returnUrl
+      : "/";
+
   return {
     activation,
-    redirectTo: activation.returnUrl || "/",
+    redirectTo: safeRedirect,
   };
 }
 
@@ -147,6 +152,53 @@ export async function denyActivationForUser(
     result: activation ? "ok" : "not_pending",
     context,
     metadata: { activationId: publicIdValue },
+  });
+}
+
+// Validates a returnUrl against an app's allowed list. Comparison is by
+// exact URL origin (and optional path prefix), not raw string startsWith,
+// because "https://example.com" starts-with-matches "https://example.com.evil.com".
+// An empty allowlist is treated as "no return URLs permitted".
+function isAllowedReturnUrl(returnUrl: string, allowed: readonly string[]) {
+  if (allowed.length === 0) {
+    return false;
+  }
+
+  let candidate: URL;
+  try {
+    candidate = new URL(returnUrl);
+  } catch {
+    return false;
+  }
+
+  if (candidate.protocol !== "https:" && candidate.protocol !== "http:") {
+    return false;
+  }
+
+  return allowed.some(entry => {
+    let prefix: URL;
+    try {
+      prefix = new URL(entry);
+    } catch {
+      return false;
+    }
+
+    if (prefix.origin !== candidate.origin) {
+      return false;
+    }
+
+    if (prefix.pathname === "/" || prefix.pathname === "") {
+      return true;
+    }
+
+    const prefixPath = prefix.pathname.endsWith("/")
+      ? prefix.pathname
+      : `${prefix.pathname}/`;
+    const candidatePath = candidate.pathname.endsWith("/")
+      ? candidate.pathname
+      : `${candidate.pathname}/`;
+
+    return candidatePath.startsWith(prefixPath);
   });
 }
 

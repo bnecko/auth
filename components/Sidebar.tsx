@@ -15,6 +15,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { href: "/#profile", label: "profile" },
       { href: "/#subscriptions", label: "subscriptions" },
       { href: "/#apps", label: "connected apps" },
+      { href: "/#bearers", label: "api bearers" },
     ],
   },
   {

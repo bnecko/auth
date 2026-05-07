@@ -3,6 +3,7 @@ import {
   countAuthorizations,
   listAuthorizationsForUser,
 } from "../repositories/authorizations";
+import { listBearerRequestsForUser } from "../repositories/bearerRequests";
 import { recentEventsForUser } from "../repositories/securityEvents";
 import { listSessionsForUser } from "../repositories/sessions";
 import {
@@ -18,6 +19,7 @@ export async function getDashboard(user: User) {
     sessions,
     events,
     activations,
+    bearers,
     activeSubscriptionCount,
     appCount,
   ] = await Promise.all([
@@ -26,6 +28,7 @@ export async function getDashboard(user: User) {
     listSessionsForUser(user.id),
     recentEventsForUser(user.id),
     listRecentActivationsForUser(user.id),
+    listBearerRequestsForUser(user.id),
     countActiveSubscriptions(user.id),
     countAuthorizations(user.id),
   ]);
@@ -42,5 +45,6 @@ export async function getDashboard(user: User) {
     apps,
     sessions,
     events,
+    bearers,
   };
 }
