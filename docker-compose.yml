@@ -75,6 +75,26 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  bot:
+    build: ./bot
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_WEBHOOK_SECRET: ${TELEGRAM_BOT_WEBHOOK_SECRET:?set TELEGRAM_BOT_WEBHOOK_SECRET}
+      AUTH_INTERNAL_URL: http://app:3000
+    depends_on:
+      app:
+        condition: service_healthy
+    read_only: true
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
