@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { Field } from "@/components/Field";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
+import { TurnstileField } from "@/components/TurnstileField";
 
 type FieldErrors = Partial<{
   firstName: string;
@@ -107,6 +108,7 @@ export default function RegisterPage() {
           error={errors.password}
           required
         />
+        <TurnstileField />
         <Button type="submit" loading={loading}>
           verify with telegram and complete
         </Button>

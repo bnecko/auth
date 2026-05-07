@@ -7,6 +7,7 @@ import { Field } from "@/components/Field";
 import { Button } from "@/components/Button";
 import { Divider } from "@/components/Divider";
 import { Alert } from "@/components/Alert";
+import { TurnstileField } from "@/components/TurnstileField";
 
 export default function LoginPage() {
   const [error, setError] = useState("");
@@ -68,6 +69,7 @@ export default function LoginPage() {
           placeholder="password"
           required
         />
+        <TurnstileField />
         <Button type="submit" loading={loading}>
           continue
         </Button>

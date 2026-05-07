@@ -11,6 +11,8 @@ docker compose up --build
 
 Set `POSTGRES_PASSWORD` and `CLOUDFLARED_TOKEN` in `.env` before starting the stack. The app is not published on a host port by default; Cloudflare Tunnel connects to `http://app:3000` inside the Compose network.
 
+If `TURNSTILE_SECRET_KEY` is set, also set `TURNSTILE_SITE_KEY`; registration and login forms fetch that site key at runtime.
+
 In the Cloudflare Tunnel public hostname settings, use:
 
 ```text
