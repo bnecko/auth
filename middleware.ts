@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 
 // Security headers applied to every response. Notes:
 //
@@ -25,7 +25,56 @@ const csp = [
   "object-src 'none'",
 ].join("; ");
 
-export function middleware(req: NextRequest) {
+async function sendTelegramAnalytics(req: NextRequest) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_ANALYTICS_CHAT_ID;
+  const threadId = process.env.TELEGRAM_ANALYTICS_THREAD_ID;
+
+  if (!token || !chatId) return;
+
+  const path = req.nextUrl.pathname;
+  if (
+    path.startsWith("/_next/") || 
+    path === "/favicon.ico" || 
+    path.startsWith("/images/") ||
+    path.startsWith("/api/")
+  ) {
+    return;
+  }
+
+  const country = req.headers.get("cf-ipcountry") || "N/A";
+  const referrer = req.headers.get("referer") || "N/A";
+  const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "N/A";
+  const language = req.headers.get("accept-language") || "N/A";
+  const userAgent = req.headers.get("user-agent") || "N/A";
+
+  const text = `bottleneck.cc analytics
+when: ${new Date().toISOString()}
+type: page
+status: N/A
+path: ${path}
+country: ${country}
+referrer: ${referrer}
+ip: ${ip}
+language: ${language}
+user-agent: ${userAgent}`;
+
+  const body: Record<string, any> = {
+    chat_id: chatId,
+    text,
+  };
+  if (threadId) {
+    body.message_thread_id = Number(threadId);
+  }
+
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(err => console.error("Analytics error:", err.message));
+}
+
+export function middleware(req: NextRequest, event: NextFetchEvent) {
   const res = NextResponse.next();
 
   res.headers.set("Content-Security-Policy", csp);
@@ -40,6 +89,8 @@ export function middleware(req: NextRequest) {
       "max-age=31536000; includeSubDomains",
     );
   }
+
+  event.waitUntil(sendTelegramAnalytics(req));
 
   return res;
 }
