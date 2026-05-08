@@ -2,6 +2,8 @@ const botToken = required("TELEGRAM_BOT_TOKEN");
 const webhookSecret = required("TELEGRAM_BOT_WEBHOOK_SECRET");
 const authBaseUrl = process.env.AUTH_INTERNAL_URL || "http://localhost:3000";
 const bearerAdminTelegramId = process.env.BEARER_ADMIN_TELEGRAM_ID || "BEARER_ADMIN_TG_ID";
+const analyticsChatId = process.env.TELEGRAM_ANALYTICS_CHAT_ID;
+const analyticsThreadId = process.env.TELEGRAM_ANALYTICS_THREAD_ID;
 const apiBase = `https://api.telegram.org/bot${botToken}`;
 
 const longPollSeconds = 30;
@@ -9,7 +11,49 @@ let offset = 0;
 
 main();
 
+async function startStatusMonitor() {
+  if (!analyticsChatId) return;
+
+  const startTime = new Date().toISOString();
+  const text = `<b>server status:</b> UP 🟢\nStarted at: ${startTime}`;
+  
+  const msgResponse = await fetch(`${apiBase}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ 
+      chat_id: analyticsChatId, 
+      message_thread_id: analyticsThreadId ? Number(analyticsThreadId) : undefined,
+      text,
+      parse_mode: "HTML"
+    }),
+  });
+  
+  const msgData = await safeJson(msgResponse);
+  if (!msgData || !msgData.ok) {
+    console.error("Failed to send startup status message:", msgData?.description);
+    return;
+  }
+
+  const messageId = msgData.result.message_id;
+
+  await fetch(`${apiBase}/pinChatMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ 
+      chat_id: analyticsChatId, 
+      message_id: messageId,
+      disable_notification: true
+    }),
+  }).catch(err => console.error("Failed to pin status message:", err.message));
+
+  setInterval(async () => {
+    const updatedText = `<b>server status:</b> UP 🟢\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
+    await editMessage(analyticsChatId, messageId, updatedText);
+  }, 10 * 60 * 1000);
+}
+
 async function main() {
+  await startStatusMonitor();
   while (true) {
     const updates = await getUpdates();
     for (const update of updates) {
