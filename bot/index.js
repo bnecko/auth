@@ -15,7 +15,7 @@ async function startStatusMonitor() {
   if (!analyticsChatId) return;
 
   const startTime = new Date().toISOString();
-  const text = `<b>server status:</b> UP 🟢\nStarted at: ${startTime}`;
+  const text = `<b>server status:</b> UP\nStarted at: ${startTime}`;
   
   const msgResponse = await fetch(`${apiBase}/sendMessage`, {
     method: "POST",
@@ -47,7 +47,7 @@ async function startStatusMonitor() {
   }).catch(err => console.error("Failed to pin status message:", err.message));
 
   setInterval(async () => {
-    const updatedText = `<b>server status:</b> UP 🟢\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
+    const updatedText = `<b>server status:</b> UP\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
     await editMessage(analyticsChatId, messageId, updatedText);
   }, 10 * 60 * 1000);
 }
