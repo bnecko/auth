@@ -145,9 +145,9 @@ export async function verifyRegistrationRequest(
             verified_at = now()
       where verification_code_hash = $1
         and status = 'pending'
-        and expires_at > now()
+        and expires_at > $4
       returning ${registrationSelect}`,
-    [startTokenHash, telegram.id, telegram.username],
+    [startTokenHash, telegram.id, telegram.username, new Date().toISOString()],
   );
   return row ? mapRegistrationRequest(row) : null;
 }
@@ -173,17 +173,19 @@ export async function completeRegistrationRequest(
 // rows are kept long enough for audit; pending rows are deleted shortly
 // after expiry.
 export async function purgeStaleRegistrationRequests() {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const result = await query(
     `delete from registration_requests
       where (
               status in ('pending', 'expired', 'cancelled')
-              and expires_at < now() - interval '1 day'
+              and expires_at < $1
             )
          or (
               status in ('verified', 'completed')
-              and expires_at < now() - interval '30 days'
+              and expires_at < $2
             )`,
-    [],
+    [oneDayAgo, thirtyDaysAgo],
   );
   return result;
 }

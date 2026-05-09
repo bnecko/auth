@@ -96,6 +96,16 @@ export async function listBearerRequestsForUser(userId: number) {
   return rows.map(mapBearerRequest);
 }
 
+export async function countPendingBearerRequestsForUser(userId: number) {
+  const row = await queryOne<{ count: number }>(
+    `select count(*)::int as count
+       from bearer_requests
+      where user_id = $1 and status = 'pending'`,
+    [userId],
+  );
+  return row?.count || 0;
+}
+
 // Atomically transition pending -> approved and stash the generated
 // plaintext key. Only succeeds for rows still in pending status, so
 // double-clicks on the Telegram approve button can't issue two keys.

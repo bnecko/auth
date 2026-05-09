@@ -168,9 +168,9 @@ export async function consumeAuthorizationCode(code: string) {
         set consumed_at = now()
       where code_hash = $1
         and consumed_at is null
-        and expires_at > now()
+        and expires_at > $2
       returning ${codeSelect}`,
-    [hashToken(code)],
+    [hashToken(code), new Date().toISOString()],
   );
   return row ? mapCode(row) : null;
 }
@@ -181,8 +181,8 @@ export async function findAuthorizationCode(code: string) {
        from oauth_authorization_codes
       where code_hash = $1
         and consumed_at is null
-        and expires_at > now()`,
-    [hashToken(code)],
+        and expires_at > $2`,
+    [hashToken(code), new Date().toISOString()],
   );
   return row ? mapCode(row) : null;
 }
@@ -193,9 +193,9 @@ export async function markAuthorizationCodeConsumed(id: number) {
         set consumed_at = now()
       where id = $1
         and consumed_at is null
-        and expires_at > now()
+        and expires_at > $2
       returning ${codeSelect}`,
-    [id],
+    [id, new Date().toISOString()],
   );
   return row ? mapCode(row) : null;
 }
@@ -278,9 +278,9 @@ export async function rotateRefreshToken(
       where token_hash = $1
         and external_app_id = $3
         and revoked_at is null
-        and expires_at > now()
+        and expires_at > $4
       returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text`,
-    [hashToken(refreshToken), hashToken(replacementToken), appId],
+    [hashToken(refreshToken), hashToken(replacementToken), appId, new Date().toISOString()],
   );
   return row ? mapToken(row) : null;
 }
@@ -319,8 +319,8 @@ export async function findAccessToken(token: string) {
      join users u on u.id = oat.user_id
      where oat.token_hash = $1
        and oat.revoked_at is null
-       and oat.expires_at > now()`,
-    [hashToken(token)],
+       and oat.expires_at > $2`,
+    [hashToken(token), new Date().toISOString()],
   );
 
   if (!row) {

@@ -188,9 +188,9 @@ export async function approveActivation(publicId: string, userId: number) {
             approved_at = now()
       where public_id = $1
         and status = 'pending'
-        and expires_at > now()
+        and expires_at > $3
       returning ${activationSelect}`,
-    [publicId, userId],
+    [publicId, userId, new Date().toISOString()],
   );
   return row ? mapActivation(row) : null;
 }

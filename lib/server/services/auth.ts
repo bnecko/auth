@@ -56,6 +56,23 @@ export async function registerUser(
   telegramPayload?: Record<string, string | number | undefined>,
 ): Promise<RegisterResult> {
   const context = requestContext(req);
+  const rateLimitKey = `rate_limit:register_attempt:${context.ip || "unknown"}`;
+  
+  const attempts = context.ip ? Number(await redis.get(rateLimitKey)) || 0 : 0;
+
+  if (attempts >= REGISTER_ATTEMPT_HARD_LIMIT) {
+    await recordSecurityEvent({
+      eventType: "register_attempt",
+      result: "rate_limited",
+      context,
+    });
+    throw new Error("too many attempts, try again later");
+  }
+
+  if (context.ip) {
+    await redis.multi().incr(rateLimitKey).expire(rateLimitKey, REGISTER_ATTEMPT_WINDOW_MINUTES * 60).exec();
+  }
+
   const turnstileOk = await verifyTurnstile(input.turnstileToken, context.ip);
 
   if (!turnstileOk) {
@@ -152,9 +169,11 @@ const DUMMY_PASSWORD_HASH =
 // bypassable (the Turnstile module fails open without a configured
 // secret) and Cloudflare Turnstile farms do exist; a hard limit forces
 // attackers to rotate IPs.
-const LOGIN_FAILURE_TURNSTILE_THRESHOLD = 5;
 const LOGIN_FAILURE_HARD_LIMIT = 30;
 const LOGIN_FAILURE_WINDOW_MINUTES = 15;
+
+const REGISTER_ATTEMPT_HARD_LIMIT = 5;
+const REGISTER_ATTEMPT_WINDOW_MINUTES = 15;
 
 export async function loginUser(input: LoginInput, req: NextRequest) {
   const context = requestContext(req);

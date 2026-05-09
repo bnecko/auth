@@ -7,6 +7,7 @@ import {
   clearBearerRequestKey,
   createBearerRequest,
   findBearerRequestByPublicId,
+  countPendingBearerRequestsForUser,
   readBearerRequestPlaintext,
   rejectBearerRequest,
 } from "../repositories/bearerRequests";
@@ -44,6 +45,11 @@ export async function submitBearerRequest(input: {
 
   if (!reason || reason.length > REASON_MAX) {
     throw new Error(`reason must be 1-${REASON_MAX} characters`);
+  }
+
+  const pendingCount = await countPendingBearerRequestsForUser(input.user.id);
+  if (pendingCount >= 2) {
+    throw new Error("you have too many pending requests, wait for admin review");
   }
 
   const request = await createBearerRequest({

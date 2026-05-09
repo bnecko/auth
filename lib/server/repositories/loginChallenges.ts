@@ -119,9 +119,9 @@ export async function verifyLoginChallengeByStartToken(input: {
         and tlc.start_token_hash = $1
         and u.telegram_id = $2
         and tlc.status = 'pending'
-        and tlc.expires_at > now()
+        and tlc.expires_at > $3
       returning ${challengeSelectWithAlias}`,
-    [hashToken(input.startToken), input.telegramId],
+    [hashToken(input.startToken), input.telegramId, new Date().toISOString()],
   );
   return row ? mapChallenge(row) : null;
 }
@@ -136,9 +136,9 @@ export async function completeLoginChallenge(input: {
       where public_id = $1
         and browser_token_hash = $2
         and status = 'verified'
-        and expires_at > now()
+        and expires_at > $3
       returning ${challengeSelect}`,
-    [input.publicId, hashToken(input.browserToken)],
+    [input.publicId, hashToken(input.browserToken), new Date().toISOString()],
   );
   return row ? mapChallenge(row) : null;
 }

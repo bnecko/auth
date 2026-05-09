@@ -16,9 +16,9 @@ export async function hasActiveSubscription(userId: number, product: string) {
           and product = $2
           and status in ('active', 'trial')
           and revoked_at is null
-          and (expires_at is null or expires_at > now())
+          and (expires_at is null or expires_at > $3)
      )`,
-    [userId, product],
+    [userId, product, new Date().toISOString()],
   );
   return row?.exists === true;
 }
@@ -52,8 +52,8 @@ export async function countActiveSubscriptions(userId: number) {
       where user_id = $1
         and status in ('active', 'trial')
         and revoked_at is null
-        and (expires_at is null or expires_at > now())`,
-    [userId],
+        and (expires_at is null or expires_at > $2)`,
+    [userId, new Date().toISOString()],
   );
   return Number(row?.count || 0);
 }
