@@ -9,6 +9,10 @@ import { Divider } from "@/components/Divider";
 import { Alert } from "@/components/Alert";
 import { TurnstileField } from "@/components/TurnstileField";
 
+function safeNext(value: string | null | undefined) {
+  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
+}
+
 export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +28,9 @@ export default function LoginPage() {
     });
     const data = (await response.json()) as {
       redirectTo?: string;
+      requiresTelegram?: boolean;
+      challengeId?: string;
+      botUrl?: string;
       error?: string;
       errors?: Record<string, string>;
     };
@@ -35,8 +42,24 @@ export default function LoginPage() {
       return;
     }
 
+    if (response.status === 202 && data.requiresTelegram && data.challengeId) {
+      const params = new URLSearchParams(window.location.search);
+      if (data.botUrl) {
+        sessionStorage.setItem(
+          `bn_login_bot_url_${data.challengeId}`,
+          data.botUrl,
+        );
+      }
+      sessionStorage.setItem(
+        `bn_login_next_${data.challengeId}`,
+        safeNext(params.get("next") || data.redirectTo),
+      );
+      window.location.href = `/login/telegram?id=${encodeURIComponent(data.challengeId)}`;
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
-    window.location.href = params.get("next") || data.redirectTo || "/";
+    window.location.href = safeNext(params.get("next") || data.redirectTo);
   }
 
   return (
@@ -69,6 +92,20 @@ export default function LoginPage() {
           placeholder="password"
           required
         />
+        <label className="flex items-center justify-between gap-3 border border-border bg-bg rounded-sm px-3 py-2.5 cursor-pointer">
+          <span>
+            <span className="block text-[13px] text-fg">remember me</span>
+            <span className="block text-meta text-muted">
+              keep this browser signed in.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            name="remember"
+            defaultChecked
+            className="rounded-sm border-border bg-transparent focus:ring-1 focus:ring-border accent-fg"
+          />
+        </label>
         <TurnstileField />
         <Button type="submit" loading={loading}>
           continue

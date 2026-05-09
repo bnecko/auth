@@ -13,6 +13,7 @@ export type RegistrationInput = {
 export type LoginInput = {
   identifier: string;
   password: string;
+  remember: boolean;
   turnstileToken?: string;
 };
 
@@ -82,6 +83,7 @@ export function parseLoginInput(body: Record<string, unknown>) {
   const input: LoginInput = {
     identifier: normalizeIdentifier(asString(body.identifier)),
     password: asString(body.password),
+    remember: body.remember === "on" || body.remember === "true",
     turnstileToken: asString(body.turnstileToken || body["cf-turnstile-response"]),
   };
 

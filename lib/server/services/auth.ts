@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
-import { registrationTtlMinutes } from "../config";
+import { login2faTtlMinutes, registrationTtlMinutes } from "../config";
 import {
   hashToken,
   normalizeIdentifier,
   publicId,
+  randomToken,
   telegramStartToken,
 } from "../crypto";
 import { requestContext } from "../http";
@@ -14,6 +15,12 @@ import {
   findRegistrationRequest,
   verifyRegistrationRequest,
 } from "../repositories/registrationRequests";
+import {
+  completeLoginChallenge,
+  createLoginChallenge,
+  findLoginChallenge,
+  verifyLoginChallengeByStartToken,
+} from "../repositories/loginChallenges";
 import {
   countRecentEventsByIp,
   recordSecurityEvent,
@@ -229,6 +236,124 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
   });
 
   return user;
+}
+
+export async function createTelegramLoginChallenge(
+  user: User,
+  remember: boolean,
+  req: NextRequest,
+) {
+  if (!user.telegramId) {
+    throw new Error("telegram account is not linked");
+  }
+
+  const context = requestContext(req);
+  const startToken = telegramStartToken();
+  const browserToken = randomToken();
+  const expiresAt = new Date(Date.now() + login2faTtlMinutes() * 60_000);
+  const challenge = await createLoginChallenge({
+    publicId: publicId("tlg"),
+    userId: user.id,
+    startToken,
+    browserToken,
+    remember,
+    ip: context.ip,
+    userAgent: context.userAgent,
+    expiresAt,
+  });
+
+  await recordSecurityEvent({
+    userId: user.id,
+    eventType: "login_2fa_required",
+    result: "pending",
+    context,
+    metadata: { challengeId: challenge.publicId },
+  });
+
+  return {
+    challenge,
+    startToken,
+    browserToken,
+  };
+}
+
+export async function getTelegramLoginChallenge(publicIdValue: string) {
+  const challenge = await findLoginChallenge(publicIdValue);
+  if (!challenge) {
+    return null;
+  }
+
+  const expired = Date.parse(challenge.expiresAt) <= Date.now();
+  return {
+    status: expired && challenge.status === "pending" ? "expired" : challenge.status,
+    expiresAt: challenge.expiresAt,
+  };
+}
+
+export async function verifyTelegramLoginChallenge(
+  startToken: string,
+  telegram: TelegramIdentity,
+  req: NextRequest,
+) {
+  const context = requestContext(req);
+  const challenge = await verifyLoginChallengeByStartToken({
+    startToken,
+    telegramId: telegram.id,
+  });
+
+  if (!challenge) {
+    return null;
+  }
+
+  await recordSecurityEvent({
+    userId: challenge.userId,
+    eventType: "login_2fa_success",
+    result: "verified",
+    context,
+    metadata: { challengeId: challenge.publicId, telegramId: telegram.id },
+  });
+
+  return challenge;
+}
+
+export async function completeTelegramLoginChallenge(
+  publicIdValue: string,
+  browserToken: string,
+  req: NextRequest,
+) {
+  const context = requestContext(req);
+  const challenge = await completeLoginChallenge({
+    publicId: publicIdValue,
+    browserToken,
+  });
+
+  if (!challenge) {
+    await recordSecurityEvent({
+      eventType: "login_2fa_failure",
+      result: "invalid_or_expired",
+      context,
+      metadata: { challengeId: publicIdValue },
+    });
+    throw new Error("verification is not complete");
+  }
+
+  const user = await findUserById(challenge.userId);
+  if (!user || user.status === "banned") {
+    throw new Error("account unavailable");
+  }
+
+  await recordSecurityEvent({
+    userId: user.id,
+    eventType: "login_success",
+    result: "telegram_2fa",
+    context,
+    metadata: { challengeId: publicIdValue },
+  });
+
+  return {
+    user,
+    remember: challenge.remember,
+  };
 }
 
 export async function verifyRegistrationByTelegram(

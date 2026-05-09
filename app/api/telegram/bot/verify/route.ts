@@ -2,7 +2,10 @@ import { type NextRequest } from "next/server";
 import { env } from "@/lib/server/config";
 import { hashToken } from "@/lib/server/crypto";
 import { badRequest, forbidden, json, requestBody } from "@/lib/server/http";
-import { verifyRegistrationByTelegram } from "@/lib/server/services/auth";
+import {
+  verifyRegistrationByTelegram,
+  verifyTelegramLoginChallenge,
+} from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -25,11 +28,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const loginChallenge = await verifyTelegramLoginChallenge(
+      startToken,
+      telegram,
+      req,
+    );
+    if (loginChallenge) {
+      return json({
+        challengeId: loginChallenge.publicId,
+        verificationHash: hashToken(loginChallenge.publicId),
+        status: loginChallenge.status,
+        kind: "login",
+      });
+    }
+
     const request = await verifyRegistrationByTelegram(startToken, telegram, req);
     return json({
       verificationId: request.publicId,
       verificationHash: hashToken(request.publicId),
       status: request.status,
+      kind: "registration",
     });
   } catch (err) {
     return badRequest(err instanceof Error ? err.message : "verification failed");

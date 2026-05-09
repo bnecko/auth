@@ -207,11 +207,11 @@ export default async function DashboardPage() {
               </button>
             </Row>
             <Row>
-              <RowLabel>telegram</RowLabel>
+              <RowLabel>telegram 2fa</RowLabel>
               <RowValue>
                 {account.telegramVerifiedAt
-                  ? `verified ${shortDate(account.telegramVerifiedAt)}`
-                  : "not verified"}
+                  ? `enabled ${shortDate(account.telegramVerifiedAt)}`
+                  : "not linked"}
               </RowValue>
               <a
                 href="/api/telegram/callback"

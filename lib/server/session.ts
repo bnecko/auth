@@ -2,8 +2,11 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   isProduction,
+  loginChallengeCookieName,
+  login2faTtlMinutes,
   sessionCookieName,
   sessionMaxAgeSeconds,
+  sessionShortAgeSeconds,
 } from "./config";
 import { randomToken } from "./crypto";
 import { requestContext } from "./http";
@@ -36,10 +39,14 @@ export async function createUserSession(
   userId: number,
   req: NextRequest,
   res: NextResponse,
+  options: { remember?: boolean } = { remember: true },
 ) {
   const token = randomToken();
   const context = requestContext(req);
-  const expiresAt = new Date(Date.now() + sessionMaxAgeSeconds() * 1000);
+  const maxAge = options.remember
+    ? sessionMaxAgeSeconds()
+    : sessionShortAgeSeconds();
+  const expiresAt = new Date(Date.now() + maxAge * 1000);
 
   await createSession({
     userId,
@@ -49,13 +56,16 @@ export async function createUserSession(
     expiresAt,
   });
 
-  res.cookies.set(sessionCookieName, token, {
+  const cookie = {
     httpOnly: true,
     secure: isProduction(),
     sameSite: "lax",
     path: "/",
-    expires: expiresAt,
-  });
+  } as const;
+
+  res.cookies.set(sessionCookieName, token, options.remember
+    ? { ...cookie, expires: expiresAt }
+    : cookie);
 }
 
 export async function clearUserSession(req: NextRequest, res: NextResponse) {
@@ -65,6 +75,26 @@ export async function clearUserSession(req: NextRequest, res: NextResponse) {
   }
 
   res.cookies.set(sessionCookieName, "", {
+    httpOnly: true,
+    secure: isProduction(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+export function setLoginChallengeCookie(res: NextResponse, token: string) {
+  res.cookies.set(loginChallengeCookieName, token, {
+    httpOnly: true,
+    secure: isProduction(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: login2faTtlMinutes() * 60,
+  });
+}
+
+export function clearLoginChallengeCookie(res: NextResponse) {
+  res.cookies.set(loginChallengeCookieName, "", {
     httpOnly: true,
     secure: isProduction(),
     sameSite: "lax",
