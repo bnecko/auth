@@ -23,6 +23,7 @@ AGENTS.md
 notes-*.md
 scratch/
 _ai/
+*.pem
 docs/*prompt.md
 docs/pre-public-hygiene.md
 test.py
