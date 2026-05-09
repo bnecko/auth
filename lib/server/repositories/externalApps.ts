@@ -44,6 +44,46 @@ export async function findExternalAppByApiKey(apiKey: string) {
   return row ? mapExternalApp(row) : null;
 }
 
+export async function findExternalAppByClientId(clientId: string) {
+  const row = await queryOne<ExternalAppRow>(
+    `select
+       id,
+       public_id,
+       name,
+       slug,
+       callback_url,
+       allowed_redirect_urls,
+       required_product,
+       status
+     from external_apps
+     where public_id = $1`,
+    [clientId],
+  );
+  return row ? mapExternalApp(row) : null;
+}
+
+export async function verifyExternalAppClientSecret(
+  clientId: string,
+  clientSecret: string,
+) {
+  const row = await queryOne<ExternalAppRow>(
+    `select
+       id,
+       public_id,
+       name,
+       slug,
+       callback_url,
+       allowed_redirect_urls,
+       required_product,
+       status
+     from external_apps
+     where public_id = $1
+       and api_key_hash = $2`,
+    [clientId, hashToken(clientSecret)],
+  );
+  return row ? mapExternalApp(row) : null;
+}
+
 export async function createExternalApp(input: {
   publicId: string;
   name: string;

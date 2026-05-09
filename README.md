@@ -35,6 +35,9 @@ Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /oauth/authorize`
+- `POST /api/oauth/token`
+- `GET /api/oauth/userinfo`
 - `GET /activate?token=...`
 - `POST /api/activation-requests`
 - `GET /api/activation-requests/:id`
@@ -42,11 +45,16 @@ Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
 
 External apps create activation requests with a bearer API key stored as a SHA-256 hash in `external_apps.api_key_hash`.
 
+External apps can also use OAuth Authorization Code + PKCE. The OAuth
+`client_id` is `external_apps.public_id`; confidential clients may use the
+same issued app API key as their OAuth `client_secret`.
+
 ## Documentation
 
 Detailed documentation is available in the `docs/` directory:
 - `docs/backend-stack.md`: Core architecture, domain boundaries, and database schema.
 - `docs/external-apps.md`: Guide for integrating external apps with the activation API.
+- `docs/oauth.md`: OAuth Authorization Code + PKCE integration guide.
 
 ## Testing
 
