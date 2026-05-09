@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { bearerToken } from "@/lib/server/apiAuth";
-import { json, unauthorized } from "@/lib/server/http";
+import { unauthorized } from "@/lib/server/http";
 import { oauthUserInfo } from "@/lib/server/services/oauth";
 
 export const runtime = "nodejs";
@@ -16,5 +17,10 @@ export async function GET(req: NextRequest) {
     return unauthorized("invalid bearer token");
   }
 
-  return json(profile);
+  return NextResponse.json(profile, {
+    headers: {
+      "Cache-Control": "no-store",
+      Pragma: "no-cache",
+    },
+  });
 }

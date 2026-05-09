@@ -1,6 +1,11 @@
-import { createHash } from "crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  sign as signBytes,
+} from "crypto";
 import type { NextRequest } from "next/server";
-import { authBaseUrl } from "../config";
+import { authBaseUrl, oidcKeyId, oidcPrivateKeyPem } from "../config";
 import { randomToken, safeEqual } from "../crypto";
 import { requestContext } from "../http";
 import { findAuthorization, upsertAuthorization } from "../repositories/authorizations";
@@ -15,11 +20,14 @@ import {
   findAccessToken,
   findAuthorizationCode,
   markAuthorizationCodeConsumed,
+  revokeAccessToken,
+  revokeRefreshToken,
   rotateRefreshToken,
 } from "../repositories/oauth";
 import { recordSecurityEvent } from "../repositories/securityEvents";
+import { hasActiveSubscription } from "../repositories/subscriptions";
+import { findUserById } from "../repositories/users";
 import type { ExternalApp, User } from "../types";
-import { parseScopes } from "../validation";
 
 const AUTHORIZATION_CODE_TTL_SECONDS = 10 * 60;
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
@@ -35,6 +43,8 @@ export type OAuthAuthorizeView = {
   codeChallenge: string;
   nonce: string;
   existingScopes: string[];
+  requiredProduct: string | null;
+  subscriptionOk: boolean;
 };
 
 type AuthorizeParams = {
@@ -137,12 +147,33 @@ function redirectUriAllowed(redirectUri: string, allowed: readonly string[]) {
   });
 }
 
+const OAUTH_SCOPES = new Set([
+  "openid",
+  "profile",
+  "email",
+  "birthdate",
+  "profile:read",
+  "email:read",
+  "dob:read",
+  "subscription:read",
+]);
+
 function parseOAuthScopes(scope: string) {
   if (!scope) {
     return ["profile:read"];
   }
 
-  return parseScopes(scope.split(/\s+/).filter(Boolean));
+  const scopes = scope.split(/\s+/).filter(Boolean);
+  const unknown = scopes.find(item => !OAUTH_SCOPES.has(item));
+  if (unknown) {
+    throw new OAuthError("invalid_scope", `unknown scope: ${unknown}`);
+  }
+
+  return Array.from(new Set(scopes));
+}
+
+function hasScope(scopes: readonly string[], standard: string, legacy: string) {
+  return scopes.includes(standard) || scopes.includes(legacy);
 }
 
 async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null) {
@@ -174,6 +205,10 @@ async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null)
 
   const scopes = parseOAuthScopes(params.scope);
   const existing = user ? await findAuthorization(user.id, app.id) : null;
+  const subscriptionOk =
+    user && app.requiredProduct
+      ? await hasActiveSubscription(user.id, app.requiredProduct)
+      : true;
 
   return {
     app,
@@ -185,6 +220,8 @@ async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null)
     codeChallenge: params.codeChallenge,
     nonce: params.nonce,
     existingScopes: existing?.scopes || [],
+    requiredProduct: app.requiredProduct,
+    subscriptionOk,
   };
 }
 
@@ -239,6 +276,10 @@ export async function approveOAuthAuthorization(
       : requestedScopes;
   const scopes = granted.filter(scope => requestedScopes.includes(scope));
   const code = randomToken(32);
+
+  if (!view.subscriptionOk) {
+    throw new OAuthError("access_denied", "subscription required", 403);
+  }
 
   await createAuthorizationCode({
     code,
@@ -301,6 +342,84 @@ function pkceS256(verifier: string) {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
+function jsonBase64Url(value: unknown) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function oidcPrivateKey() {
+  return createPrivateKey(oidcPrivateKeyPem());
+}
+
+export function oauthJwks() {
+  const publicKey = createPublicKey(oidcPrivateKey()).export({
+    format: "jwk",
+  }) as Record<string, unknown>;
+
+  return {
+    keys: [
+      {
+        ...publicKey,
+        use: "sig",
+        alg: "RS256",
+        kid: oidcKeyId(),
+      },
+    ],
+  };
+}
+
+function signJwt(payload: Record<string, unknown>) {
+  const encodedHeader = jsonBase64Url({
+    alg: "RS256",
+    typ: "JWT",
+    kid: oidcKeyId(),
+  });
+  const encodedPayload = jsonBase64Url(payload);
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  const signature = signBytes(
+    "RSA-SHA256",
+    Buffer.from(signingInput),
+    oidcPrivateKey(),
+  );
+
+  return `${signingInput}.${signature.toString("base64url")}`;
+}
+
+function createIdToken(input: {
+  app: ExternalApp;
+  user: User;
+  scopes: string[];
+  nonce: string | null;
+}) {
+  const now = Math.floor(Date.now() / 1000);
+  const claims: Record<string, unknown> = {
+    iss: authBaseUrl(),
+    sub: input.user.publicId,
+    aud: input.app.publicId,
+    iat: now,
+    exp: now + ACCESS_TOKEN_TTL_SECONDS,
+  };
+
+  if (input.nonce) {
+    claims.nonce = input.nonce;
+  }
+
+  if (hasScope(input.scopes, "profile", "profile:read")) {
+    claims.name = input.user.firstName;
+    claims.preferred_username = input.user.username;
+  }
+
+  if (hasScope(input.scopes, "email", "email:read")) {
+    claims.email = input.user.email;
+    claims.email_verified = Boolean(input.user.telegramVerifiedAt);
+  }
+
+  if (hasScope(input.scopes, "birthdate", "dob:read") && input.user.dob) {
+    claims.birthdate = input.user.dob;
+  }
+
+  return signJwt(claims);
+}
+
 function clientCredentialsFromBasic(req: NextRequest) {
   const header = req.headers.get("authorization") || "";
   if (!header.toLowerCase().startsWith("basic ")) {
@@ -350,36 +469,48 @@ async function authenticateClient(req: NextRequest, body: Record<string, unknown
 }
 
 async function issueTokenPair(input: {
-  appId: number;
-  userId: number;
+  app: ExternalApp;
+  user: User;
   scopes: string[];
+  nonce: string | null;
 }) {
   const accessToken = randomToken(48);
   const refreshToken = randomToken(48);
 
   await createAccessToken({
     token: accessToken,
-    appId: input.appId,
-    userId: input.userId,
+    appId: input.app.id,
+    userId: input.user.id,
     scopes: input.scopes,
     expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
   });
 
   await createRefreshToken({
     token: refreshToken,
-    appId: input.appId,
-    userId: input.userId,
+    appId: input.app.id,
+    userId: input.user.id,
     scopes: input.scopes,
     expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
   });
 
-  return {
+  const response: Record<string, unknown> = {
     access_token: accessToken,
     token_type: "Bearer",
     expires_in: ACCESS_TOKEN_TTL_SECONDS,
     refresh_token: refreshToken,
     scope: input.scopes.join(" "),
   };
+
+  if (input.scopes.includes("openid")) {
+    response.id_token = createIdToken({
+      app: input.app,
+      user: input.user,
+      scopes: input.scopes,
+      nonce: input.nonce,
+    });
+  }
+
+  return response;
 }
 
 export async function exchangeOAuthToken(
@@ -420,10 +551,16 @@ export async function exchangeOAuthToken(
       throw new OAuthError("invalid_grant", "authorization code is invalid");
     }
 
+    const user = await findUserById(authorizationCode.userId);
+    if (!user || user.status === "banned") {
+      throw new OAuthError("invalid_grant", "user is not active");
+    }
+
     return issueTokenPair({
-      appId: app.id,
-      userId: authorizationCode.userId,
+      app,
+      user,
       scopes: authorizationCode.scopes,
+      nonce: authorizationCode.nonce,
     });
   }
 
@@ -437,6 +574,11 @@ export async function exchangeOAuthToken(
     const previous = await rotateRefreshToken(refreshToken, replacement, app.id);
     if (!previous) {
       throw new OAuthError("invalid_grant", "refresh_token is invalid");
+    }
+
+    const user = await findUserById(previous.userId);
+    if (!user || user.status === "banned") {
+      throw new OAuthError("invalid_grant", "user is not active");
     }
 
     await createRefreshToken({
@@ -456,13 +598,24 @@ export async function exchangeOAuthToken(
       expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
     });
 
-    return {
+    const response: Record<string, unknown> = {
       access_token: accessToken,
       token_type: "Bearer",
       expires_in: ACCESS_TOKEN_TTL_SECONDS,
       refresh_token: replacement,
       scope: previous.scopes.join(" "),
     };
+
+    if (previous.scopes.includes("openid")) {
+      response.id_token = createIdToken({
+        app,
+        user,
+        scopes: previous.scopes,
+        nonce: null,
+      });
+    }
+
+    return response;
   }
 
   throw new OAuthError("unsupported_grant_type", "grant_type is unsupported");
@@ -480,11 +633,24 @@ export async function oauthUserInfo(accessToken: string) {
   return {
     sub: user.publicId,
     id: user.publicId,
-    username: scopes.includes("profile:read") ? user.username : undefined,
-    firstName: scopes.includes("profile:read") ? user.firstName : undefined,
-    bio: scopes.includes("profile:read") ? user.bio : undefined,
-    email: scopes.includes("email:read") ? user.email : undefined,
-    birthdate: scopes.includes("dob:read") ? user.dob : undefined,
+    username: hasScope(scopes, "profile", "profile:read")
+      ? user.username
+      : undefined,
+    preferred_username: hasScope(scopes, "profile", "profile:read")
+      ? user.username
+      : undefined,
+    name: hasScope(scopes, "profile", "profile:read")
+      ? user.firstName
+      : undefined,
+    firstName: hasScope(scopes, "profile", "profile:read")
+      ? user.firstName
+      : undefined,
+    bio: hasScope(scopes, "profile", "profile:read") ? user.bio : undefined,
+    email: hasScope(scopes, "email", "email:read") ? user.email : undefined,
+    email_verified: hasScope(scopes, "email", "email:read")
+      ? Boolean(user.telegramVerifiedAt)
+      : undefined,
+    birthdate: hasScope(scopes, "birthdate", "dob:read") ? user.dob : undefined,
   };
 }
 
@@ -512,6 +678,27 @@ export async function introspectOAuthToken(
   };
 }
 
+export async function revokeOAuthToken(
+  body: Record<string, unknown>,
+  req: NextRequest,
+) {
+  const app = await authenticateClient(req, body);
+  const token = stringParam(body.token as string);
+  const hint = stringParam(body.token_type_hint as string);
+
+  if (!token) {
+    return;
+  }
+
+  if (!hint || hint === "access_token") {
+    await revokeAccessToken(token, app.id);
+  }
+
+  if (!hint || hint === "refresh_token") {
+    await revokeRefreshToken(token, app.id);
+  }
+}
+
 export function oauthServerMetadata() {
   const issuer = authBaseUrl();
   return {
@@ -520,6 +707,8 @@ export function oauthServerMetadata() {
     token_endpoint: `${issuer}/api/oauth/token`,
     userinfo_endpoint: `${issuer}/api/oauth/userinfo`,
     introspection_endpoint: `${issuer}/api/oauth/introspect`,
+    revocation_endpoint: `${issuer}/api/oauth/revoke`,
+    jwks_uri: `${issuer}/oauth/jwks`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     token_endpoint_auth_methods_supported: [
@@ -529,10 +718,24 @@ export function oauthServerMetadata() {
     ],
     code_challenge_methods_supported: ["S256"],
     scopes_supported: [
+      "openid",
+      "profile",
+      "email",
+      "birthdate",
       "profile:read",
       "email:read",
       "dob:read",
       "subscription:read",
+    ],
+    subject_types_supported: ["public"],
+    id_token_signing_alg_values_supported: ["RS256"],
+    claims_supported: [
+      "sub",
+      "name",
+      "preferred_username",
+      "email",
+      "email_verified",
+      "birthdate",
     ],
   };
 }

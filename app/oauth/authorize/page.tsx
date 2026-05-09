@@ -13,6 +13,10 @@ import {
 export const dynamic = "force-dynamic";
 
 const scopeLabels: Record<string, { label: string; sensitive?: boolean }> = {
+  openid: { label: "account identifier" },
+  profile: { label: "profile" },
+  email: { label: "email address", sensitive: true },
+  birthdate: { label: "date of birth", sensitive: true },
   "profile:read": { label: "public profile" },
   "email:read": { label: "email address", sensitive: true },
   "dob:read": { label: "date of birth", sensitive: true },
@@ -84,6 +88,17 @@ export default async function OAuthAuthorizePage({
               : "new authorization"
           }
         />
+        <Row
+          label="requires"
+          value={view.requiredProduct || "none"}
+          right={
+            view.requiredProduct ? (
+              <Tag tone={view.subscriptionOk ? "success" : "warning"}>
+                {view.subscriptionOk ? "active" : "missing"}
+              </Tag>
+            ) : undefined
+          }
+        />
       </div>
 
       <div className="mb-4">
@@ -132,6 +147,14 @@ export default async function OAuthAuthorizePage({
         </ul>
       </div>
 
+      {!view.subscriptionOk && view.requiredProduct && (
+        <div className="mb-4">
+          <Alert tone="warning">
+            active {view.requiredProduct} subscription required to approve.
+          </Alert>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2 mt-2">
         <form action="/api/oauth/authorize/deny" method="post">
           <HiddenOAuthFields view={view} />
@@ -145,7 +168,9 @@ export default async function OAuthAuthorizePage({
           method="post"
         >
           <HiddenOAuthFields view={view} />
-          <Button type="submit">approve</Button>
+          <Button type="submit" disabled={!view.subscriptionOk}>
+            approve
+          </Button>
         </form>
       </div>
     </AuthShell>
@@ -171,11 +196,22 @@ function HiddenOAuthFields({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  right,
+}: {
+  label: string;
+  value: string;
+  right?: React.ReactNode;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-4 text-[13px]">
       <span className="text-meta text-muted shrink-0">{label}</span>
-      <span className="text-fg text-right truncate flex-1">{value}</span>
+      <span className="text-fg text-right truncate flex-1 flex items-center justify-end gap-2">
+        <span className="truncate">{value}</span>
+        {right}
+      </span>
     </div>
   );
 }

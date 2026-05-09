@@ -368,3 +368,25 @@ export async function revokeAccessTokensForRefreshGrant(input: {
     [input.appId, input.userId],
   );
 }
+
+export async function revokeAccessToken(token: string, appId: number) {
+  await query(
+    `update oauth_access_tokens
+        set revoked_at = now()
+      where token_hash = $1
+        and external_app_id = $2
+        and revoked_at is null`,
+    [hashToken(token), appId],
+  );
+}
+
+export async function revokeRefreshToken(token: string, appId: number) {
+  await query(
+    `update oauth_refresh_tokens
+        set revoked_at = now()
+      where token_hash = $1
+        and external_app_id = $2
+        and revoked_at is null`,
+    [hashToken(token), appId],
+  );
+}

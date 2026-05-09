@@ -33,6 +33,15 @@ export function activationTtlMinutes() {
   return Number(env("ACTIVATION_TTL_MINUTES") || 10);
 }
 
+export function oidcPrivateKeyPem() {
+  const raw = requireEnv("OIDC_PRIVATE_KEY_PEM");
+  return raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
+}
+
+export function oidcKeyId() {
+  return env("OIDC_KEY_ID") || "default";
+}
+
 // Telegram user id that receives bearer-key approval messages and whose
 // inline button presses can approve or reject them. Defaults to the
 // project owner; override with BEARER_ADMIN_TELEGRAM_ID per deploy.

@@ -1,7 +1,8 @@
-# OAuth Integration
+# OAuth/OIDC Integration
 
-Bottleneck Auth supports OAuth Authorization Code with PKCE. Tokens are opaque
-server-side tokens, not JWTs.
+Bottleneck Auth supports OAuth Authorization Code with PKCE and OpenID Connect.
+Access and refresh tokens are opaque server-side tokens. ID tokens are RS256
+JWTs.
 
 Base URL:
 
@@ -13,6 +14,7 @@ Discovery:
 
 ```http
 GET /.well-known/oauth-authorization-server
+GET /.well-known/openid-configuration
 ```
 
 ## Client Credentials
@@ -25,16 +27,25 @@ Each OAuth client is an `external_apps` row.
 
 PKCE S256 is required for all authorization-code exchanges.
 
+OIDC requires:
+
+- `OIDC_PRIVATE_KEY_PEM`: RSA private key in PEM format
+- `OIDC_KEY_ID`: key id published in JWKS
+
 ## Authorization Request
 
 Redirect the user to:
 
 ```http
-GET /oauth/authorize?response_type=code&client_id=<client_id>&redirect_uri=<redirect_uri>&scope=profile:read%20email:read&state=<state>&code_challenge=<challenge>&code_challenge_method=S256
+GET /oauth/authorize?response_type=code&client_id=<client_id>&redirect_uri=<redirect_uri>&scope=openid%20profile%20email&state=<state>&nonce=<nonce>&code_challenge=<challenge>&code_challenge_method=S256
 ```
 
 Supported scopes:
 
+- `openid`
+- `profile`
+- `email`
+- `birthdate`
 - `profile:read`
 - `email:read`
 - `dob:read`
@@ -72,9 +83,12 @@ Response:
   "token_type": "Bearer",
   "expires_in": 3600,
   "refresh_token": "opaque-refresh-token",
-  "scope": "profile:read email:read"
+  "scope": "openid profile email",
+  "id_token": "signed-jwt"
 }
 ```
+
+`id_token` is returned when the approved scope includes `openid`.
 
 ## Refresh
 
@@ -104,12 +118,23 @@ Response fields depend on granted scopes:
   "sub": "usr_xxx",
   "id": "usr_xxx",
   "username": "alex",
+  "preferred_username": "alex",
+  "name": "Alex",
   "firstName": "Alex",
   "bio": null,
   "email": "alex@example.com",
+  "email_verified": true,
   "birthdate": "2004-10-29"
 }
 ```
+
+## JWKS
+
+```http
+GET /oauth/jwks
+```
+
+The JWKS response publishes the RSA public key for ID token verification.
 
 ## Introspection
 
@@ -132,3 +157,15 @@ Response:
   "exp": 1778342184
 }
 ```
+
+## Revocation
+
+```http
+POST /api/oauth/revoke
+Authorization: Basic base64(client_id:client_secret)
+Content-Type: application/x-www-form-urlencoded
+
+token=<access_or_refresh_token>&token_type_hint=refresh_token
+```
+
+Revocation returns `200` for valid and unknown tokens.
