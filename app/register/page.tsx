@@ -26,9 +26,16 @@ export default function RegisterPage() {
     setErrors({});
     setLoading(true);
 
+    const formData = new FormData(e.currentTarget);
+    if (formData.has("turnstileToken") && !formData.get("turnstileToken")) {
+      setErrors({ form: "Please wait for the security check to finish." });
+      setLoading(false);
+      return;
+    }
+
     const response = await fetch("/api/auth/register", {
       method: "POST",
-      body: new FormData(e.currentTarget),
+      body: formData,
     });
     const data = (await response.json()) as {
       redirectTo?: string;
