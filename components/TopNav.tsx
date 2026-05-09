@@ -17,7 +17,7 @@ export function TopNav({ trail }: { trail?: string }) {
           </Link>
           <span className="text-faint">/</span>
           <Link
-            href="/login"
+            href="/api/auth/logout"
             className="hover:text-fg transition-colors"
           >
             sign out
