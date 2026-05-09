@@ -1,0 +1,12 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "Running pre-push checks..."
+
+echo "Checking TypeScript..."
+npm run typecheck || exit 1
+
+echo "Running Unit Tests..."
+npm run test:run || exit 1
+
+echo "All checks passed! Pushing..."

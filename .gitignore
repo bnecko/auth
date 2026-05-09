@@ -27,6 +27,8 @@ _ai/
 docs/*prompt.md
 docs/pre-public-hygiene.md
 test.py
+test.log
+x.py
 
 # Python
 venv/

@@ -144,5 +144,27 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  worker:
+    image: node:20-alpine
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: node worker.js
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN}
+    depends_on:
+      redis:
+        condition: service_started
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   postgres-data:

@@ -21,6 +21,13 @@ export async function upsertAuthorization(input: {
   );
 }
 
+export async function revokeAuthorization(userId: number, appId: number) {
+  await query(
+    `update app_authorizations set revoked_at = now() where user_id = $1 and external_app_id = $2`,
+    [userId, appId]
+  );
+}
+
 export async function listAuthorizationsForUser(userId: number) {
   const rows = await query<{
     app_name: string;

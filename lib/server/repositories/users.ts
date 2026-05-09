@@ -196,3 +196,10 @@ export async function findPasswordHash(identifier: string) {
     [normalized],
   );
 }
+
+export async function updateUserPassword(userId: number, passwordHash: string) {
+  await query(
+    `update users set password_hash = $2, updated_at = now() where id = $1`,
+    [userId, passwordHash],
+  );
+}

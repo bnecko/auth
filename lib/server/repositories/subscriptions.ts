@@ -23,6 +23,13 @@ export async function hasActiveSubscription(userId: number, product: string) {
   return row?.exists === true;
 }
 
+export async function cancelSubscription(userId: number, product: string) {
+  await query(
+    `update subscriptions set status = 'revoked', revoked_at = now() where user_id = $1 and product = $2 and status in ('active', 'trial')`,
+    [userId, product],
+  );
+}
+
 export async function listSubscriptionsForUser(userId: number) {
   const rows = await query<{
     product: string;

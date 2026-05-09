@@ -67,7 +67,8 @@ user-agent: ${userAgent}`;
     body.message_thread_id = Number(threadId);
   }
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  // Use internal API to push to BullMQ
+  await fetch(`${req.nextUrl.origin}/api/internal/analytics`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

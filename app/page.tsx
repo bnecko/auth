@@ -6,6 +6,7 @@ import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
+import { revokeSessionAction, revokeAppAction, cancelSubscriptionAction } from "./dashboard-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -140,9 +141,12 @@ export default async function DashboardPage() {
                       expires {shortDate(subscription.expiresAt)}
                     </span>
                   </RowValue>
-                  <button className="text-meta text-secondary hover:text-danger transition-colors">
-                    cancel
-                  </button>
+                  <form action={cancelSubscriptionAction}>
+                    <input type="hidden" name="product" value={subscription.product} />
+                    <button type="submit" className="text-meta text-secondary hover:text-danger transition-colors">
+                      cancel
+                    </button>
+                  </form>
                 </Row>
               ))
             )}
@@ -163,9 +167,12 @@ export default async function DashboardPage() {
                     <span className="text-faint">/</span>
                     <span className="text-muted">since {shortDate(app.createdAt)}</span>
                   </RowValue>
-                  <button className="text-meta text-secondary hover:text-danger transition-colors">
-                    revoke
-                  </button>
+                  <form action={revokeAppAction}>
+                    <input type="hidden" name="appSlug" value={app.appSlug} />
+                    <button type="submit" className="text-meta text-secondary hover:text-danger transition-colors">
+                      revoke
+                    </button>
+                  </form>
                 </Row>
               ))
             )}
@@ -187,12 +194,16 @@ export default async function DashboardPage() {
                     <Tag tone="success">this device</Tag>
                   )}
                 </RowValue>
-                <button
-                  className="text-meta text-secondary hover:text-danger transition-colors disabled:text-faint disabled:hover:text-faint disabled:cursor-not-allowed"
-                  disabled={session.id === current.session.id}
-                >
-                  revoke
-                </button>
+                <form action={revokeSessionAction}>
+                  <input type="hidden" name="sessionId" value={session.id} />
+                  <button
+                    type="submit"
+                    className="text-meta text-secondary hover:text-danger transition-colors disabled:text-faint disabled:hover:text-faint disabled:cursor-not-allowed"
+                    disabled={session.id === current.session.id}
+                  >
+                    revoke
+                  </button>
+                </form>
               </Row>
             ))}
           </Section>

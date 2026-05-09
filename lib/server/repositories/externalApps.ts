@@ -62,6 +62,24 @@ export async function findExternalAppByClientId(clientId: string) {
   return row ? mapExternalApp(row) : null;
 }
 
+export async function findExternalAppBySlug(slug: string) {
+  const row = await queryOne<ExternalAppRow>(
+    `select
+       id,
+       public_id,
+       name,
+       slug,
+       callback_url,
+       allowed_redirect_urls,
+       required_product,
+       status
+     from external_apps
+     where slug = $1`,
+    [slug],
+  );
+  return row ? mapExternalApp(row) : null;
+}
+
 export async function verifyExternalAppClientSecret(
   clientId: string,
   clientSecret: string,

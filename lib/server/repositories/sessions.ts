@@ -159,6 +159,13 @@ export async function revokeSession(token: string) {
   );
 }
 
+export async function revokeSessionById(sessionId: number, userId: number) {
+  await query(
+    `update sessions set revoked_at = now() where id = $1 and user_id = $2`,
+    [sessionId, userId],
+  );
+}
+
 export async function revokeSessionsForUser(userId: number) {
   await query(
     `update sessions
