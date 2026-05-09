@@ -6,6 +6,7 @@ type NavItem = {
   href: string;
   label: string;
   hash?: string;
+  newWindow?: boolean;
 };
 
 const groups: { label: string; items: NavItem[] }[] = [
@@ -27,6 +28,13 @@ const groups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: "developer",
+    items: [
+      { href: "/developers/oauth", label: "oauth docs", newWindow: true },
+      { href: "/developers/test-lab", label: "test field lab" },
+    ],
+  },
+  {
     label: "support",
     items: [
       { href: "https://t.me/bottleneck_help", label: "telegram" },
@@ -43,7 +51,7 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
           <div className="text-[15px] tracking-tightest text-fg">
             bottleneck
           </div>
-          <div className="text-meta text-muted">auth / console</div>
+          <div className="text-meta text-muted">oauth / console</div>
         </Link>
       </div>
 
@@ -68,6 +76,8 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
                 <li key={it.label}>
                   <Link
                     href={it.href}
+                    target={it.newWindow ? "_blank" : undefined}
+                    rel={it.newWindow ? "noreferrer" : undefined}
                     className="block px-2 h-7 leading-7 rounded-sm text-[13px] text-secondary hover:text-fg hover:bg-hover transition-colors"
                   >
                     {it.label}
