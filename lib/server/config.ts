@@ -1,5 +1,6 @@
 export const sessionCookieName = "bn_session";
 export const pendingActivationCookieName = "bn_pending_activation";
+export const loginChallengeCookieName = "bn_login_challenge";
 
 export function env(name: string) {
   return process.env[name] || "";
@@ -23,6 +24,14 @@ export function isProduction() {
 
 export function sessionMaxAgeSeconds() {
   return Number(env("SESSION_MAX_AGE_SECONDS") || 60 * 60 * 24 * 30);
+}
+
+export function sessionShortAgeSeconds() {
+  return Number(env("SESSION_SHORT_AGE_SECONDS") || 60 * 60 * 12);
+}
+
+export function login2faTtlMinutes() {
+  return Number(env("LOGIN_2FA_TTL_MINUTES") || 5);
 }
 
 export function registrationTtlMinutes() {
