@@ -26,9 +26,7 @@ _ai/
 *.pem
 docs/*prompt.md
 docs/pre-public-hygiene.md
-test.py
 test.log
-x.py
 
 # Python
 venv/
