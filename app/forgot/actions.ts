@@ -8,10 +8,21 @@ import { sendTelegramMessage } from "@/lib/server/telegramSend";
 import { authBaseUrl } from "@/lib/server/config";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
+import { headers } from "next/headers";
+import { rateLimit } from "@/lib/server/rateLimit";
+
 export async function requestPasswordReset(formData: FormData) {
   const identifier = formData.get("identifier");
   if (typeof identifier !== "string" || !identifier) {
     return { error: "Please enter your username or email" };
+  }
+
+  const headersList = await headers();
+  const ip = headersList.get("x-forwarded-for") || "unknown";
+  
+  const rl = await rateLimit(`rl:forgot:ip:${ip}`, 3, 15 * 60 * 1000); // 3 per 15 min
+  if (!rl.success) {
+    return { error: "Too many requests. Please try again later." };
   }
 
   const user = await findUserByIdentifier(identifier);

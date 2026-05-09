@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { startAuthentication } from "@simplewebauthn/browser";
 import { AuthShell } from "@/components/AuthShell";
 import { Field } from "@/components/Field";
 import { Button } from "@/components/Button";
@@ -60,6 +61,36 @@ export default function LoginPage() {
 
     const params = new URLSearchParams(window.location.search);
     window.location.href = safeNext(params.get("next") || data.redirectTo);
+  }
+
+  async function onPasskeyLogin() {
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/webauthn/login/generate-options");
+      if (!res.ok) throw new Error("Failed to initialize passkey login");
+      const { options, challengeId } = await res.json();
+
+      const asseResp = await startAuthentication({ optionsJSON: options });
+
+      const verifyRes = await fetch("/api/auth/webauthn/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ response: asseResp, challengeId }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        throw new Error(verifyData.error || "Passkey verification failed");
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      window.location.href = safeNext(params.get("next") || verifyData.redirectTo);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Passkey login failed");
+      setLoading(false);
+    }
   }
 
   return (
@@ -131,9 +162,14 @@ export default function LoginPage() {
         <Divider label="or" />
       </div>
 
-      <Button variant="secondary" type="button">
-        continue with telegram
-      </Button>
+      <div className="space-y-3">
+        <Button variant="secondary" type="button" onClick={onPasskeyLogin} loading={loading}>
+          continue with passkey
+        </Button>
+        <Button variant="secondary" type="button">
+          continue with telegram
+        </Button>
+      </div>
     </AuthShell>
   );
 }

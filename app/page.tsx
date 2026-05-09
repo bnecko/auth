@@ -7,6 +7,8 @@ import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
 import { revokeSessionAction, revokeAppAction, cancelSubscriptionAction } from "./dashboard-actions";
+import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauthn";
+import { PasskeyManager } from "@/components/PasskeyManager";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,7 @@ export default async function DashboardPage() {
 
   const dashboard = await getDashboard(current.user);
   const account = dashboard.account;
+  const webauthnCredentials = await findWebauthnCredentialsByUser(current.user.id);
 
   return (
     <div className="flex min-h-screen">
@@ -231,6 +234,17 @@ export default async function DashboardPage() {
                 relink
               </a>
             </Row>
+          </Section>
+
+          <div id="passkeys" />
+          <Section title="passkeys" hint="// passwordless sign in">
+            <PasskeyManager
+              passkeys={webauthnCredentials.map(c => ({
+                id: c.credentialId,
+                name: c.name || "Unknown Device",
+                lastUsed: c.lastUsedAt,
+              }))}
+            />
           </Section>
 
           <div id="events" />

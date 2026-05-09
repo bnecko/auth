@@ -250,3 +250,17 @@ create table telegram_login_challenges (
 create index telegram_login_challenges_user_idx on telegram_login_challenges(user_id);
 create index telegram_login_challenges_status_idx on telegram_login_challenges(status);
 create index telegram_login_challenges_expires_at_idx on telegram_login_challenges(expires_at);
+
+create table webauthn_credentials (
+  id bigserial primary key,
+  user_id bigint not null references users(id) on delete cascade,
+  credential_id text not null unique,
+  public_key bytea not null,
+  sign_count bigint not null default 0,
+  transports text[] not null default '{}',
+  name text,
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz not null default now()
+);
+
+create index webauthn_credentials_user_idx on webauthn_credentials(user_id);
