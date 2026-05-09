@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "ioredis": "^5.10.1",
     "next": "^15.0.0",
     "pg": "^8.20.0",
     "react": "^19.0.0",

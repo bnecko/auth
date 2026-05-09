@@ -82,7 +82,7 @@ export async function findSessionByToken(token: string) {
       where s.user_id = u.id
         and s.session_hash = $1
         and s.revoked_at is null
-        and s.expires_at > now()
+        and s.expires_at > $2
       returning
         s.id as session_id,
         s.user_id,
@@ -104,7 +104,7 @@ export async function findSessionByToken(token: string) {
         u.role,
         u.status,
         u.created_at::text as user_created_at`,
-    [hashToken(token)],
+    [hashToken(token), new Date().toISOString()],
   );
 
   if (!row) {
@@ -145,9 +145,9 @@ export async function listSessionsForUser(userId: number) {
      from sessions
      where user_id = $1
        and revoked_at is null
-       and expires_at > now()
+       and expires_at > $2
      order by last_seen_at desc`,
-    [userId],
+    [userId, new Date().toISOString()],
   );
   return rows.map(mapSession);
 }

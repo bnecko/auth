@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import redis from "../redis";
 import { login2faTtlMinutes, registrationTtlMinutes } from "../config";
 import {
   hashToken,
@@ -157,13 +158,9 @@ const LOGIN_FAILURE_WINDOW_MINUTES = 15;
 
 export async function loginUser(input: LoginInput, req: NextRequest) {
   const context = requestContext(req);
-  const failures = context.ip
-    ? await countRecentEventsByIp(
-        context.ip,
-        "login_failure",
-        LOGIN_FAILURE_WINDOW_MINUTES,
-      )
-    : 0;
+  const rateLimitKey = `rate_limit:login_failure:${context.ip || "unknown"}`;
+  
+  const failures = context.ip ? Number(await redis.get(rateLimitKey)) || 0 : 0;
 
   if (failures >= LOGIN_FAILURE_HARD_LIMIT) {
     await recordSecurityEvent({
@@ -174,31 +171,27 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
     throw new Error("too many attempts, try again later");
   }
 
-  if (failures >= LOGIN_FAILURE_TURNSTILE_THRESHOLD) {
-    const turnstileOk = await verifyTurnstile(input.turnstileToken, context.ip);
-    if (!turnstileOk) {
-      await recordSecurityEvent({
-        eventType: "login_failure",
-        result: "turnstile_required",
-        context,
-      });
-      throw new Error("verification required");
-    }
+  const turnstileOk = await verifyTurnstile(input.turnstileToken, context.ip);
+  if (!turnstileOk) {
+    await recordSecurityEvent({
+      eventType: "login_failure",
+      result: "turnstile_failed",
+      context,
+    });
+    throw new Error("verification failed");
   }
 
   const credentials = await findPasswordHash(input.identifier);
   if (!credentials) {
-    // Equalize timing for unknown identifiers: scrypt against a static
-    // dummy hash so the request takes roughly as long as a real password
-    // verification. Without this, an attacker can distinguish "no such
-    // user" (instant return) from "user exists" (~100ms scrypt) and
-    // enumerate accounts.
     await verifyPassword(input.password, DUMMY_PASSWORD_HASH);
     await recordSecurityEvent({
       eventType: "login_failure",
       result: "invalid",
       context,
     });
+    if (context.ip) {
+      await redis.multi().incr(rateLimitKey).expire(rateLimitKey, LOGIN_FAILURE_WINDOW_MINUTES * 60).exec();
+    }
     throw new Error("invalid credentials");
   }
 
@@ -220,6 +213,9 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
       result: "invalid",
       context,
     });
+    if (context.ip) {
+      await redis.multi().incr(rateLimitKey).expire(rateLimitKey, LOGIN_FAILURE_WINDOW_MINUTES * 60).exec();
+    }
     throw new Error("invalid credentials");
   }
 

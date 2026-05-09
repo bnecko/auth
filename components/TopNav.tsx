@@ -16,12 +16,14 @@ export function TopNav({ trail }: { trail?: string }) {
             admin
           </Link>
           <span className="text-faint">/</span>
-          <a
-            href="/api/auth/logout"
-            className="hover:text-fg transition-colors"
-          >
-            sign out
-          </a>
+          <form action="/api/auth/logout" method="POST" className="inline m-0 p-0">
+            <button
+              type="submit"
+              className="hover:text-fg transition-colors"
+            >
+              sign out
+            </button>
+          </form>
         </nav>
       </div>
     </header>

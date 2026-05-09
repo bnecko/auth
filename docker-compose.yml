@@ -37,6 +37,21 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /data:rw,noexec,nosuid,size=64m
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   app:
     build: .
     restart: unless-stopped
@@ -45,6 +60,7 @@ services:
       DATABASE_URL: postgres://auth:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/auth
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-4}
       NODE_OPTIONS: ${APP_NODE_OPTIONS:---max-old-space-size=256}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SESSION_MAX_AGE_SECONDS: ${SESSION_MAX_AGE_SECONDS:-2592000}
       SESSION_SHORT_AGE_SECONDS: ${SESSION_SHORT_AGE_SECONDS:-43200}
       LOGIN_2FA_TTL_MINUTES: ${LOGIN_2FA_TTL_MINUTES:-5}
