@@ -410,7 +410,7 @@ function createIdToken(input: {
 
   if (hasScope(input.scopes, "email", "email:read")) {
     claims.email = input.user.email;
-    claims.email_verified = Boolean(input.user.telegramVerifiedAt);
+    claims.email_verified = Boolean(input.user.emailVerifiedAt);
   }
 
   if (hasScope(input.scopes, "birthdate", "dob:read") && input.user.dob) {
@@ -648,7 +648,7 @@ export async function oauthUserInfo(accessToken: string) {
     bio: hasScope(scopes, "profile", "profile:read") ? user.bio : undefined,
     email: hasScope(scopes, "email", "email:read") ? user.email : undefined,
     email_verified: hasScope(scopes, "email", "email:read")
-      ? Boolean(user.telegramVerifiedAt)
+      ? Boolean(user.emailVerifiedAt)
       : undefined,
     birthdate: hasScope(scopes, "birthdate", "dob:read") ? user.dob : undefined,
   };

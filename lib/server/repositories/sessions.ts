@@ -18,6 +18,7 @@ type SessionUserRow = SessionRow & {
   username: string;
   bio: string | null;
   email: string;
+  email_verified_at: string | null;
   dob: string | null;
   telegram_id: string | null;
   telegram_username: string | null;
@@ -95,6 +96,7 @@ export async function findSessionByToken(token: string) {
         u.username,
         u.bio,
         u.email,
+        u.email_verified_at::text,
         u.dob::text,
         u.telegram_id,
         u.telegram_username,
@@ -118,6 +120,7 @@ export async function findSessionByToken(token: string) {
       username: row.username,
       bio: row.bio,
       email: row.email,
+      emailVerifiedAt: row.email_verified_at,
       dob: row.dob,
       telegramId: row.telegram_id,
       telegramUsername: row.telegram_username,

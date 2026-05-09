@@ -9,6 +9,7 @@ type UserRow = {
   username: string;
   bio: string | null;
   email: string;
+  email_verified_at: string | null;
   dob: string | null;
   telegram_id: string | null;
   telegram_username: string | null;
@@ -37,6 +38,7 @@ function mapUser(row: UserRow): User {
     username: row.username,
     bio: row.bio,
     email: row.email,
+    emailVerifiedAt: row.email_verified_at,
     dob: row.dob,
     telegramId: row.telegram_id,
     telegramUsername: row.telegram_username,
@@ -54,6 +56,7 @@ const userSelect = `
   username,
   bio,
   email,
+  email_verified_at::text,
   dob::text,
   telegram_id,
   telegram_username,

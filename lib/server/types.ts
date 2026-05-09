@@ -8,6 +8,7 @@ export type User = {
   username: string;
   bio: string | null;
   email: string;
+  emailVerifiedAt: string | null;
   dob: string | null;
   telegramId: string | null;
   telegramUsername: string | null;

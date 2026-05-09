@@ -64,6 +64,7 @@ type AccessTokenWithUserRow = TokenRow & {
   user_username: string;
   user_bio: string | null;
   user_email: string;
+  user_email_verified_at: string | null;
   user_dob: string | null;
   user_telegram_id: string | null;
   user_telegram_username: string | null;
@@ -305,6 +306,7 @@ export async function findAccessToken(token: string) {
        u.username as user_username,
        u.bio as user_bio,
        u.email as user_email,
+       u.email_verified_at::text as user_email_verified_at,
        u.dob::text as user_dob,
        u.telegram_id as user_telegram_id,
        u.telegram_username as user_telegram_username,
@@ -344,6 +346,7 @@ export async function findAccessToken(token: string) {
       username: row.user_username,
       bio: row.user_bio,
       email: row.user_email,
+      emailVerifiedAt: row.user_email_verified_at,
       dob: row.user_dob,
       telegramId: row.user_telegram_id,
       telegramUsername: row.user_telegram_username,
