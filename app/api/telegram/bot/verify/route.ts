@@ -6,6 +6,7 @@ import {
   verifyRegistrationByTelegram,
   verifyTelegramLoginChallenge,
 } from "@/lib/server/services/auth";
+import { completeRelinkByTelegram } from "@/lib/server/relinkChallenge";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const relink = await completeRelinkByTelegram(startToken, telegram);
+    if (relink) {
+      return json({ kind: "relink", linked: relink.linked });
+    }
+
     const loginChallenge = await verifyTelegramLoginChallenge(
       startToken,
       telegram,

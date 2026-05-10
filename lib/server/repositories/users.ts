@@ -177,6 +177,34 @@ export async function linkTelegram(userId: number, telegram: TelegramIdentity) {
   }
 }
 
+// Unconditional relink — clears any existing Telegram association and sets the
+// new one. Only called after the user has proven ownership of their current
+// linked account via an OTP delivered to that account.
+export async function relinkTelegram(userId: number, telegram: TelegramIdentity) {
+  try {
+    const row = await queryOne<UserRow>(
+      `update users
+          set telegram_id = $2,
+              telegram_username = $3,
+              telegram_verified_at = now(),
+              updated_at = now()
+        where id = $1
+        returning ${userSelect}`,
+      [userId, telegram.id, telegram.username],
+    );
+    return row ? mapUser(row) : null;
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      (err as Error & { code?: string }).code === "23505"
+    ) {
+      // The Telegram account is already linked to a different user.
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function setUserStatus(
   userId: number,
   status: UserStatus,
