@@ -57,3 +57,9 @@ export function oidcKeyId() {
 export function bearerAdminTelegramId() {
   return env("BEARER_ADMIN_TELEGRAM_ID") || "BEARER_ADMIN_TG_ID";
 }
+
+export function telegramBotUsername() {
+  return env("TELEGRAM_BOT_USERNAME");
+}
+
+export const adminStepUpTtlSeconds = 600;

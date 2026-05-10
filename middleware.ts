@@ -16,12 +16,12 @@ const csp = [
   "base-uri 'self'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "img-src 'self' data:",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
-  "frame-src 'self' https://challenges.cloudflare.com",
+  "img-src 'self' data: https://t.me",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com https://telegram.org",
+  "frame-src 'self' https://challenges.cloudflare.com https://telegram.org https://oauth.telegram.org",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://cloudflareinsights.com",
+  "connect-src 'self' https://cloudflareinsights.com https://oauth.telegram.org",
   "object-src 'none'",
 ].join("; ");
 
@@ -78,6 +78,7 @@ user-agent: ${userAgent}`;
 export function middleware(req: NextRequest, event: NextFetchEvent) {
   const res = NextResponse.next();
 
+  res.headers.set("x-pathname", req.nextUrl.pathname);
   res.headers.set("Content-Security-Policy", csp);
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");

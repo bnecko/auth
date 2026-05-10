@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
 import { badRequest, json } from "@/lib/server/http";
-import { setAccountStatus } from "@/lib/server/services/admin";
+import { setAccountStatusFromRequest } from "@/lib/server/services/admin";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,7 @@ export async function POST(
 
   try {
     const { id } = await params;
-    await setAccountStatus(Number(id), "banned", auth.session.user, req);
+    await setAccountStatusFromRequest(Number(id), "banned", auth.session.user, req);
     return json({ status: "banned" });
   } catch (err) {
     return badRequest(err instanceof Error ? err.message : "ban failed");

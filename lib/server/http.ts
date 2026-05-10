@@ -47,6 +47,18 @@ export function requestContext(req: NextRequest): RequestContext {
   };
 }
 
+// Server actions don't have a NextRequest, so they read the same proxy
+// headers via Next.js headers() instead.
+export function requestContextFromHeaders(
+  h: Awaited<ReturnType<typeof import("next/headers").headers>>,
+): RequestContext {
+  return {
+    ip: h.get("cf-connecting-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
+    userAgent: h.get("user-agent") || "",
+    country: h.get("cf-ipcountry") || h.get("x-vercel-ip-country") || "",
+  };
+}
+
 export async function requestBody(req: NextRequest) {
   const contentType = req.headers.get("content-type") || "";
 
