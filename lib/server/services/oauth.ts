@@ -6,12 +6,14 @@ import {
 } from "crypto";
 import type { NextRequest } from "next/server";
 import { authBaseUrl, oidcKeyId, oidcPrivateKeyPem } from "../config";
+import { query } from "../db";
 import { randomToken, safeEqual } from "../crypto";
 import { requestContext } from "../http";
 import { findAuthorization, upsertAuthorization } from "../repositories/authorizations";
 import {
   findExternalAppByClientId,
   verifyExternalAppClientSecret,
+  findExternalAppById,
 } from "../repositories/externalApps";
 import {
   createAccessToken,
@@ -23,6 +25,7 @@ import {
   revokeAccessToken,
   revokeRefreshToken,
   rotateRefreshToken,
+  findPushedRequest,
 } from "../repositories/oauth";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { hasActiveSubscription } from "../repositories/subscriptions";
@@ -229,6 +232,30 @@ export async function getOAuthAuthorizeView(
   searchParams: Record<string, string | string[] | undefined>,
   user?: User | null,
 ) {
+  const requestUri = Array.isArray(searchParams.request_uri) ? searchParams.request_uri[0] : searchParams.request_uri;
+  
+  if (requestUri) {
+    const pushedReq = await findPushedRequest(requestUri);
+    if (!pushedReq) {
+      throw new OAuthError("invalid_request", "invalid or expired request_uri");
+    }
+    
+    // We need the client_id to pass to resolveAuthorizeView
+    const app = await findExternalAppById(pushedReq.appId);
+    if (!app) throw new OAuthError("invalid_client", "client not found");
+
+    return resolveAuthorizeView({
+      responseType: "code",
+      clientId: app.publicId,
+      redirectUri: pushedReq.redirectUri,
+      scope: pushedReq.scopes.join(" "),
+      state: pushedReq.state || "",
+      codeChallenge: pushedReq.codeChallenge || "",
+      codeChallengeMethod: pushedReq.codeChallengeMethod || "",
+      nonce: pushedReq.nonce || ""
+    }, user);
+  }
+
   return resolveAuthorizeView(paramsFromSearch(searchParams), user);
 }
 
@@ -442,7 +469,7 @@ function clientCredentialsFromBasic(req: NextRequest) {
   }
 }
 
-async function authenticateClient(req: NextRequest, body: Record<string, unknown>) {
+export async function authenticateClient(req: NextRequest, body: Record<string, unknown>) {
   const basic = clientCredentialsFromBasic(req);
   const clientId = basic?.clientId || stringParam(body.client_id as string);
   const clientSecret =
@@ -636,6 +663,54 @@ export async function exchangeOAuthToken(
     }
 
     return response;
+  }
+
+  if (grantType === "urn:ietf:params:oauth:grant-type:device_code") {
+    const deviceCodeValue = stringParam(body.device_code as string);
+    if (!deviceCodeValue) {
+      throw new OAuthError("invalid_request", "device_code is required");
+    }
+
+    const { findDeviceCodeByDeviceCode } = await import("../repositories/oauth");
+    const deviceCode = await findDeviceCodeByDeviceCode(deviceCodeValue);
+
+    if (!deviceCode || deviceCode.appId !== app.id) {
+      throw new OAuthError("invalid_grant", "invalid device_code");
+    }
+
+    if (new Date(deviceCode.expiresAt) < new Date()) {
+      throw new OAuthError("expired_token", "device_code expired");
+    }
+
+    if (deviceCode.status === "pending") {
+      throw new OAuthError("authorization_pending", "authorization pending", 400);
+    }
+    
+    if (deviceCode.status === "denied") {
+      throw new OAuthError("access_denied", "authorization denied", 400);
+    }
+
+    if (deviceCode.status === "expired") {
+      throw new OAuthError("expired_token", "device_code expired", 400);
+    }
+
+    if (!deviceCode.userId) {
+      throw new OAuthError("invalid_grant", "device code approved but no user found");
+    }
+
+    const user = await findUserById(deviceCode.userId);
+    if (!user || user.status === "banned") {
+      throw new OAuthError("invalid_grant", "user is not active");
+    }
+
+    // Mark as consumed by changing status to expired (so it can't be used again to get a token)
+    await query(
+      `update oauth_device_codes set status = 'expired' where id = $1`,
+      [deviceCode.id]
+    );
+
+    const nonce = null;
+    return await issueTokenPair({ app, user, scopes: deviceCode.scopes, nonce });
   }
 
   if (grantType === "client_credentials") {

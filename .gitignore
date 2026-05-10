@@ -26,6 +26,7 @@ _ai/
 *.pem
 docs/*prompt.md
 docs/pre-public-hygiene.md
+docs/security-audit.md
 test.log
 
 # Python

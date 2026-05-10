@@ -396,3 +396,177 @@ export async function revokeRefreshToken(token: string, appId: number) {
     [hashToken(token), appId],
   );
 }
+
+export type OAuthPushedRequest = {
+  id: number;
+  appId: number;
+  scopes: string[];
+  redirectUri: string;
+  state: string | null;
+  codeChallenge: string | null;
+  codeChallengeMethod: string | null;
+  nonce: string | null;
+  expiresAt: string;
+};
+
+export async function createPushedRequest(input: {
+  requestUri: string;
+  appId: number;
+  scopes: string[];
+  redirectUri: string;
+  state: string | null;
+  codeChallenge: string | null;
+  codeChallengeMethod: string | null;
+  nonce: string | null;
+  expiresAt: Date;
+}) {
+  await query(
+    `insert into oauth_pushed_requests (
+      request_uri_hash, external_app_id, scopes, redirect_uri, state, code_challenge, code_challenge_method, nonce, expires_at
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      hashToken(input.requestUri),
+      input.appId,
+      input.scopes,
+      input.redirectUri,
+      input.state,
+      input.codeChallenge,
+      input.codeChallengeMethod,
+      input.nonce,
+      input.expiresAt,
+    ]
+  );
+}
+
+export async function findPushedRequest(requestUri: string): Promise<OAuthPushedRequest | null> {
+  const row = await queryOne<{
+    id: string;
+    external_app_id: string;
+    scopes: string[];
+    redirect_uri: string;
+    state: string | null;
+    code_challenge: string | null;
+    code_challenge_method: string | null;
+    nonce: string | null;
+    expires_at: string;
+  }>(
+    `select id, external_app_id, scopes, redirect_uri, state, code_challenge, code_challenge_method, nonce, expires_at::text
+     from oauth_pushed_requests
+     where request_uri_hash = $1 and expires_at > now()`,
+    [hashToken(requestUri)]
+  );
+
+  if (!row) return null;
+
+  return {
+    id: Number(row.id),
+    appId: Number(row.external_app_id),
+    scopes: row.scopes || [],
+    redirectUri: row.redirect_uri,
+    state: row.state,
+    codeChallenge: row.code_challenge,
+    codeChallengeMethod: row.code_challenge_method,
+    nonce: row.nonce,
+    expiresAt: row.expires_at,
+  };
+}
+
+export type OAuthDeviceCode = {
+  id: number;
+  appId: number;
+  userId: number | null;
+  scopes: string[];
+  status: "pending" | "approved" | "denied" | "expired";
+  expiresAt: string;
+};
+
+export async function createDeviceCode(input: {
+  deviceCode: string;
+  userCode: string;
+  appId: number;
+  scopes: string[];
+  expiresAt: Date;
+}) {
+  await query(
+    `insert into oauth_device_codes (
+      device_code_hash, user_code_hash, external_app_id, scopes, expires_at
+    ) values ($1, $2, $3, $4, $5)`,
+    [
+      hashToken(input.deviceCode),
+      hashToken(input.userCode),
+      input.appId,
+      input.scopes,
+      input.expiresAt,
+    ]
+  );
+}
+
+export async function findDeviceCodeByDeviceCode(deviceCode: string): Promise<OAuthDeviceCode | null> {
+  const row = await queryOne<{
+    id: string;
+    external_app_id: string;
+    user_id: string | null;
+    scopes: string[];
+    status: OAuthDeviceCode["status"];
+    expires_at: string;
+  }>(
+    `select id, external_app_id, user_id, scopes, status, expires_at::text
+     from oauth_device_codes
+     where device_code_hash = $1`,
+    [hashToken(deviceCode)]
+  );
+
+  if (!row) return null;
+
+  return {
+    id: Number(row.id),
+    appId: Number(row.external_app_id),
+    userId: row.user_id ? Number(row.user_id) : null,
+    scopes: row.scopes || [],
+    status: row.status,
+    expiresAt: row.expires_at,
+  };
+}
+
+export async function findDeviceCodeByUserCode(userCode: string): Promise<(OAuthDeviceCode & { appName: string }) | null> {
+  const row = await queryOne<{
+    id: string;
+    external_app_id: string;
+    user_id: string | null;
+    scopes: string[];
+    status: OAuthDeviceCode["status"];
+    expires_at: string;
+    app_name: string;
+  }>(
+    `select d.id, d.external_app_id, d.user_id, d.scopes, d.status, d.expires_at::text, a.name as app_name
+     from oauth_device_codes d
+     join external_apps a on d.external_app_id = a.id
+     where d.user_code_hash = $1 and d.expires_at > now()`,
+    [hashToken(userCode)]
+  );
+
+  if (!row) return null;
+
+  return {
+    id: Number(row.id),
+    appId: Number(row.external_app_id),
+    userId: row.user_id ? Number(row.user_id) : null,
+    scopes: row.scopes || [],
+    status: row.status,
+    expiresAt: row.expires_at,
+    appName: row.app_name,
+  };
+}
+
+export async function updateDeviceCodeStatus(
+  userCode: string,
+  status: "approved" | "denied",
+  userId: number
+) {
+  await query(
+    `update oauth_device_codes
+        set status = $2, user_id = $3
+      where user_code_hash = $1 and status = 'pending'`,
+    [hashToken(userCode), status, userId]
+  );
+}

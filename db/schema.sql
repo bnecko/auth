@@ -264,3 +264,34 @@ create table webauthn_credentials (
 );
 
 create index webauthn_credentials_user_idx on webauthn_credentials(user_id);
+
+create table oauth_pushed_requests (
+  id bigserial primary key,
+  request_uri_hash text not null unique,
+  external_app_id bigint not null references external_apps(id) on delete cascade,
+  scopes text[] not null default '{}',
+  redirect_uri text not null,
+  state text,
+  code_challenge text,
+  code_challenge_method text,
+  nonce text,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
+create index oauth_pushed_requests_expires_at_idx on oauth_pushed_requests(expires_at);
+
+create table oauth_device_codes (
+  id bigserial primary key,
+  device_code_hash text not null unique,
+  user_code_hash text not null unique,
+  external_app_id bigint not null references external_apps(id) on delete cascade,
+  user_id bigint references users(id) on delete cascade,
+  scopes text[] not null default '{}',
+  status text not null default 'pending' check (status in ('pending', 'approved', 'denied', 'expired')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
+create index oauth_device_codes_user_code_idx on oauth_device_codes(user_code_hash);
+create index oauth_device_codes_expires_at_idx on oauth_device_codes(expires_at);
