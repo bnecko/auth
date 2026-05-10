@@ -69,17 +69,15 @@ export function PasskeyManager({ passkeys }: { passkeys: { id: string, name: str
         ))
       )}
 
-      <Row>
-        <div className="px-4 py-3 border-t border-border mt-2">
-          <button
-            onClick={registerPasskey}
-            disabled={loading}
-            className="text-micro uppercase text-fg hover:text-success transition-colors disabled:text-faint disabled:cursor-not-allowed"
-          >
-            {loading ? "registering..." : "+ add passkey"}
-          </button>
-        </div>
-      </Row>
+      <div className="px-4 py-3 border-t border-border bg-bg/50">
+        <button
+          onClick={registerPasskey}
+          disabled={loading}
+          className="text-micro uppercase tracking-[0.08em] font-medium text-fg hover:text-success transition-colors disabled:text-faint disabled:cursor-not-allowed"
+        >
+          {loading ? "registering..." : "+ add passkey"}
+        </button>
+      </div>
     </>
   );
 }
