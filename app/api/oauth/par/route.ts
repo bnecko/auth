@@ -14,13 +14,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await requestBody(req);
     
-    // Authenticate the client (confidential clients must provide a secret)
     const app = await authenticateClient(req, body);
     if (!app) {
       return NextResponse.json({ error: "invalid_client" }, { status: 401 });
     }
 
-    // Extract authorization parameters
     const scopes = typeof body.scope === "string" ? body.scope.split(" ").filter(Boolean) : [];
     const redirectUri = typeof body.redirect_uri === "string" ? body.redirect_uri : "";
     const state = typeof body.state === "string" ? body.state : null;
@@ -32,13 +30,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_request", error_description: "redirect_uri is required" }, { status: 400 });
     }
 
-    // Validate redirect_uri against app allowlist
     if (!app.allowedRedirectUrls.includes(redirectUri)) {
       return NextResponse.json({ error: "invalid_request", error_description: "redirect_uri not allowed" }, { status: 400 });
     }
 
     const requestUri = generateRequestUri();
-    const expiresIn = 60; // 60 seconds TTL for request_uri
+    const expiresIn = 60;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
     await createPushedRequest({
