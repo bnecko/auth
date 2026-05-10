@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getCurrentSession } from "@/lib/server/session";
 import { revokeSessionById } from "@/lib/server/repositories/sessions";
 import { revokeAuthorization } from "@/lib/server/repositories/authorizations";
-import { revokeAccessTokensForRefreshGrant } from "@/lib/server/repositories/oauth";
+import {
+  revokeAccessTokensForRefreshGrant,
+  revokeRefreshTokensByUserAndApp,
+} from "@/lib/server/repositories/oauth";
 import { findExternalAppBySlug } from "@/lib/server/repositories/externalApps";
 import { cancelSubscription } from "@/lib/server/repositories/subscriptions";
 
@@ -33,6 +36,7 @@ export async function revokeAppAction(formData: FormData) {
 
   await revokeAuthorization(current.user.id, app.id);
   await revokeAccessTokensForRefreshGrant({ appId: app.id, userId: current.user.id });
+  await revokeRefreshTokensByUserAndApp({ appId: app.id, userId: current.user.id });
   revalidatePath("/");
 }
 
