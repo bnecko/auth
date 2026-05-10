@@ -1,8 +1,9 @@
 # OAuth/OIDC Integration
 
 Bottleneck Auth supports OAuth Authorization Code with PKCE and OpenID Connect.
-Access and refresh tokens are opaque server-side tokens. ID tokens are RS256
-JWTs.
+Access tokens are short-lived RS256 JWTs signed with the server OIDC private key
+and stored server-side by hash for revocation. Refresh tokens are opaque random
+strings stored by SHA-256 hash. ID tokens are RS256 JWTs.
 
 Base URL:
 
