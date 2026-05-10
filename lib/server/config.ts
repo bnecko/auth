@@ -51,11 +51,8 @@ export function oidcKeyId() {
   return env("OIDC_KEY_ID") || "default";
 }
 
-// Telegram user id that receives bearer-key approval messages and whose
-// inline button presses can approve or reject them. Defaults to the
-// project owner; override with BEARER_ADMIN_TELEGRAM_ID per deploy.
 export function bearerAdminTelegramId() {
-  return env("BEARER_ADMIN_TELEGRAM_ID") || "BEARER_ADMIN_TG_ID";
+  return env("BEARER_ADMIN_TELEGRAM_ID");
 }
 
 export function telegramBotUsername() {
