@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
+import { CodeTabs } from "./CodeTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -68,13 +69,19 @@ export default async function OAuthDocsPage() {
                   Register a new OAuth client programmatically. This endpoint is strictly rate-limited
                   (5 registrations per hour per IP) to prevent abuse.
                 </p>
-                <Code title="cURL">{`curl -X POST ${baseUrl}/api/oauth/register \\
+                <CodeTabs tabs={[
+                  {
+                    label: "cURL",
+                    code: `curl -X POST ${baseUrl}/api/oauth/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "client_name": "My CLI App",
     "redirect_uris": ["http://localhost:8080/callback"]
-  }'`}</Code>
-                <Code title="Node.js">{`const response = await fetch('${baseUrl}/api/oauth/register', {
+  }'`
+                  },
+                  {
+                    label: "Node.js",
+                    code: `const response = await fetch('${baseUrl}/api/oauth/register', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -83,15 +90,20 @@ export default async function OAuthDocsPage() {
   })
 });
 const client = await response.json();
-console.log(client.client_id, client.client_secret);`}</Code>
-                <Code title="Python">{`import requests
+console.log(client.client_id, client.client_secret);`
+                  },
+                  {
+                    label: "Python",
+                    code: `import requests
 
 res = requests.post('${baseUrl}/api/oauth/register', json={
     "client_name": "My Python App",
     "redirect_uris": ["http://localhost:8080/callback"]
 })
 client = res.json()
-print(client['client_id'], client['client_secret'])`}</Code>
+print(client['client_id'], client['client_secret'])`
+                  }
+                ]} />
               </DocSection>
 
               <DocSection id="par" title="pushed authorization requests (rfc 9126)">
@@ -99,7 +111,10 @@ print(client['client_id'], client['client_secret'])`}</Code>
                   Confidential clients must use PAR to push authorization payloads directly to the server, keeping
                   URLs clean and secure. Send the payload and you will receive a <code>request_uri</code>.
                 </p>
-                <Code title="cURL">{`curl -X POST ${baseUrl}/api/oauth/par \\
+                <CodeTabs tabs={[
+                  {
+                    label: "cURL",
+                    code: `curl -X POST ${baseUrl}/api/oauth/par \\
   -d "client_id=app_xxx" \\
   -d "client_secret=sec_xxx" \\
   -d "response_type=code" \\
@@ -107,7 +122,9 @@ print(client['client_id'], client['client_secret'])`}</Code>
   -d "scope=openid profile email" \\
   -d "state=random_state" \\
   -d "code_challenge=pkce_challenge" \\
-  -d "code_challenge_method=S256"`}</Code>
+  -d "code_challenge_method=S256"`
+                  }
+                ]} />
                 <p>
                   You then redirect the user to <code>{baseUrl}/oauth/authorize?client_id=app_xxx&request_uri=urn:ietf:params:oauth:request_uri:XYZ</code>.
                 </p>
@@ -118,28 +135,44 @@ print(client['client_id'], client['client_secret'])`}</Code>
                   Headless devices (like TVs or CLIs) can initiate a device login. The device displays a user code,
                   and the user approves it on their mobile phone or desktop.
                 </p>
-                <Code title="cURL (Initiation)">{`curl -X POST ${baseUrl}/api/oauth/device/code \\
+                <CodeTabs tabs={[
+                  {
+                    label: "cURL (Initiation)",
+                    code: `curl -X POST ${baseUrl}/api/oauth/device/code \\
   -d "client_id=app_xxx" \\
-  -d "scope=openid profile"`}</Code>
-                <Code title="cURL (Polling)">{`# Poll this endpoint every {interval} seconds until authorized
+  -d "scope=openid profile"`
+                  },
+                  {
+                    label: "cURL (Polling)",
+                    code: `# Poll this endpoint every {interval} seconds until authorized
 curl -X POST ${baseUrl}/api/oauth/token \\
   -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" \\
   -d "client_id=app_xxx" \\
-  -d "device_code=returned_device_code"`}</Code>
+  -d "device_code=returned_device_code"`
+                  }
+                ]} />
               </DocSection>
 
               <DocSection id="authorize" title="standard authorize">
                 <p>
                   If not using PAR or Device Grant, standard authorization requires PKCE. Redirect the user's browser:
                 </p>
-                <Code title="Browser">{`${baseUrl}/oauth/authorize?response_type=code&client_id=app_xxx&redirect_uri=https%3A%2F%2Fyourapp.example%2Foauth%2Fcallback&scope=openid%20profile%20email&state=random_state&code_challenge=pkce_challenge&code_challenge_method=S256`}</Code>
+                <CodeTabs tabs={[
+                  {
+                    label: "Browser",
+                    code: `${baseUrl}/oauth/authorize?response_type=code&client_id=app_xxx&redirect_uri=https%3A%2F%2Fyourapp.example%2Foauth%2Fcallback&scope=openid%20profile%20email&state=random_state&code_challenge=pkce_challenge&code_challenge_method=S256`
+                  }
+                ]} />
               </DocSection>
 
               <DocSection id="token" title="token exchange">
                 <p>
                   Exchange the returned authorization code for access and refresh tokens.
                 </p>
-                <Code title="Node.js">{`const response = await fetch('${baseUrl}/api/oauth/token', {
+                <CodeTabs tabs={[
+                  {
+                    label: "Node.js",
+                    code: `const response = await fetch('${baseUrl}/api/oauth/token', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({
@@ -151,14 +184,19 @@ curl -X POST ${baseUrl}/api/oauth/token \\
     code_verifier: 'pkce_verifier'
   })
 });
-const tokens = await response.json();`}</Code>
+const tokens = await response.json();`
+                  }
+                ]} />
               </DocSection>
 
               <DocSection id="refresh" title="refresh">
                 <p>
                   Refresh tokens automatically rotate on use. Always store the new refresh token returned.
                 </p>
-                <Code title="Python">{`import requests
+                <CodeTabs tabs={[
+                  {
+                    label: "Python",
+                    code: `import requests
 
 res = requests.post('${baseUrl}/api/oauth/token', data={
     "grant_type": "refresh_token",
@@ -166,7 +204,9 @@ res = requests.post('${baseUrl}/api/oauth/token', data={
     "client_secret": "sec_xxx",
     "refresh_token": "stored_refresh_token"
 })
-tokens = res.json()`}</Code>
+tokens = res.json()`
+                  }
+                ]} />
               </DocSection>
 
               <DocSection id="endpoints" title="endpoints">
@@ -213,13 +253,13 @@ tokens = res.json()`}</Code>
                   ["#endpoints", "endpoints"],
                   ["#scopes", "scopes"],
                 ].map(([href, label]) => (
-                  <a
-                    key={href}
-                    href={href}
-                    className="block px-2 h-7 leading-7 rounded-sm text-secondary hover:text-fg hover:bg-hover transition-colors"
-                  >
-                    {label}
-                  </a>
+                    <a
+                      key={href}
+                      href={href}
+                      className="block px-2 py-1 leading-snug rounded-sm text-secondary hover:text-fg hover:bg-hover transition-colors"
+                    >
+                      {label}
+                    </a>
                 ))}
               </nav>
             </aside>
@@ -251,17 +291,4 @@ function DocSection({
   );
 }
 
-function Code({ title, children }: { title?: string; children: string }) {
-  return (
-    <div className="rounded-sm border border-border bg-bg overflow-hidden">
-      {title && (
-        <div className="px-3 py-1.5 border-b border-border bg-surface text-micro uppercase text-faint font-medium">
-          {title}
-        </div>
-      )}
-      <pre className="overflow-x-auto px-3 py-3 text-[12px] leading-5 text-fg">
-        <code>{children}</code>
-      </pre>
-    </div>
-  );
-}
+
