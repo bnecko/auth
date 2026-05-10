@@ -38,6 +38,7 @@ export type ExternalApp = {
   publicId: string;
   name: string;
   slug: string;
+  ownerUserId: number | null;
   callbackUrl: string | null;
   allowedRedirectUrls: string[];
   requiredProduct: string | null;

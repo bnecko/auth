@@ -7,6 +7,7 @@ type ExternalAppRow = {
   public_id: string;
   name: string;
   slug: string;
+  owner_user_id: string | null;
   callback_url: string | null;
   allowed_redirect_urls: string[];
   required_product: string | null;
@@ -19,6 +20,7 @@ function mapExternalApp(row: ExternalAppRow): ExternalApp {
     publicId: row.public_id,
     name: row.name,
     slug: row.slug,
+    ownerUserId: row.owner_user_id ? Number(row.owner_user_id) : null,
     callbackUrl: row.callback_url,
     allowedRedirectUrls: row.allowed_redirect_urls || [],
     requiredProduct: row.required_product,
@@ -33,6 +35,7 @@ export async function findExternalAppByApiKey(apiKey: string) {
        public_id,
        name,
        slug,
+       owner_user_id,
        callback_url,
        allowed_redirect_urls,
        required_product,
@@ -51,6 +54,7 @@ export async function findExternalAppByClientId(clientId: string) {
        public_id,
        name,
        slug,
+       owner_user_id,
        callback_url,
        allowed_redirect_urls,
        required_product,
@@ -69,6 +73,7 @@ export async function findExternalAppBySlug(slug: string) {
        public_id,
        name,
        slug,
+       owner_user_id,
        callback_url,
        allowed_redirect_urls,
        required_product,
@@ -90,6 +95,7 @@ export async function verifyExternalAppClientSecret(
        public_id,
        name,
        slug,
+       owner_user_id,
        callback_url,
        allowed_redirect_urls,
        required_product,
@@ -123,6 +129,7 @@ export async function createExternalApp(input: {
        public_id,
        name,
        slug,
+       owner_user_id,
        callback_url,
        allowed_redirect_urls,
        required_product,
@@ -146,8 +153,10 @@ export async function findExternalAppById(id: number) {
     `select
        id,
        public_id,
+       public_id,
        name,
        slug,
+       owner_user_id,
        callback_url,
        allowed_redirect_urls,
        required_product,

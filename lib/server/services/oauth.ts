@@ -474,7 +474,17 @@ async function issueTokenPair(input: {
   scopes: string[];
   nonce: string | null;
 }) {
-  const accessToken = randomToken(48);
+  const now = Math.floor(Date.now() / 1000);
+  const accessToken = signJwt({
+    iss: authBaseUrl(),
+    sub: input.user.publicId,
+    aud: input.app.publicId,
+    client_id: input.app.publicId,
+    jti: randomToken(16),
+    iat: now,
+    exp: now + ACCESS_TOKEN_TTL_SECONDS,
+    scope: input.scopes.join(" "),
+  });
   const refreshToken = randomToken(48);
 
   await createAccessToken({
@@ -589,7 +599,17 @@ export async function exchangeOAuthToken(
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
     });
 
-    const accessToken = randomToken(48);
+    const now = Math.floor(Date.now() / 1000);
+    const accessToken = signJwt({
+      iss: authBaseUrl(),
+      sub: user.publicId,
+      aud: app.publicId,
+      client_id: app.publicId,
+      jti: randomToken(16),
+      iat: now,
+      exp: now + ACCESS_TOKEN_TTL_SECONDS,
+      scope: previous.scopes.join(" "),
+    });
     await createAccessToken({
       token: accessToken,
       appId: previous.appId,
@@ -616,6 +636,52 @@ export async function exchangeOAuthToken(
     }
 
     return response;
+  }
+
+  if (grantType === "client_credentials") {
+    const basic = clientCredentialsFromBasic(req);
+    const clientSecret = basic?.clientSecret || stringParam(body.client_secret as string);
+    if (!clientSecret) {
+      throw new OAuthError("invalid_client", "client_secret is required for client_credentials grant", 401);
+    }
+
+    if (!app.ownerUserId) {
+      throw new OAuthError("invalid_client", "client has no owner");
+    }
+    const user = await findUserById(app.ownerUserId);
+    if (!user || user.status === "banned") {
+      throw new OAuthError("invalid_client", "client owner is not active");
+    }
+
+    const requestedScope = stringParam(body.scope as string);
+    const scopes = requestedScope ? parseOAuthScopes(requestedScope) : [];
+
+    const now = Math.floor(Date.now() / 1000);
+    const accessToken = signJwt({
+      iss: authBaseUrl(),
+      sub: user.publicId,
+      aud: app.publicId,
+      client_id: app.publicId,
+      jti: randomToken(16),
+      iat: now,
+      exp: now + ACCESS_TOKEN_TTL_SECONDS,
+      scope: scopes.join(" "),
+    });
+
+    await createAccessToken({
+      token: accessToken,
+      appId: app.id,
+      userId: user.id,
+      scopes,
+      expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
+    });
+
+    return {
+      access_token: accessToken,
+      token_type: "Bearer",
+      expires_in: ACCESS_TOKEN_TTL_SECONDS,
+      scope: scopes.join(" "),
+    };
   }
 
   throw new OAuthError("unsupported_grant_type", "grant_type is unsupported");
@@ -710,7 +776,7 @@ export function oauthServerMetadata() {
     revocation_endpoint: `${issuer}/api/oauth/revoke`,
     jwks_uri: `${issuer}/oauth/jwks`,
     response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code", "refresh_token"],
+    grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"],
     token_endpoint_auth_methods_supported: [
       "client_secret_basic",
       "client_secret_post",

@@ -55,6 +55,7 @@ type AccessTokenWithUserRow = TokenRow & {
   app_public_id: string;
   app_name: string;
   app_slug: string;
+  app_owner_user_id: string | null;
   app_callback_url: string | null;
   app_allowed_redirect_urls: string[];
   app_required_product: string | null;
@@ -297,6 +298,7 @@ export async function findAccessToken(token: string) {
        ea.public_id as app_public_id,
        ea.name as app_name,
        ea.slug as app_slug,
+       ea.owner_user_id as app_owner_user_id,
        ea.callback_url as app_callback_url,
        ea.allowed_redirect_urls as app_allowed_redirect_urls,
        ea.required_product as app_required_product,
@@ -334,6 +336,7 @@ export async function findAccessToken(token: string) {
       publicId: row.app_public_id,
       name: row.app_name,
       slug: row.app_slug,
+      ownerUserId: row.app_owner_user_id ? Number(row.app_owner_user_id) : null,
       callbackUrl: row.app_callback_url,
       allowedRedirectUrls: row.app_allowed_redirect_urls || [],
       requiredProduct: row.app_required_product,
