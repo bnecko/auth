@@ -118,10 +118,7 @@ export default async function DashboardPage() {
                   ? `@${account.telegramUsername}`
                   : account.telegramId || "not linked"}
               </RowValue>
-              <a
-                href="/api/telegram/callback"
-                className="text-meta text-secondary hover:text-fg transition-colors"
-              >
+              <a href="/relink" className="text-meta text-secondary hover:text-fg transition-colors">
                 relink
               </a>
             </Row>
@@ -227,10 +224,7 @@ export default async function DashboardPage() {
                   ? `enabled ${shortDate(account.telegramVerifiedAt)}`
                   : "not linked"}
               </RowValue>
-              <a
-                href="/api/telegram/callback"
-                className="text-meta text-secondary hover:text-fg transition-colors"
-              >
+              <a href="/relink" className="text-meta text-secondary hover:text-fg transition-colors">
                 relink
               </a>
             </Row>
