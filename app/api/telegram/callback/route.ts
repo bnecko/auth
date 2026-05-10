@@ -2,14 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifyTelegramLogin } from "@/lib/server/telegram";
 import { findUserByTelegramId, linkTelegram } from "@/lib/server/repositories/users";
 import { createUserSession, getSessionFromRequest } from "@/lib/server/session";
+import { authBaseUrl } from "@/lib/server/config";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const payload = Object.fromEntries(req.nextUrl.searchParams.entries());
+  const base = authBaseUrl();
   const telegram = verifyTelegramLogin(payload);
   if (!telegram) {
-    return NextResponse.redirect(new URL("/login?error=telegram", req.url));
+    return NextResponse.redirect(new URL("/login?error=telegram", base));
   }
 
   const current = await getSessionFromRequest(req);
@@ -20,7 +22,7 @@ export async function GET(req: NextRequest) {
     // attacker's signed Telegram payload would otherwise rebind the victim
     // account to the attacker's TG identity on a cross-site GET.
     const linked = await linkTelegram(current.user.id, telegram);
-    const url = new URL("/", req.url);
+    const url = new URL("/", base);
     if (!linked) {
       url.searchParams.set("error", "telegram_link_failed");
     }
@@ -29,10 +31,10 @@ export async function GET(req: NextRequest) {
 
   const user = await findUserByTelegramId(telegram.id);
   if (!user) {
-    return NextResponse.redirect(new URL("/register?error=telegram_unlinked", req.url));
+    return NextResponse.redirect(new URL("/register?error=telegram_unlinked", base));
   }
 
-  const res = NextResponse.redirect(new URL("/", req.url));
+  const res = NextResponse.redirect(new URL("/", base));
   await createUserSession(user.id, req, res);
   return res;
 }
