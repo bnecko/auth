@@ -89,3 +89,7 @@ export function unauthorized(message = "unauthorized") {
 export function forbidden(message = "forbidden") {
   return json({ error: message }, 403);
 }
+
+export function tooManyRequests(message = "too many requests") {
+  return json({ error: message }, 429);
+}
