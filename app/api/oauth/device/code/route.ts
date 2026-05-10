@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
 
     const body = await requestBody(req);
     
-    // Authenticate the client
     const app = await authenticateClient(req, body);
     if (!app) {
       return NextResponse.json({ error: "invalid_client" }, { status: 401 });

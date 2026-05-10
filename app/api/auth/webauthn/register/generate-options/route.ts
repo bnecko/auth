@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Store the challenge in redis for 5 minutes
     await redis.setex(`webauthn:challenge:${session.user.id}`, 300, options.challenge);
 
     return NextResponse.json(options);

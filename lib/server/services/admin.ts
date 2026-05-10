@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requestContext } from "../http";
+import { requestContext, requestContextFromHeaders, type RequestContext } from "../http";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { revokeSessionsForUser } from "../repositories/sessions";
 import { setUserStatus } from "../repositories/users";
@@ -15,7 +15,7 @@ export async function setAccountStatus(
   targetUserId: number,
   status: UserStatus,
   admin: User,
-  req: NextRequest,
+  context: RequestContext,
 ) {
   requireAdmin(admin);
 
@@ -28,7 +28,17 @@ export async function setAccountStatus(
     userId: targetUserId,
     eventType: status === "banned" ? "account_banned" : "account_status_changed",
     result: status,
-    context: requestContext(req),
+    context,
     metadata: { adminId: admin.publicId },
   });
+}
+
+// Convenience wrapper for route handlers that have a NextRequest.
+export async function setAccountStatusFromRequest(
+  targetUserId: number,
+  status: UserStatus,
+  admin: User,
+  req: NextRequest,
+) {
+  return setAccountStatus(targetUserId, status, admin, requestContext(req));
 }

@@ -375,6 +375,58 @@ export async function revokeAccessTokensForRefreshGrant(input: {
   );
 }
 
+export async function revokeRefreshTokensByUserAndApp(input: {
+  appId: number;
+  userId: number;
+}) {
+  await query(
+    `update oauth_refresh_tokens
+        set revoked_at = now()
+      where external_app_id = $1
+        and user_id = $2
+        and revoked_at is null`,
+    [input.appId, input.userId],
+  );
+}
+
+// Returns the app/user context for a refresh token that was rotated out
+// (replaced_by_hash is set). Used to detect replay attacks: presenting a
+// previously-rotated token means the grant family is poisoned and every
+// active token for that (app, user) must be revoked.
+export async function findRotatedRefreshTokenContext(token: string) {
+  const row = await queryOne<{ external_app_id: string; user_id: string }>(
+    `select external_app_id, user_id
+       from oauth_refresh_tokens
+      where token_hash = $1
+        and revoked_at is not null
+        and replaced_by_hash is not null`,
+    [hashToken(token)],
+  );
+  if (!row) return null;
+  return {
+    appId: Number(row.external_app_id),
+    userId: Number(row.user_id),
+  };
+}
+
+export async function revokeAllTokensForUserAndApp(input: {
+  appId: number;
+  userId: number;
+}) {
+  await query(
+    `update oauth_access_tokens
+        set revoked_at = now()
+      where external_app_id = $1 and user_id = $2 and revoked_at is null`,
+    [input.appId, input.userId],
+  );
+  await query(
+    `update oauth_refresh_tokens
+        set revoked_at = now()
+      where external_app_id = $1 and user_id = $2 and revoked_at is null`,
+    [input.appId, input.userId],
+  );
+}
+
 export async function revokeAccessToken(token: string, appId: number) {
   await query(
     `update oauth_access_tokens

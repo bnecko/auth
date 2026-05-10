@@ -26,9 +26,14 @@ import {
   revokeRefreshToken,
   rotateRefreshToken,
   findPushedRequest,
+  findRotatedRefreshTokenContext,
+  revokeAllTokensForUserAndApp,
 } from "../repositories/oauth";
 import { recordSecurityEvent } from "../repositories/securityEvents";
-import { hasActiveSubscription } from "../repositories/subscriptions";
+import {
+  hasActiveSubscription,
+  listSubscriptionsForUser,
+} from "../repositories/subscriptions";
 import { findUserById } from "../repositories/users";
 import type { ExternalApp, User } from "../types";
 
@@ -240,7 +245,6 @@ export async function getOAuthAuthorizeView(
       throw new OAuthError("invalid_request", "invalid or expired request_uri");
     }
     
-    // We need the client_id to pass to resolveAuthorizeView
     const app = await findExternalAppById(pushedReq.appId);
     if (!app) throw new OAuthError("invalid_client", "client not found");
 
@@ -610,6 +614,12 @@ export async function exchangeOAuthToken(
     const replacement = randomToken(48);
     const previous = await rotateRefreshToken(refreshToken, replacement, app.id);
     if (!previous) {
+      // A rotated token being presented again means the previous holder still
+      // has it. Revoke everything for this (app, user) pair to limit damage.
+      const reuse = await findRotatedRefreshTokenContext(refreshToken);
+      if (reuse) {
+        await revokeAllTokensForUserAndApp(reuse);
+      }
       throw new OAuthError("invalid_grant", "refresh_token is invalid");
     }
 
@@ -703,7 +713,8 @@ export async function exchangeOAuthToken(
       throw new OAuthError("invalid_grant", "user is not active");
     }
 
-    // Mark as consumed by changing status to expired (so it can't be used again to get a token)
+    // Device codes have no 'consumed' status; 'expired' is the closest terminal
+    // state and prevents any replay of an already-approved code.
     await query(
       `update oauth_device_codes set status = 'expired' where id = $1`,
       [deviceCode.id]
@@ -771,28 +782,36 @@ export async function oauthUserInfo(accessToken: string) {
   const scopes = grant.scopes;
   const user = grant.user;
 
-  return {
+  const result: Record<string, unknown> = {
     sub: user.publicId,
     id: user.publicId,
-    username: hasScope(scopes, "profile", "profile:read")
-      ? user.username
-      : undefined,
-    preferred_username: hasScope(scopes, "profile", "profile:read")
-      ? user.username
-      : undefined,
-    name: hasScope(scopes, "profile", "profile:read")
-      ? user.firstName
-      : undefined,
-    firstName: hasScope(scopes, "profile", "profile:read")
-      ? user.firstName
-      : undefined,
-    bio: hasScope(scopes, "profile", "profile:read") ? user.bio : undefined,
-    email: hasScope(scopes, "email", "email:read") ? user.email : undefined,
-    email_verified: hasScope(scopes, "email", "email:read")
-      ? Boolean(user.emailVerifiedAt)
-      : undefined,
-    birthdate: hasScope(scopes, "birthdate", "dob:read") ? user.dob : undefined,
   };
+
+  if (hasScope(scopes, "profile", "profile:read")) {
+    result.username = user.username;
+    result.preferred_username = user.username;
+    result.name = user.firstName;
+    result.firstName = user.firstName;
+    result.bio = user.bio;
+  }
+
+  if (hasScope(scopes, "email", "email:read")) {
+    result.email = user.email;
+    result.email_verified = Boolean(user.emailVerifiedAt);
+  }
+
+  if (hasScope(scopes, "birthdate", "dob:read")) {
+    result.birthdate = user.dob;
+  }
+
+  if (hasScope(scopes, "subscription:read", "subscription:read")) {
+    const subs = await listSubscriptionsForUser(user.id);
+    result.subscriptions = subs
+      .filter(s => s.status === "active" || s.status === "trial")
+      .map(s => ({ product: s.product, status: s.status, expiresAt: s.expiresAt }));
+  }
+
+  return result;
 }
 
 export async function introspectOAuthToken(
@@ -851,7 +870,15 @@ export function oauthServerMetadata() {
     revocation_endpoint: `${issuer}/api/oauth/revoke`,
     jwks_uri: `${issuer}/oauth/jwks`,
     response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"],
+    device_authorization_endpoint: `${issuer}/api/oauth/device/code`,
+    pushed_authorization_request_endpoint: `${issuer}/api/oauth/par`,
+    registration_endpoint: `${issuer}/api/oauth/register`,
+    grant_types_supported: [
+      "authorization_code",
+      "refresh_token",
+      "client_credentials",
+      "urn:ietf:params:oauth:grant-type:device_code",
+    ],
     token_endpoint_auth_methods_supported: [
       "client_secret_basic",
       "client_secret_post",

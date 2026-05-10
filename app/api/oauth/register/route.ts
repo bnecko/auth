@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";
     
-    // STRICT RATE LIMITING: max 5 registrations per hour per IP
     const rl = await rateLimit(`rl:oauth:register:ip:${ip}`, 5, 3600000);
     if (!rl.success) {
       return NextResponse.json({ error: "slow_down", error_description: "too many registrations from this IP" }, { status: 429 });
@@ -38,7 +37,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "redirect_uris must contain at least one valid URI" }, { status: 400 });
     }
 
-    // Validate URIs
     for (const uri of redirectUris) {
       try {
         const parsed = new URL(uri);
