@@ -32,15 +32,23 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
 
   return (
     <div className="rounded-sm border border-border bg-bg overflow-hidden">
-      <div className="flex bg-surface border-b border-border overflow-x-auto">
+      <style>{`
+        .hide-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      <div 
+        className="flex bg-surface border-b border-border overflow-x-auto overflow-y-hidden hide-scroll"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         {tabs.map((tab, idx) => (
           <button
             key={tab.label}
             onClick={() => setActive(idx)}
             className={`px-4 py-2.5 text-micro uppercase tracking-[0.05em] font-medium transition-colors whitespace-nowrap focus:outline-none focus-visible:bg-hover ${
               active === idx
-                ? "text-fg border-b-2 border-fg -mb-px"
-                : "text-faint hover:text-secondary hover:bg-hover/50"
+                ? "text-fg border-b-2 border-fg"
+                : "text-faint hover:text-secondary hover:bg-hover/50 border-b-2 border-transparent"
             }`}
           >
             {tab.label}
@@ -48,11 +56,12 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
         ))}
       </div>
       <pre 
-        className="overflow-x-auto px-4 py-4 text-[13px] leading-6 bg-[#2d2d2d]" 
-        style={{ margin: 0, borderRadius: 0, textShadow: "none" }}
+        className="overflow-x-auto px-4 py-4 text-[13px] leading-6" 
+        style={{ margin: 0, borderRadius: 0, textShadow: "none", background: "#070707" }}
       >
         <code 
           className={`language-${lang}`} 
+          style={{ background: "transparent", textShadow: "none" }}
           dangerouslySetInnerHTML={{ __html: highlightedCode }} 
         />
       </pre>
