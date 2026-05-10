@@ -14,7 +14,6 @@ export async function updateAppAction(formData: FormData) {
   const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
   if (!appId) throw new Error("Invalid app ID");
 
-  // Verify ownership
   const app = await queryOne<{ slug: string }>(
     `select slug from external_apps where id = $1 and owner_user_id = $2`,
     [appId, current.user.id]
@@ -32,9 +31,6 @@ export async function updateAppAction(formData: FormData) {
       `update external_apps set api_key_hash = $1, updated_at = now() where id = $2`,
       [hashToken(newSecret), appId]
     );
-    // In a real app we'd somehow show the new secret to the user, perhaps by redirecting to a success page
-    // but for simplicity, we'll just rotate it. 
-    // Usually you'd flash the new secret so they can copy it.
     revalidatePath(`/developers/apps/${app.slug}`);
     return;
   }

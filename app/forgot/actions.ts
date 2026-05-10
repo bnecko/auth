@@ -35,11 +35,9 @@ export async function requestPasswordReset(formData: FormData) {
     return { error: "No Telegram account linked. Please contact support manually." };
   }
 
-  // Create reset token
   const token = randomToken(32);
   const key = `password_reset:${token}`;
   
-  // Store user ID with 15 minute expiry
   await redis.setex(key, 15 * 60, user.id.toString());
 
   const resetLink = `${authBaseUrl()}/forgot/reset?token=${token}`;

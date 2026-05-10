@@ -15,7 +15,6 @@ export default async function DeveloperAppsPage() {
     redirect("/login?next=/developers/apps");
   }
 
-  // Fetch apps owned by this user
   const apps = await query<{
     name: string;
     slug: string;

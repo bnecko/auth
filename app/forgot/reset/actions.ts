@@ -30,7 +30,6 @@ export async function resetPasswordAction(formData: FormData) {
   const passwordHash = await hashPassword(password);
   await updateUserPassword(userId, passwordHash);
 
-  // Consume token
   await redis.del(key);
 
   await recordSecurityEvent({
