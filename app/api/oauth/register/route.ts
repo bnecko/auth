@@ -1,19 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requestBody, badRequest, requestContext } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
-import { queryOne } from "@/lib/server/db";
-import { hashToken, randomToken, safeEqual } from "@/lib/server/crypto";
+import { randomToken, safeEqual } from "@/lib/server/crypto";
 import { oauthDynamicRegistrationToken } from "@/lib/server/config";
-import { parseOAuthScopes } from "@/lib/server/services/oauth";
+import { OAuthError, parseOAuthScopes } from "@/lib/server/services/oauth";
+import { createOAuthClientRegistrationRequest } from "@/lib/server/repositories/oauthClientRegistrations";
+import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export const runtime = "nodejs";
 
 function generateClientId() {
   return `app_${randomToken(16)}`;
-}
-
-function generateClientSecret() {
-  return `sec_${randomToken(32)}`;
 }
 
 const supportedGrants = new Set([
@@ -22,6 +19,13 @@ const supportedGrants = new Set([
   "client_credentials",
   "urn:ietf:params:oauth:grant-type:device_code",
 ]);
+const supportedAuthMethods = [
+  "client_secret_basic",
+  "client_secret_post",
+  "none",
+] as const;
+
+type TokenEndpointAuthMethod = (typeof supportedAuthMethods)[number];
 
 function requestedStringArray(value: unknown) {
   return Array.isArray(value)
@@ -38,15 +42,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "access_denied", error_description: "dynamic client registration is restricted" }, { status: 403 });
     }
 
-    const ip = requestContext(req).ip || "unknown";
-    
+    const context = requestContext(req);
+    const ip = context.ip || "unknown";
+
     const rl = await rateLimit(`rl:oauth:register:ip:${ip}`, 5, 3600000);
     if (!rl.success) {
       return NextResponse.json({ error: "slow_down", error_description: "too many registrations from this IP" }, { status: 429 });
     }
 
     const body = await requestBody(req);
-    
+
     const clientName = typeof body.client_name === "string" ? body.client_name.trim() : null;
     const redirectUris = requestedStringArray(body.redirect_uris);
     const grantTypes = requestedStringArray(body.grant_types);
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
         : "client_secret_post";
     const clientType = tokenEndpointAuthMethod === "none" ? "public" : "confidential";
     const scopes = parseOAuthScopes(typeof body.scope === "string" ? body.scope : "openid profile email");
-    
+
     if (!clientName) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "client_name is required" }, { status: 400 });
     }
@@ -74,9 +79,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: `unsupported grant_type: ${unknownGrant}` }, { status: 400 });
     }
 
-    if (!["client_secret_basic", "client_secret_post", "none"].includes(tokenEndpointAuthMethod)) {
+    if (!supportedAuthMethods.includes(tokenEndpointAuthMethod as TokenEndpointAuthMethod)) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "unsupported token_endpoint_auth_method" }, { status: 400 });
     }
+    const supportedTokenEndpointAuthMethod = tokenEndpointAuthMethod as TokenEndpointAuthMethod;
 
     if (clientType === "public" && allowedGrantTypes.includes("client_credentials")) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "public clients cannot use client_credentials" }, { status: 400 });
@@ -94,43 +100,34 @@ export async function POST(req: NextRequest) {
     }
 
     const clientId = generateClientId();
-    const clientSecret = clientType === "confidential" ? generateClientSecret() : null;
-    const apiKey = clientSecret || generateClientSecret();
-    const slug = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + randomToken(4);
+    const registrationAccessToken = `reg_${randomToken(32)}`;
+    const request = await createOAuthClientRegistrationRequest({
+      publicId: clientId,
+      registrationToken: registrationAccessToken,
+      clientName,
+      redirectUris,
+      grantTypes: allowedGrantTypes,
+      scopes,
+      tokenEndpointAuthMethod: supportedTokenEndpointAuthMethod,
+      clientType,
+      requesterIp: context.ip,
+      requesterUserAgent: context.userAgent,
+      requesterCountry: context.country,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
 
-    const row = await queryOne<{ id: string }>(
-      `insert into external_apps (
-        public_id,
-        name,
-        slug,
-        api_key_hash,
-        oauth_client_secret_hash,
-        allowed_redirect_urls,
-        client_type,
-        token_endpoint_auth_method,
-        allowed_grant_types,
-        allowed_scopes,
-        issue_refresh_tokens,
-        status
-      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'active') returning id`,
-      [
+    await recordSecurityEvent({
+      eventType: "oauth_client_registration",
+      result: "pending_review",
+      context,
+      metadata: {
+        requestId: request.publicId,
         clientId,
         clientName,
-        slug,
-        hashToken(apiKey),
-        clientSecret ? hashToken(clientSecret) : null,
-        redirectUris,
-        clientType,
-        tokenEndpointAuthMethod,
-        allowedGrantTypes,
+        grantTypes: allowedGrantTypes,
         scopes,
-        allowedGrantTypes.includes("refresh_token"),
-      ]
-    );
-
-    if (!row) {
-      throw new Error("Failed to insert client");
-    }
+      },
+    });
 
     return NextResponse.json({
       client_id: clientId,
@@ -139,18 +136,23 @@ export async function POST(req: NextRequest) {
       redirect_uris: redirectUris,
       grant_types: allowedGrantTypes,
       response_types: ["code"],
-      token_endpoint_auth_method: tokenEndpointAuthMethod,
+      token_endpoint_auth_method: supportedTokenEndpointAuthMethod,
       scope: scopes.join(" "),
-      ...(clientSecret ? { client_secret: clientSecret } : {}),
+      registration_client_uri: `${req.nextUrl.origin}/api/oauth/register/${clientId}`,
+      registration_access_token: registrationAccessToken,
+      registration_status: "pending_review",
     }, {
-      status: 201,
+      status: 202,
       headers: {
         "Cache-Control": "no-store",
         Pragma: "no-cache"
       }
     });
 
-  } catch (err: any) {
+  } catch (err) {
+    if (err instanceof OAuthError) {
+      return NextResponse.json({ error: err.code, error_description: err.message }, { status: err.status });
+    }
     return badRequest("Client registration failed");
   }
 }

@@ -40,11 +40,19 @@ Authorization: Bearer <registration-token>
 ```
 
 Untrusted public registration is disabled when the token is not configured.
+Accepted requests are queued for admin review. The response is `202` with
+`registration_client_uri`, `registration_access_token`, and
+`registration_status=pending_review`. Poll the registration URI with the
+registration access token. Once an admin approves the request, the response
+returns the client metadata and reveals `client_secret` once for confidential
+clients.
 
 OIDC requires:
 
 - `OIDC_PRIVATE_KEY_PEM`: RSA private key in PEM format
 - `OIDC_KEY_ID`: key id published in JWKS
+- `OIDC_SIGNING_KEYS_JSON`: optional key set for rotation. Entries use `kid`,
+  `privateKeyPem`, and `status` of `active`, `retired`, or `revoked`.
 
 ## Authorization Request
 
@@ -156,7 +164,9 @@ Response fields depend on granted scopes:
 GET /oauth/jwks
 ```
 
-The JWKS response publishes the RSA public key for ID token verification.
+The JWKS response publishes active and retired RSA public keys for token
+verification. Revoked keys are removed from JWKS immediately; remove a key or
+mark it `revoked` in `OIDC_SIGNING_KEYS_JSON` for emergency revocation.
 
 ## Introspection
 

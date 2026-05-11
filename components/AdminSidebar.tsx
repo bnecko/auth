@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { href: "/admin", label: "overview" },
   { href: "/admin/users", label: "users" },
+  { href: "/admin/oauth-clients", label: "oauth clients" },
   { href: "/admin/activation-requests", label: "activation requests" },
   { href: "/admin/bans", label: "bans" },
   { href: "/admin/security", label: "security events" },

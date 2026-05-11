@@ -20,7 +20,9 @@ Service: http://app:3000
 ```
 
 The schema is loaded from `db/schema.sql` on first Postgres startup. Existing
-databases are migrated at app startup from `db/migrations`.
+databases are migrated at app startup from `db/migrations`. New installs also
+run an idempotent initial migration, so CI and app startup can exercise the
+migration path on an empty database.
 
 ## Resource profile
 
@@ -49,6 +51,8 @@ External apps create activation requests with a bearer API key stored as a SHA-2
 External apps can also use OAuth/OIDC Authorization Code + PKCE. The OAuth
 `client_id` is `external_apps.public_id`; OAuth client secrets are stored
 separately from bearer API keys.
+Dynamic client registration requires `OAUTH_DYNAMIC_REGISTRATION_TOKEN` and
+admin approval before the client becomes active.
 
 ## Documentation
 

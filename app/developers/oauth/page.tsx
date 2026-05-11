@@ -60,9 +60,10 @@ export default async function OAuthDocsPage() {
 
               <DocSection id="dcr" title="dynamic client registration (rfc 7591)">
                 <p>
-                  Register a client programmatically with a registration bearer token. The{" "}
-                  <code>client_id</code> and <code>client_secret</code> in the response are your
-                  long-term OAuth credentials. Store <code>client_secret</code> securely.
+                  Register a client programmatically with a registration bearer token. New
+                  clients enter admin review first. Poll the returned registration URI with the
+                  registration access token; approved confidential clients reveal{" "}
+                  <code>client_secret</code> once.
                 </p>
                 <CodeTabs tabs={[
                   {
@@ -91,7 +92,11 @@ export default async function OAuthDocsPage() {
     grant_types: ['authorization_code', 'refresh_token'],
   })
 });
-const { client_id, client_secret } = await res.json();`
+const pending = await res.json();
+const approved = await fetch(pending.registration_client_uri, {
+  headers: { Authorization: \`Bearer \${pending.registration_access_token}\` },
+});
+const { client_id, client_secret } = await approved.json();`
                   },
                   {
                     label: "Python",
@@ -105,8 +110,11 @@ res = requests.post('${base}/api/oauth/register', headers={
   'grant_types': ['authorization_code', 'refresh_token'],
 })
 data = res.json()
-client_id = data['client_id']
-client_secret = data['client_secret']`
+approved = requests.get(data['registration_client_uri'], headers={
+  'Authorization': f"Bearer {data['registration_access_token']}",
+})
+client_id = approved.json()['client_id']
+client_secret = approved.json().get('client_secret')`
                   }
                 ]} />
               </DocSection>
@@ -462,8 +470,8 @@ tokens = res.json()
               <DocSection id="jwks" title="jwks and id token verification">
                 <p>
                   Access tokens and ID tokens are RS256-signed JWTs. The public signing keys are
-                  available at the JWKS endpoint. Use any standard JWT library to verify signatures
-                  locally without calling the server.
+                  available at the JWKS endpoint. Active and retired keys are published; revoked
+                  keys are removed for emergency key revocation.
                 </p>
                 <CodeTabs tabs={[
                   {
