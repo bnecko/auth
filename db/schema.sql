@@ -41,13 +41,31 @@ create table external_apps (
   slug text not null unique,
   owner_user_id bigint references users(id) on delete set null,
   api_key_hash text not null unique,
+  oauth_client_secret_hash text,
   callback_url text,
   allowed_redirect_urls text[] not null default '{}',
+  client_type text not null default 'confidential' check (client_type in ('public', 'confidential')),
+  token_endpoint_auth_method text not null default 'client_secret_post'
+    check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'none')),
+  allowed_grant_types text[] not null default array['authorization_code', 'refresh_token'],
+  allowed_scopes text[] not null default array['openid', 'profile', 'email', 'profile:read', 'email:read'],
+  issue_refresh_tokens boolean not null default true,
   required_product text,
   status text not null default 'active' check (status in ('active', 'disabled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table external_app_oauth_secrets (
+  id bigserial primary key,
+  external_app_id bigint not null references external_apps(id) on delete cascade,
+  secret_hash text not null unique,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz,
+  revoked_at timestamptz
+);
+
+create index external_app_oauth_secrets_app_idx on external_app_oauth_secrets(external_app_id);
 
 create table activation_requests (
   id bigserial primary key,
@@ -205,7 +223,9 @@ create table oauth_access_tokens (
   id bigserial primary key,
   token_hash text not null unique,
   external_app_id bigint not null references external_apps(id) on delete cascade,
-  user_id bigint not null references users(id) on delete cascade,
+  user_id bigint references users(id) on delete cascade,
+  subject text not null,
+  token_kind text not null default 'user' check (token_kind in ('user', 'client')),
   scopes text[] not null default '{}',
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
@@ -288,9 +308,12 @@ create table oauth_device_codes (
   external_app_id bigint not null references external_apps(id) on delete cascade,
   user_id bigint references users(id) on delete cascade,
   scopes text[] not null default '{}',
-  status text not null default 'pending' check (status in ('pending', 'approved', 'denied', 'expired')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'denied', 'expired', 'consumed')),
+  poll_interval_seconds integer not null default 5,
+  last_polled_at timestamptz,
   created_at timestamptz not null default now(),
-  expires_at timestamptz not null
+  expires_at timestamptz not null,
+  consumed_at timestamptz
 );
 
 create index oauth_device_codes_user_code_idx on oauth_device_codes(user_code_hash);

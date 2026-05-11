@@ -51,6 +51,14 @@ export function oidcKeyId() {
   return env("OIDC_KEY_ID") || "default";
 }
 
+export function oauthDynamicRegistrationToken() {
+  return env("OAUTH_DYNAMIC_REGISTRATION_TOKEN");
+}
+
+export function oauthAccessTokenTtlSeconds() {
+  return Number(env("OAUTH_ACCESS_TOKEN_TTL_SECONDS") || 15 * 60);
+}
+
 export function bearerAdminTelegramId() {
   return env("BEARER_ADMIN_TELEGRAM_ID");
 }

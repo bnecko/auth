@@ -2,11 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { queryOne } from "@/lib/server/db";
-import { updateAppAction } from "./actions";
+import { AppSettingsForm } from "./AppSettingsForm";
 
 export const dynamic = "force-dynamic";
 
@@ -63,53 +62,10 @@ export default async function AppSettingsPage({
             </p>
           </div>
 
-          <div className="space-y-6">
-            <section className="border border-border bg-surface rounded-sm p-6">
-              <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
-                Configuration
-              </h2>
-              
-              <form action={updateAppAction} className="space-y-4">
-                <input type="hidden" name="app_id" value={app.id} />
-                
-                <div>
-                  <label className="block text-[13px] font-medium text-fg mb-1.5">
-                    Allowed Redirect URIs (one per line)
-                  </label>
-                  <textarea
-                    name="redirect_uris"
-                    rows={4}
-                    defaultValue={app.allowed_redirect_urls.join("\n")}
-                    className="w-full rounded-sm border border-border bg-bg px-3 py-2 text-[13px] text-fg focus:outline-none focus:ring-1 focus:ring-border font-mono"
-                  ></textarea>
-                  <p className="text-faint text-[12px] mt-1.5">
-                    Must be strict HTTPS URLs where you expect to receive authorization codes.
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <Button type="submit">Save Changes</Button>
-                </div>
-              </form>
-            </section>
-
-            <section className="border border-border bg-surface rounded-sm p-6">
-              <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
-                Danger Zone
-              </h2>
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <div className="text-[14px] text-fg font-medium">Rotate Client Secret</div>
-                  <div className="text-[13px] text-muted">Invalidates the current secret and generates a new one.</div>
-                </div>
-                <form action={updateAppAction}>
-                  <input type="hidden" name="app_id" value={app.id} />
-                  <input type="hidden" name="action" value="rotate_secret" />
-                  <Button variant="ghost" type="submit" className="text-danger hover:bg-danger/10">Rotate</Button>
-                </form>
-              </div>
-            </section>
-          </div>
+          <AppSettingsForm
+            appId={app.id}
+            redirectUris={app.allowed_redirect_urls}
+          />
         </main>
       </div>
     </div>

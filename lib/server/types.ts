@@ -41,6 +41,11 @@ export type ExternalApp = {
   ownerUserId: number | null;
   callbackUrl: string | null;
   allowedRedirectUrls: string[];
+  clientType: "public" | "confidential";
+  tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
+  allowedGrantTypes: string[];
+  allowedScopes: string[];
+  issueRefreshTokens: boolean;
   requiredProduct: string | null;
   status: "active" | "disabled";
 };

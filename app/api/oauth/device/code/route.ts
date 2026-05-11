@@ -1,7 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { randomBytes, randomInt } from "crypto";
-import { requestBody, badRequest } from "@/lib/server/http";
-import { authenticateClient } from "@/lib/server/services/oauth";
+import { requestBody, badRequest, requestContext } from "@/lib/server/http";
+import {
+  authenticateClient,
+  enforceClientGrant,
+  enforceClientScopes,
+  parseOAuthScopes,
+} from "@/lib/server/services/oauth";
 import { createDeviceCode } from "@/lib/server/repositories/oauth";
 import { authBaseUrl } from "@/lib/server/config";
 import { rateLimit } from "@/lib/server/rateLimit";
@@ -20,7 +25,7 @@ function generateUserCode() {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";
+    const ip = requestContext(req).ip || "unknown";
     const rl = await rateLimit(`rl:oauth:device:code:ip:${ip}`, 50, 60000);
     if (!rl.success) {
       return NextResponse.json({ error: "slow_down", error_description: "too many requests" }, { status: 429 });
@@ -33,7 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_client" }, { status: 401 });
     }
 
-    const scopes = typeof body.scope === "string" ? body.scope.split(" ").filter(Boolean) : ["profile:read"];
+    enforceClientGrant(app, "urn:ietf:params:oauth:grant-type:device_code");
+    const scopes = parseOAuthScopes(typeof body.scope === "string" ? body.scope : "");
+    enforceClientScopes(app, scopes);
     
     const deviceCode = randomBytes(32).toString("hex");
     const userCode = generateUserCode();
@@ -45,6 +52,7 @@ export async function POST(req: NextRequest) {
       userCode,
       appId: app.id,
       scopes,
+      pollIntervalSeconds: 5,
       expiresAt,
     });
 

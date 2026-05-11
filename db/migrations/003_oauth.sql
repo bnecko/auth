@@ -1,4 +1,4 @@
-create table oauth_authorization_codes (
+create table if not exists oauth_authorization_codes (
   id bigserial primary key,
   code_hash text not null unique,
   external_app_id bigint not null references external_apps(id) on delete cascade,
@@ -15,11 +15,11 @@ create table oauth_authorization_codes (
   consumed_at timestamptz
 );
 
-create index oauth_authorization_codes_app_idx on oauth_authorization_codes(external_app_id);
-create index oauth_authorization_codes_user_idx on oauth_authorization_codes(user_id);
-create index oauth_authorization_codes_expires_at_idx on oauth_authorization_codes(expires_at);
+create index if not exists oauth_authorization_codes_app_idx on oauth_authorization_codes(external_app_id);
+create index if not exists oauth_authorization_codes_user_idx on oauth_authorization_codes(user_id);
+create index if not exists oauth_authorization_codes_expires_at_idx on oauth_authorization_codes(expires_at);
 
-create table oauth_access_tokens (
+create table if not exists oauth_access_tokens (
   id bigserial primary key,
   token_hash text not null unique,
   external_app_id bigint not null references external_apps(id) on delete cascade,
@@ -30,11 +30,11 @@ create table oauth_access_tokens (
   revoked_at timestamptz
 );
 
-create index oauth_access_tokens_app_idx on oauth_access_tokens(external_app_id);
-create index oauth_access_tokens_user_idx on oauth_access_tokens(user_id);
-create index oauth_access_tokens_expires_at_idx on oauth_access_tokens(expires_at);
+create index if not exists oauth_access_tokens_app_idx on oauth_access_tokens(external_app_id);
+create index if not exists oauth_access_tokens_user_idx on oauth_access_tokens(user_id);
+create index if not exists oauth_access_tokens_expires_at_idx on oauth_access_tokens(expires_at);
 
-create table oauth_refresh_tokens (
+create table if not exists oauth_refresh_tokens (
   id bigserial primary key,
   token_hash text not null unique,
   external_app_id bigint not null references external_apps(id) on delete cascade,
@@ -46,6 +46,6 @@ create table oauth_refresh_tokens (
   replaced_by_hash text
 );
 
-create index oauth_refresh_tokens_app_idx on oauth_refresh_tokens(external_app_id);
-create index oauth_refresh_tokens_user_idx on oauth_refresh_tokens(user_id);
-create index oauth_refresh_tokens_expires_at_idx on oauth_refresh_tokens(expires_at);
+create index if not exists oauth_refresh_tokens_app_idx on oauth_refresh_tokens(external_app_id);
+create index if not exists oauth_refresh_tokens_user_idx on oauth_refresh_tokens(user_id);
+create index if not exists oauth_refresh_tokens_expires_at_idx on oauth_refresh_tokens(expires_at);

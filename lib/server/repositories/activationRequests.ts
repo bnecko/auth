@@ -25,6 +25,11 @@ type ActivationWithAppRow = ActivationRow & {
   app_owner_user_id: string | null;
   app_callback_url: string | null;
   app_allowed_redirect_urls: string[];
+  app_client_type: ExternalApp["clientType"];
+  app_token_endpoint_auth_method: ExternalApp["tokenEndpointAuthMethod"];
+  app_allowed_grant_types: string[];
+  app_allowed_scopes: string[];
+  app_issue_refresh_tokens: boolean;
   app_required_product: string | null;
   app_status: ExternalApp["status"];
 };
@@ -58,6 +63,11 @@ function mapActivationWithApp(row: ActivationWithAppRow): ActivationWithApp {
       ownerUserId: row.app_owner_user_id ? Number(row.app_owner_user_id) : null,
       callbackUrl: row.app_callback_url,
       allowedRedirectUrls: row.app_allowed_redirect_urls || [],
+      clientType: row.app_client_type,
+      tokenEndpointAuthMethod: row.app_token_endpoint_auth_method,
+      allowedGrantTypes: row.app_allowed_grant_types || [],
+      allowedScopes: row.app_allowed_scopes || [],
+      issueRefreshTokens: row.app_issue_refresh_tokens,
       requiredProduct: row.app_required_product,
       status: row.app_status,
     },
@@ -151,11 +161,16 @@ export async function findActivationByToken(token: string) {
        ea.public_id as app_public_id,
        ea.name as app_name,
        ea.slug as app_slug,
-       ea.owner_user_id as app_owner_user_id,
-       ea.callback_url as app_callback_url,
-       ea.allowed_redirect_urls as app_allowed_redirect_urls,
-       ea.required_product as app_required_product,
-       ea.status as app_status
+      ea.owner_user_id as app_owner_user_id,
+      ea.callback_url as app_callback_url,
+      ea.allowed_redirect_urls as app_allowed_redirect_urls,
+      ea.client_type as app_client_type,
+      ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
+      ea.allowed_grant_types as app_allowed_grant_types,
+      ea.allowed_scopes as app_allowed_scopes,
+      ea.issue_refresh_tokens as app_issue_refresh_tokens,
+      ea.required_product as app_required_product,
+      ea.status as app_status
      from activation_requests ar
      join external_apps ea on ea.id = ar.external_app_id
      where ar.token_hash = $1`,
@@ -171,11 +186,16 @@ export async function findActivationByPublicId(publicId: string) {
        ea.public_id as app_public_id,
        ea.name as app_name,
        ea.slug as app_slug,
-       ea.owner_user_id as app_owner_user_id,
-       ea.callback_url as app_callback_url,
-       ea.allowed_redirect_urls as app_allowed_redirect_urls,
-       ea.required_product as app_required_product,
-       ea.status as app_status
+      ea.owner_user_id as app_owner_user_id,
+      ea.callback_url as app_callback_url,
+      ea.allowed_redirect_urls as app_allowed_redirect_urls,
+      ea.client_type as app_client_type,
+      ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
+      ea.allowed_grant_types as app_allowed_grant_types,
+      ea.allowed_scopes as app_allowed_scopes,
+      ea.issue_refresh_tokens as app_issue_refresh_tokens,
+      ea.required_product as app_required_product,
+      ea.status as app_status
      from activation_requests ar
      join external_apps ea on ea.id = ar.external_app_id
      where ar.public_id = $1`,
@@ -233,11 +253,16 @@ export async function listRecentActivationsForUser(userId: number, limit = 20) {
        ea.public_id as app_public_id,
        ea.name as app_name,
        ea.slug as app_slug,
-       ea.owner_user_id as app_owner_user_id,
-       ea.callback_url as app_callback_url,
-       ea.allowed_redirect_urls as app_allowed_redirect_urls,
-       ea.required_product as app_required_product,
-       ea.status as app_status
+      ea.owner_user_id as app_owner_user_id,
+      ea.callback_url as app_callback_url,
+      ea.allowed_redirect_urls as app_allowed_redirect_urls,
+      ea.client_type as app_client_type,
+      ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
+      ea.allowed_grant_types as app_allowed_grant_types,
+      ea.allowed_scopes as app_allowed_scopes,
+      ea.issue_refresh_tokens as app_issue_refresh_tokens,
+      ea.required_product as app_required_product,
+      ea.status as app_status
      from activation_requests ar
      join external_apps ea on ea.id = ar.external_app_id
      where ar.approved_user_id = $1

@@ -36,9 +36,30 @@ export async function createAppAction(formData: FormData) {
 
   const row = await queryOne<{ id: string }>(
     `insert into external_apps (
-      public_id, name, slug, api_key_hash, allowed_redirect_urls, status, owner_user_id
-    ) values ($1, $2, $3, $4, $5, 'active', $6) returning id`,
-    [clientId, name, slug, hashToken(clientSecret), [redirectUri], current.user.id]
+      public_id,
+      name,
+      slug,
+      api_key_hash,
+      oauth_client_secret_hash,
+      allowed_redirect_urls,
+      client_type,
+      token_endpoint_auth_method,
+      allowed_grant_types,
+      allowed_scopes,
+      issue_refresh_tokens,
+      status,
+      owner_user_id
+    ) values ($1, $2, $3, $4, $4, $5, 'confidential', 'client_secret_post', $6, $7, true, 'active', $8) returning id`,
+    [
+      clientId,
+      name,
+      slug,
+      hashToken(clientSecret),
+      [redirectUri],
+      ["authorization_code", "refresh_token", "client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
+      ["openid", "profile", "email", "birthdate", "profile:read", "email:read", "dob:read", "subscription:read"],
+      current.user.id,
+    ]
   );
 
   if (!row) {

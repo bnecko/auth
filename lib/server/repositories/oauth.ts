@@ -18,7 +18,9 @@ export type OAuthAuthorizationCode = {
 export type OAuthTokenGrant = {
   id: number;
   appId: number;
-  userId: number;
+  userId: number | null;
+  subject: string;
+  tokenKind: "user" | "client";
   scopes: string[];
   expiresAt: string;
   revokedAt: string | null;
@@ -26,7 +28,7 @@ export type OAuthTokenGrant = {
 
 export type OAuthAccessTokenWithUser = OAuthTokenGrant & {
   app: ExternalApp;
-  user: User;
+  user: User | null;
 };
 
 type CodeRow = {
@@ -45,7 +47,9 @@ type CodeRow = {
 type TokenRow = {
   id: string;
   external_app_id: string;
-  user_id: string;
+  user_id: string | null;
+  subject?: string;
+  token_kind?: "user" | "client";
   scopes: string[];
   expires_at: string;
   revoked_at: string | null;
@@ -58,21 +62,26 @@ type AccessTokenWithUserRow = TokenRow & {
   app_owner_user_id: string | null;
   app_callback_url: string | null;
   app_allowed_redirect_urls: string[];
+  app_client_type: ExternalApp["clientType"];
+  app_token_endpoint_auth_method: ExternalApp["tokenEndpointAuthMethod"];
+  app_allowed_grant_types: string[];
+  app_allowed_scopes: string[];
+  app_issue_refresh_tokens: boolean;
   app_required_product: string | null;
   app_status: ExternalApp["status"];
-  user_public_id: string;
-  user_first_name: string;
-  user_username: string;
+  user_public_id: string | null;
+  user_first_name: string | null;
+  user_username: string | null;
   user_bio: string | null;
-  user_email: string;
+  user_email: string | null;
   user_email_verified_at: string | null;
   user_dob: string | null;
   user_telegram_id: string | null;
   user_telegram_username: string | null;
   user_telegram_verified_at: string | null;
-  user_role: User["role"];
-  user_status: User["status"];
-  user_created_at: string;
+  user_role: User["role"] | null;
+  user_status: User["status"] | null;
+  user_created_at: string | null;
 };
 
 const codeSelect = `
@@ -107,7 +116,9 @@ function mapToken(row: TokenRow): OAuthTokenGrant {
   return {
     id: Number(row.id),
     appId: Number(row.external_app_id),
-    userId: Number(row.user_id),
+    userId: row.user_id ? Number(row.user_id) : null,
+    subject: row.subject || "",
+    tokenKind: row.token_kind || "user",
     scopes: row.scopes || [],
     expiresAt: row.expires_at,
     revokedAt: row.revoked_at,
@@ -204,7 +215,9 @@ export async function markAuthorizationCodeConsumed(id: number) {
 export async function createAccessToken(input: {
   token: string;
   appId: number;
-  userId: number;
+  userId: number | null;
+  subject: string;
+  tokenKind: "user" | "client";
   scopes: string[];
   expiresAt: Date;
 }) {
@@ -213,15 +226,19 @@ export async function createAccessToken(input: {
        token_hash,
        external_app_id,
        user_id,
+       subject,
+       token_kind,
        scopes,
        expires_at
      )
-     values ($1, $2, $3, $4, $5)
-     returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text`,
+     values ($1, $2, $3, $4, $5, $6, $7)
+     returning id, external_app_id, user_id, subject, token_kind, scopes, expires_at::text, revoked_at::text`,
     [
       hashToken(input.token),
       input.appId,
       input.userId,
+      input.subject,
+      input.tokenKind,
       input.scopes,
       input.expiresAt.toISOString(),
     ],
@@ -292,6 +309,8 @@ export async function findAccessToken(token: string) {
        oat.id,
        oat.external_app_id,
        oat.user_id,
+       oat.subject,
+       oat.token_kind,
        oat.scopes,
        oat.expires_at::text,
        oat.revoked_at::text,
@@ -301,6 +320,11 @@ export async function findAccessToken(token: string) {
        ea.owner_user_id as app_owner_user_id,
        ea.callback_url as app_callback_url,
        ea.allowed_redirect_urls as app_allowed_redirect_urls,
+       ea.client_type as app_client_type,
+       ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
+       ea.allowed_grant_types as app_allowed_grant_types,
+       ea.allowed_scopes as app_allowed_scopes,
+       ea.issue_refresh_tokens as app_issue_refresh_tokens,
        ea.required_product as app_required_product,
        ea.status as app_status,
        u.public_id as user_public_id,
@@ -318,7 +342,7 @@ export async function findAccessToken(token: string) {
        u.created_at::text as user_created_at
      from oauth_access_tokens oat
      join external_apps ea on ea.id = oat.external_app_id
-     join users u on u.id = oat.user_id
+     left join users u on u.id = oat.user_id
      where oat.token_hash = $1
        and oat.revoked_at is null
        and oat.expires_at > $2`,
@@ -339,25 +363,32 @@ export async function findAccessToken(token: string) {
       ownerUserId: row.app_owner_user_id ? Number(row.app_owner_user_id) : null,
       callbackUrl: row.app_callback_url,
       allowedRedirectUrls: row.app_allowed_redirect_urls || [],
+      clientType: row.app_client_type,
+      tokenEndpointAuthMethod: row.app_token_endpoint_auth_method,
+      allowedGrantTypes: row.app_allowed_grant_types || [],
+      allowedScopes: row.app_allowed_scopes || [],
+      issueRefreshTokens: row.app_issue_refresh_tokens,
       requiredProduct: row.app_required_product,
       status: row.app_status,
     },
-    user: {
-      id: Number(row.user_id),
-      publicId: row.user_public_id,
-      firstName: row.user_first_name,
-      username: row.user_username,
-      bio: row.user_bio,
-      email: row.user_email,
-      emailVerifiedAt: row.user_email_verified_at,
-      dob: row.user_dob,
-      telegramId: row.user_telegram_id,
-      telegramUsername: row.user_telegram_username,
-      telegramVerifiedAt: row.user_telegram_verified_at,
-      role: row.user_role,
-      status: row.user_status,
-      createdAt: row.user_created_at,
-    },
+    user: row.user_id && row.user_public_id && row.user_first_name && row.user_username && row.user_email && row.user_role && row.user_status && row.user_created_at
+      ? {
+          id: Number(row.user_id),
+          publicId: row.user_public_id,
+          firstName: row.user_first_name,
+          username: row.user_username,
+          bio: row.user_bio,
+          email: row.user_email,
+          emailVerifiedAt: row.user_email_verified_at,
+          dob: row.user_dob,
+          telegramId: row.user_telegram_id,
+          telegramUsername: row.user_telegram_username,
+          telegramVerifiedAt: row.user_telegram_verified_at,
+          role: row.user_role,
+          status: row.user_status,
+          createdAt: row.user_created_at,
+        }
+      : null,
   };
 }
 
@@ -439,14 +470,16 @@ export async function revokeAccessToken(token: string, appId: number) {
 }
 
 export async function revokeRefreshToken(token: string, appId: number) {
-  await query(
+  const row = await queryOne<TokenRow>(
     `update oauth_refresh_tokens
         set revoked_at = now()
       where token_hash = $1
         and external_app_id = $2
-        and revoked_at is null`,
+        and revoked_at is null
+      returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text`,
     [hashToken(token), appId],
   );
+  return row ? mapToken(row) : null;
 }
 
 export type OAuthPushedRequest = {
@@ -528,7 +561,9 @@ export type OAuthDeviceCode = {
   appId: number;
   userId: number | null;
   scopes: string[];
-  status: "pending" | "approved" | "denied" | "expired";
+  status: "pending" | "approved" | "denied" | "expired" | "consumed";
+  pollIntervalSeconds: number;
+  lastPolledAt: string | null;
   expiresAt: string;
 };
 
@@ -537,17 +572,19 @@ export async function createDeviceCode(input: {
   userCode: string;
   appId: number;
   scopes: string[];
+  pollIntervalSeconds: number;
   expiresAt: Date;
 }) {
   await query(
     `insert into oauth_device_codes (
-      device_code_hash, user_code_hash, external_app_id, scopes, expires_at
-    ) values ($1, $2, $3, $4, $5)`,
+      device_code_hash, user_code_hash, external_app_id, scopes, poll_interval_seconds, expires_at
+    ) values ($1, $2, $3, $4, $5, $6)`,
     [
       hashToken(input.deviceCode),
       hashToken(input.userCode),
       input.appId,
       input.scopes,
+      input.pollIntervalSeconds,
       input.expiresAt,
     ]
   );
@@ -560,9 +597,11 @@ export async function findDeviceCodeByDeviceCode(deviceCode: string): Promise<OA
     user_id: string | null;
     scopes: string[];
     status: OAuthDeviceCode["status"];
+    poll_interval_seconds: number;
+    last_polled_at: string | null;
     expires_at: string;
   }>(
-    `select id, external_app_id, user_id, scopes, status, expires_at::text
+    `select id, external_app_id, user_id, scopes, status, poll_interval_seconds, last_polled_at::text, expires_at::text
      from oauth_device_codes
      where device_code_hash = $1`,
     [hashToken(deviceCode)]
@@ -576,6 +615,8 @@ export async function findDeviceCodeByDeviceCode(deviceCode: string): Promise<OA
     userId: row.user_id ? Number(row.user_id) : null,
     scopes: row.scopes || [],
     status: row.status,
+    pollIntervalSeconds: row.poll_interval_seconds,
+    lastPolledAt: row.last_polled_at,
     expiresAt: row.expires_at,
   };
 }
@@ -587,10 +628,12 @@ export async function findDeviceCodeByUserCode(userCode: string): Promise<(OAuth
     user_id: string | null;
     scopes: string[];
     status: OAuthDeviceCode["status"];
+    poll_interval_seconds: number;
+    last_polled_at: string | null;
     expires_at: string;
     app_name: string;
   }>(
-    `select d.id, d.external_app_id, d.user_id, d.scopes, d.status, d.expires_at::text, a.name as app_name
+    `select d.id, d.external_app_id, d.user_id, d.scopes, d.status, d.poll_interval_seconds, d.last_polled_at::text, d.expires_at::text, a.name as app_name
      from oauth_device_codes d
      join external_apps a on d.external_app_id = a.id
      where d.user_code_hash = $1 and d.expires_at > now()`,
@@ -605,6 +648,8 @@ export async function findDeviceCodeByUserCode(userCode: string): Promise<(OAuth
     userId: row.user_id ? Number(row.user_id) : null,
     scopes: row.scopes || [],
     status: row.status,
+    pollIntervalSeconds: row.poll_interval_seconds,
+    lastPolledAt: row.last_polled_at,
     expiresAt: row.expires_at,
     appName: row.app_name,
   };
@@ -618,7 +663,51 @@ export async function updateDeviceCodeStatus(
   await query(
     `update oauth_device_codes
         set status = $2, user_id = $3
-      where user_code_hash = $1 and status = 'pending'`,
+      where user_code_hash = $1
+        and status = 'pending'
+        and expires_at > now()`,
     [hashToken(userCode), status, userId]
   );
+}
+
+export async function markDeviceCodePolled(id: number) {
+  await query(
+    `update oauth_device_codes set last_polled_at = now() where id = $1`,
+    [id],
+  );
+}
+
+export async function consumeDeviceCode(id: number) {
+  const row = await queryOne<{
+    id: string;
+    external_app_id: string;
+    user_id: string | null;
+    scopes: string[];
+    status: OAuthDeviceCode["status"];
+    poll_interval_seconds: number;
+    last_polled_at: string | null;
+    expires_at: string;
+  }>(
+    `update oauth_device_codes
+        set status = 'consumed',
+            consumed_at = now()
+      where id = $1
+        and status = 'approved'
+        and expires_at > now()
+      returning id, external_app_id, user_id, scopes, status, poll_interval_seconds, last_polled_at::text, expires_at::text`,
+    [id],
+  );
+
+  return row
+    ? {
+        id: Number(row.id),
+        appId: Number(row.external_app_id),
+        userId: row.user_id ? Number(row.user_id) : null,
+        scopes: row.scopes || [],
+        status: row.status,
+        pollIntervalSeconds: row.poll_interval_seconds,
+        lastPolledAt: row.last_polled_at,
+        expiresAt: row.expires_at,
+      }
+    : null;
 }

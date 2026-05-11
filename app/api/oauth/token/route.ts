@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { requestBody } from "@/lib/server/http";
+import { requestBody, requestContext } from "@/lib/server/http";
 import { exchangeOAuthToken, OAuthError } from "@/lib/server/services/oauth";
 import { rateLimit } from "@/lib/server/rateLimit";
 
@@ -18,7 +18,7 @@ function tokenJson(data: unknown, status = 200) {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";
+    const ip = requestContext(req).ip || "unknown";
     const rl = await rateLimit(`rl:oauth:token:ip:${ip}`, 300, 60000);
     if (!rl.success) {
       return tokenJson(

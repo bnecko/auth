@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentSession } from "@/lib/server/session";
-import { query, queryOne } from "@/lib/server/db";
-import { hashToken, randomToken } from "@/lib/server/crypto";
+import { query } from "@/lib/server/db";
+import { randomToken } from "@/lib/server/crypto";
+import {
+  findExternalAppSecretHashForOwner,
+  rotateExternalAppOAuthSecret,
+} from "@/lib/server/repositories/externalApps";
 
 export async function updateAppAction(formData: FormData) {
   const current = await getCurrentSession();
@@ -14,10 +18,7 @@ export async function updateAppAction(formData: FormData) {
   const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
   if (!appId) throw new Error("Invalid app ID");
 
-  const app = await queryOne<{ slug: string }>(
-    `select slug from external_apps where id = $1 and owner_user_id = $2`,
-    [appId, current.user.id]
-  );
+  const app = await findExternalAppSecretHashForOwner(appId, current.user.id);
 
   if (!app) {
     throw new Error("App not found or unauthorized");
@@ -27,12 +28,14 @@ export async function updateAppAction(formData: FormData) {
 
   if (action === "rotate_secret") {
     const newSecret = `sec_${randomToken(32)}`;
-    await query(
-      `update external_apps set api_key_hash = $1, updated_at = now() where id = $2`,
-      [hashToken(newSecret), appId]
-    );
+    await rotateExternalAppOAuthSecret({
+      appId,
+      currentSecretHash: app.oauth_client_secret_hash,
+      newSecret,
+      previousExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
     revalidatePath(`/developers/apps/${app.slug}`);
-    return;
+    return { clientSecret: newSecret };
   }
 
   const urisRaw = formData.get("redirect_uris")?.toString() || "";
@@ -55,4 +58,5 @@ export async function updateAppAction(formData: FormData) {
   );
 
   revalidatePath(`/developers/apps/${app.slug}`);
+  return { ok: true };
 }

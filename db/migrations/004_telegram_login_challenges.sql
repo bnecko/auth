@@ -1,4 +1,4 @@
-create table telegram_login_challenges (
+create table if not exists telegram_login_challenges (
   id bigserial primary key,
   public_id text not null unique,
   user_id bigint not null references users(id) on delete cascade,
@@ -13,6 +13,6 @@ create table telegram_login_challenges (
   verified_at timestamptz
 );
 
-create index telegram_login_challenges_user_idx on telegram_login_challenges(user_id);
-create index telegram_login_challenges_status_idx on telegram_login_challenges(status);
-create index telegram_login_challenges_expires_at_idx on telegram_login_challenges(expires_at);
+create index if not exists telegram_login_challenges_user_idx on telegram_login_challenges(user_id);
+create index if not exists telegram_login_challenges_status_idx on telegram_login_challenges(status);
+create index if not exists telegram_login_challenges_expires_at_idx on telegram_login_challenges(expires_at);

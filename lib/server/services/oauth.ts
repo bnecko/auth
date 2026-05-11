@@ -5,8 +5,13 @@ import {
   sign as signBytes,
 } from "crypto";
 import type { NextRequest } from "next/server";
-import { authBaseUrl, oidcKeyId, oidcPrivateKeyPem } from "../config";
-import { query } from "../db";
+import {
+  authBaseUrl,
+  oauthAccessTokenTtlSeconds,
+  oauthDynamicRegistrationToken,
+  oidcKeyId,
+  oidcPrivateKeyPem,
+} from "../config";
 import { randomToken, safeEqual } from "../crypto";
 import { requestContext } from "../http";
 import { findAuthorization, upsertAuthorization } from "../repositories/authorizations";
@@ -24,10 +29,13 @@ import {
   markAuthorizationCodeConsumed,
   revokeAccessToken,
   revokeRefreshToken,
+  revokeAccessTokensForRefreshGrant,
   rotateRefreshToken,
   findPushedRequest,
   findRotatedRefreshTokenContext,
   revokeAllTokensForUserAndApp,
+  markDeviceCodePolled,
+  consumeDeviceCode,
 } from "../repositories/oauth";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import {
@@ -38,7 +46,6 @@ import { findUserById } from "../repositories/users";
 import type { ExternalApp, User } from "../types";
 
 const AUTHORIZATION_CODE_TTL_SECONDS = 10 * 60;
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export type OAuthAuthorizeView = {
@@ -166,7 +173,7 @@ const OAUTH_SCOPES = new Set([
   "subscription:read",
 ]);
 
-function parseOAuthScopes(scope: string) {
+export function parseOAuthScopes(scope: string) {
   if (!scope) {
     return ["profile:read"];
   }
@@ -178,6 +185,20 @@ function parseOAuthScopes(scope: string) {
   }
 
   return Array.from(new Set(scopes));
+}
+
+export function enforceClientScopes(app: ExternalApp, scopes: string[]) {
+  const allowed = new Set(app.allowedScopes);
+  const unknown = scopes.find(scope => !allowed.has(scope));
+  if (unknown) {
+    throw new OAuthError("invalid_scope", `scope is not allowed for this client: ${unknown}`);
+  }
+}
+
+export function enforceClientGrant(app: ExternalApp, grantType: string) {
+  if (!app.allowedGrantTypes.includes(grantType)) {
+    throw new OAuthError("unauthorized_client", "grant_type is not allowed for this client", 400);
+  }
 }
 
 function hasScope(scopes: readonly string[], standard: string, legacy: string) {
@@ -212,6 +233,7 @@ async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null)
   }
 
   const scopes = parseOAuthScopes(params.scope);
+  enforceClientScopes(app, scopes);
   const existing = user ? await findAuthorization(user.id, app.id) : null;
   const subscriptionOk =
     user && app.requiredProduct
@@ -422,12 +444,13 @@ function createIdToken(input: {
   nonce: string | null;
 }) {
   const now = Math.floor(Date.now() / 1000);
+  const accessTokenTtl = oauthAccessTokenTtlSeconds();
   const claims: Record<string, unknown> = {
     iss: authBaseUrl(),
     sub: input.user.publicId,
     aud: input.app.publicId,
     iat: now,
-    exp: now + ACCESS_TOKEN_TTL_SECONDS,
+    exp: now + accessTokenTtl,
   };
 
   if (input.nonce) {
@@ -488,12 +511,24 @@ export async function authenticateClient(req: NextRequest, body: Record<string, 
     if (!app || app.status !== "active") {
       throw new OAuthError("invalid_client", "client authentication failed", 401);
     }
+    if (app.tokenEndpointAuthMethod === "none") {
+      throw new OAuthError("invalid_client", "public clients must not send client_secret", 401);
+    }
+    if (basic && app.tokenEndpointAuthMethod !== "client_secret_basic") {
+      throw new OAuthError("invalid_client", "client_secret_basic is not allowed for this client", 401);
+    }
+    if (!basic && app.tokenEndpointAuthMethod !== "client_secret_post") {
+      throw new OAuthError("invalid_client", "client_secret_post is not allowed for this client", 401);
+    }
     return app;
   }
 
   const app = await findExternalAppByClientId(clientId);
   if (!app || app.status !== "active") {
     throw new OAuthError("invalid_client", "client authentication failed", 401);
+  }
+  if (app.tokenEndpointAuthMethod !== "none" || app.clientType !== "public") {
+    throw new OAuthError("invalid_client", "client_secret is required", 401);
   }
 
   return app;
@@ -506,6 +541,7 @@ async function issueTokenPair(input: {
   nonce: string | null;
 }) {
   const now = Math.floor(Date.now() / 1000);
+  const accessTokenTtl = oauthAccessTokenTtlSeconds();
   const accessToken = signJwt({
     iss: authBaseUrl(),
     sub: input.user.publicId,
@@ -513,7 +549,7 @@ async function issueTokenPair(input: {
     client_id: input.app.publicId,
     jti: randomToken(16),
     iat: now,
-    exp: now + ACCESS_TOKEN_TTL_SECONDS,
+    exp: now + accessTokenTtl,
     scope: input.scopes.join(" "),
   });
   const refreshToken = randomToken(48);
@@ -522,25 +558,29 @@ async function issueTokenPair(input: {
     token: accessToken,
     appId: input.app.id,
     userId: input.user.id,
+    subject: input.user.publicId,
+    tokenKind: "user",
     scopes: input.scopes,
-    expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
-  });
-
-  await createRefreshToken({
-    token: refreshToken,
-    appId: input.app.id,
-    userId: input.user.id,
-    scopes: input.scopes,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+    expiresAt: new Date(Date.now() + accessTokenTtl * 1000),
   });
 
   const response: Record<string, unknown> = {
     access_token: accessToken,
     token_type: "Bearer",
-    expires_in: ACCESS_TOKEN_TTL_SECONDS,
-    refresh_token: refreshToken,
+    expires_in: accessTokenTtl,
     scope: input.scopes.join(" "),
   };
+
+  if (input.app.issueRefreshTokens && input.app.allowedGrantTypes.includes("refresh_token")) {
+    await createRefreshToken({
+      token: refreshToken,
+      appId: input.app.id,
+      userId: input.user.id,
+      scopes: input.scopes,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+    });
+    response.refresh_token = refreshToken;
+  }
 
   if (input.scopes.includes("openid")) {
     response.id_token = createIdToken({
@@ -562,6 +602,7 @@ export async function exchangeOAuthToken(
   const app = await authenticateClient(req, body);
 
   if (grantType === "authorization_code") {
+    enforceClientGrant(app, "authorization_code");
     const code = stringParam(body.code as string);
     const redirectUri = normalizeRedirectUri(stringParam(body.redirect_uri as string));
     const verifier = stringParam(body.code_verifier as string);
@@ -606,6 +647,7 @@ export async function exchangeOAuthToken(
   }
 
   if (grantType === "refresh_token") {
+    enforceClientGrant(app, "refresh_token");
     const refreshToken = stringParam(body.refresh_token as string);
     if (!refreshToken) {
       throw new OAuthError("invalid_request", "refresh_token is required");
@@ -623,6 +665,10 @@ export async function exchangeOAuthToken(
       throw new OAuthError("invalid_grant", "refresh_token is invalid");
     }
 
+    if (!previous.userId) {
+      throw new OAuthError("invalid_grant", "refresh_token is invalid");
+    }
+
     const user = await findUserById(previous.userId);
     if (!user || user.status === "banned") {
       throw new OAuthError("invalid_grant", "user is not active");
@@ -637,6 +683,7 @@ export async function exchangeOAuthToken(
     });
 
     const now = Math.floor(Date.now() / 1000);
+    const accessTokenTtl = oauthAccessTokenTtlSeconds();
     const accessToken = signJwt({
       iss: authBaseUrl(),
       sub: user.publicId,
@@ -644,21 +691,23 @@ export async function exchangeOAuthToken(
       client_id: app.publicId,
       jti: randomToken(16),
       iat: now,
-      exp: now + ACCESS_TOKEN_TTL_SECONDS,
+      exp: now + accessTokenTtl,
       scope: previous.scopes.join(" "),
     });
     await createAccessToken({
       token: accessToken,
       appId: previous.appId,
       userId: previous.userId,
+      subject: user.publicId,
+      tokenKind: "user",
       scopes: previous.scopes,
-      expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
+      expiresAt: new Date(Date.now() + accessTokenTtl * 1000),
     });
 
     const response: Record<string, unknown> = {
       access_token: accessToken,
       token_type: "Bearer",
-      expires_in: ACCESS_TOKEN_TTL_SECONDS,
+      expires_in: accessTokenTtl,
       refresh_token: replacement,
       scope: previous.scopes.join(" "),
     };
@@ -676,6 +725,7 @@ export async function exchangeOAuthToken(
   }
 
   if (grantType === "urn:ietf:params:oauth:grant-type:device_code") {
+    enforceClientGrant(app, "urn:ietf:params:oauth:grant-type:device_code");
     const deviceCodeValue = stringParam(body.device_code as string);
     if (!deviceCodeValue) {
       throw new OAuthError("invalid_request", "device_code is required");
@@ -692,6 +742,14 @@ export async function exchangeOAuthToken(
       throw new OAuthError("expired_token", "device_code expired");
     }
 
+    if (deviceCode.lastPolledAt) {
+      const elapsed = Date.now() - Date.parse(deviceCode.lastPolledAt);
+      if (elapsed < deviceCode.pollIntervalSeconds * 1000) {
+        throw new OAuthError("slow_down", "polling too fast", 400);
+      }
+    }
+    await markDeviceCodePolled(deviceCode.id);
+
     if (deviceCode.status === "pending") {
       throw new OAuthError("authorization_pending", "authorization pending", 400);
     }
@@ -700,72 +758,63 @@ export async function exchangeOAuthToken(
       throw new OAuthError("access_denied", "authorization denied", 400);
     }
 
-    if (deviceCode.status === "expired") {
+    if (deviceCode.status === "expired" || deviceCode.status === "consumed") {
       throw new OAuthError("expired_token", "device_code expired", 400);
     }
 
-    if (!deviceCode.userId) {
+    const consumed = await consumeDeviceCode(deviceCode.id);
+    if (!consumed || !consumed.userId) {
       throw new OAuthError("invalid_grant", "device code approved but no user found");
     }
 
-    const user = await findUserById(deviceCode.userId);
+    const user = await findUserById(consumed.userId);
     if (!user || user.status === "banned") {
       throw new OAuthError("invalid_grant", "user is not active");
     }
 
-    // Device codes have no 'consumed' status; 'expired' is the closest terminal
-    // state and prevents any replay of an already-approved code.
-    await query(
-      `update oauth_device_codes set status = 'expired' where id = $1`,
-      [deviceCode.id]
-    );
-
     const nonce = null;
-    return await issueTokenPair({ app, user, scopes: deviceCode.scopes, nonce });
+    return await issueTokenPair({ app, user, scopes: consumed.scopes, nonce });
   }
 
   if (grantType === "client_credentials") {
+    enforceClientGrant(app, "client_credentials");
     const basic = clientCredentialsFromBasic(req);
     const clientSecret = basic?.clientSecret || stringParam(body.client_secret as string);
     if (!clientSecret) {
       throw new OAuthError("invalid_client", "client_secret is required for client_credentials grant", 401);
     }
 
-    if (!app.ownerUserId) {
-      throw new OAuthError("invalid_client", "client has no owner");
-    }
-    const user = await findUserById(app.ownerUserId);
-    if (!user || user.status === "banned") {
-      throw new OAuthError("invalid_client", "client owner is not active");
-    }
-
     const requestedScope = stringParam(body.scope as string);
     const scopes = requestedScope ? parseOAuthScopes(requestedScope) : [];
+    enforceClientScopes(app, scopes);
 
     const now = Math.floor(Date.now() / 1000);
+    const accessTokenTtl = oauthAccessTokenTtlSeconds();
     const accessToken = signJwt({
       iss: authBaseUrl(),
-      sub: user.publicId,
+      sub: app.publicId,
       aud: app.publicId,
       client_id: app.publicId,
       jti: randomToken(16),
       iat: now,
-      exp: now + ACCESS_TOKEN_TTL_SECONDS,
+      exp: now + accessTokenTtl,
       scope: scopes.join(" "),
     });
 
     await createAccessToken({
       token: accessToken,
       appId: app.id,
-      userId: user.id,
+      userId: null,
+      subject: app.publicId,
+      tokenKind: "client",
       scopes,
-      expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
+      expiresAt: new Date(Date.now() + accessTokenTtl * 1000),
     });
 
     return {
       access_token: accessToken,
       token_type: "Bearer",
-      expires_in: ACCESS_TOKEN_TTL_SECONDS,
+      expires_in: accessTokenTtl,
       scope: scopes.join(" "),
     };
   }
@@ -775,7 +824,13 @@ export async function exchangeOAuthToken(
 
 export async function oauthUserInfo(accessToken: string) {
   const grant = await findAccessToken(accessToken);
-  if (!grant || grant.user.status === "banned" || grant.app.status !== "active") {
+  if (
+    !grant ||
+    grant.tokenKind !== "user" ||
+    !grant.user ||
+    grant.user.status === "banned" ||
+    grant.app.status !== "active"
+  ) {
     return null;
   }
 
@@ -818,21 +873,27 @@ export async function introspectOAuthToken(
   body: Record<string, unknown>,
   req: NextRequest,
 ) {
-  await authenticateClient(req, body);
+  const app = await authenticateClient(req, body);
   const token = stringParam(body.token as string);
   if (!token) {
     return { active: false };
   }
 
   const grant = await findAccessToken(token);
-  if (!grant || grant.user.status === "banned" || grant.app.status !== "active") {
+  if (
+    !grant ||
+    grant.app.id !== app.id ||
+    grant.app.status !== "active" ||
+    (grant.user && grant.user.status === "banned")
+  ) {
     return { active: false };
   }
 
   return {
     active: true,
     client_id: grant.app.publicId,
-    sub: grant.user.publicId,
+    sub: grant.subject,
+    token_type: grant.tokenKind === "client" ? "client_credentials" : "access_token",
     scope: grant.scopes.join(" "),
     exp: Math.floor(Date.parse(grant.expiresAt) / 1000),
   };
@@ -855,13 +916,19 @@ export async function revokeOAuthToken(
   }
 
   if (!hint || hint === "refresh_token") {
-    await revokeRefreshToken(token, app.id);
+    const revoked = await revokeRefreshToken(token, app.id);
+    if (revoked?.userId) {
+      await revokeAccessTokensForRefreshGrant({
+        appId: revoked.appId,
+        userId: revoked.userId,
+      });
+    }
   }
 }
 
 export function oauthServerMetadata() {
   const issuer = authBaseUrl();
-  return {
+  const metadata: Record<string, unknown> = {
     issuer,
     authorization_endpoint: `${issuer}/oauth/authorize`,
     token_endpoint: `${issuer}/api/oauth/token`,
@@ -872,7 +939,6 @@ export function oauthServerMetadata() {
     response_types_supported: ["code"],
     device_authorization_endpoint: `${issuer}/api/oauth/device/code`,
     pushed_authorization_request_endpoint: `${issuer}/api/oauth/par`,
-    registration_endpoint: `${issuer}/api/oauth/register`,
     grant_types_supported: [
       "authorization_code",
       "refresh_token",
@@ -906,4 +972,10 @@ export function oauthServerMetadata() {
       "birthdate",
     ],
   };
+
+  if (oauthDynamicRegistrationToken()) {
+    metadata.registration_endpoint = `${issuer}/api/oauth/register`;
+  }
+
+  return metadata;
 }
