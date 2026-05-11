@@ -104,6 +104,7 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   const scriptNonce = nonce();
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", scriptNonce);
+  requestHeaders.set("x-pathname", req.nextUrl.pathname);
   const res = NextResponse.next({
     request: {
       headers: requestHeaders,
