@@ -19,7 +19,8 @@ In the Cloudflare Tunnel public hostname settings, use:
 Service: http://app:3000
 ```
 
-The schema is loaded from `db/schema.sql` on first Postgres startup.
+The schema is loaded from `db/schema.sql` on first Postgres startup. Existing
+databases are migrated at app startup from `db/migrations`.
 
 ## Resource profile
 
@@ -46,8 +47,8 @@ Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
 External apps create activation requests with a bearer API key stored as a SHA-256 hash in `external_apps.api_key_hash`.
 
 External apps can also use OAuth/OIDC Authorization Code + PKCE. The OAuth
-`client_id` is `external_apps.public_id`; confidential clients may use the
-same issued app API key as their OAuth `client_secret`.
+`client_id` is `external_apps.public_id`; OAuth client secrets are stored
+separately from bearer API keys.
 
 ## Documentation
 

@@ -23,10 +23,23 @@ GET /.well-known/openid-configuration
 Each OAuth client is an `external_apps` row.
 
 - `client_id`: `external_apps.public_id`
-- `client_secret`: the issued app API key, for confidential clients
+- `client_secret`: the issued OAuth client secret, for confidential clients
 - Redirect URIs: exact URL matches from `external_apps.allowed_redirect_urls`
 
 PKCE S256 is required for all authorization-code exchanges.
+Client policy is enforced per app: grant types, scopes, token endpoint auth
+method, and refresh-token issuance are configured on the `external_apps` row.
+
+## Dynamic Client Registration
+
+`POST /api/oauth/register` is restricted. Set
+`OAUTH_DYNAMIC_REGISTRATION_TOKEN` and send it as:
+
+```http
+Authorization: Bearer <registration-token>
+```
+
+Untrusted public registration is disabled when the token is not configured.
 
 OIDC requires:
 
@@ -80,9 +93,9 @@ Response:
 
 ```json
 {
-  "access_token": "opaque-token",
+  "access_token": "eyJ...",
   "token_type": "Bearer",
-  "expires_in": 3600,
+  "expires_in": 900,
   "refresh_token": "opaque-refresh-token",
   "scope": "openid profile email",
   "id_token": "signed-jwt"
@@ -90,6 +103,14 @@ Response:
 ```
 
 `id_token` is returned when the approved scope includes `openid`.
+The default access-token lifetime is 15 minutes and can be changed with
+`OAUTH_ACCESS_TOKEN_TTL_SECONDS`.
+
+## Client Credentials
+
+Client-credentials access tokens use the app public ID as `sub`. They do not
+represent the app owner or any other user, and they are not accepted at
+`userinfo`.
 
 ## Refresh
 

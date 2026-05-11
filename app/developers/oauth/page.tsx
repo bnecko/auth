@@ -33,7 +33,7 @@ export default async function OAuthDocsPage() {
             <p className="mt-3 text-[13px] leading-6 text-muted max-w-[760px]">
               Bottleneck acts as an authorization server for your applications. It supports OAuth 2.1
               with PKCE, OpenID Connect, Pushed Authorization Requests, Device Authorization Grant,
-              Dynamic Client Registration, and a proprietary Bearer Key system for server-to-server access.
+              restricted Dynamic Client Registration, and a proprietary Bearer Key system for server-to-server access.
             </p>
           </header>
 
@@ -60,14 +60,15 @@ export default async function OAuthDocsPage() {
 
               <DocSection id="dcr" title="dynamic client registration (rfc 7591)">
                 <p>
-                  Register a client programmatically. This endpoint is rate-limited (5 registrations
-                  per hour per IP). The <code>client_id</code> and <code>client_secret</code> in the
-                  response are your long-term credentials — store <code>client_secret</code> securely.
+                  Register a client programmatically with a registration bearer token. The{" "}
+                  <code>client_id</code> and <code>client_secret</code> in the response are your
+                  long-term OAuth credentials. Store <code>client_secret</code> securely.
                 </p>
                 <CodeTabs tabs={[
                   {
                     label: "cURL",
                     code: `curl -X POST ${base}/api/oauth/register \\
+  -H "Authorization: Bearer REGISTRATION_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
     "client_name": "My App",
@@ -80,7 +81,10 @@ export default async function OAuthDocsPage() {
                     label: "Node.js",
                     code: `const res = await fetch('${base}/api/oauth/register', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Authorization': 'Bearer REGISTRATION_TOKEN',
+    'Content-Type': 'application/json',
+  },
   body: JSON.stringify({
     client_name: 'My App',
     redirect_uris: ['https://yourapp.example/callback'],
@@ -93,7 +97,9 @@ const { client_id, client_secret } = await res.json();`
                     label: "Python",
                     code: `import requests
 
-res = requests.post('${base}/api/oauth/register', json={
+res = requests.post('${base}/api/oauth/register', headers={
+  'Authorization': 'Bearer REGISTRATION_TOKEN',
+}, json={
   'client_name': 'My App',
   'redirect_uris': ['https://yourapp.example/callback'],
   'grant_types': ['authorization_code', 'refresh_token'],
@@ -170,7 +176,7 @@ challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
                 <CodeTabs tabs={[
                   {
                     label: "cURL",
-                    code: `# Step 1 — push the request
+                    code: `# Step 1 - push the request
 curl -X POST ${base}/api/oauth/par \\
   -d "client_id=app_xxx" \\
   -d "client_secret=sec_xxx" \\
@@ -183,7 +189,7 @@ curl -X POST ${base}/api/oauth/par \\
 
 # Response: { "request_uri": "urn:ietf:params:oauth:request_uri:...", "expires_in": 60 }
 
-# Step 2 — redirect the user
+# Step 2 - redirect the user
 # ${base}/oauth/authorize?client_id=app_xxx&request_uri=urn%3A...`
                   }
                 ]} />
@@ -198,7 +204,7 @@ curl -X POST ${base}/api/oauth/par \\
                 <CodeTabs tabs={[
                   {
                     label: "cURL",
-                    code: `# Step 1 — request a device code
+                    code: `# Step 1 - request a device code
 curl -X POST ${base}/api/oauth/device/code \\
   -d "client_id=app_xxx" \\
   -d "scope=openid profile"
@@ -213,7 +219,7 @@ curl -X POST ${base}/api/oauth/device/code \\
 #   "interval": 5
 # }
 
-# Step 2 — show the user_code, then poll every {interval} seconds
+# Step 2 - show the user_code, then poll every {interval} seconds
 curl -X POST ${base}/api/oauth/token \\
   -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" \\
   -d "client_id=app_xxx" \\
@@ -255,7 +261,7 @@ const tokens = await new Promise((resolve, reject) => {
               <DocSection id="client-credentials" title="client credentials grant">
                 <p>
                   For machine-to-machine flows where no user is involved. The client authenticates
-                  directly with its credentials. The resulting access token carries no user context —{" "}
+                  directly with its credentials. The resulting access token carries no user context:{" "}
                   <code>sub</code> is the app&apos;s public ID.
                 </p>
                 <CodeTabs tabs={[
@@ -273,8 +279,8 @@ const tokens = await new Promise((resolve, reject) => {
                 <p>
                   Exchange the authorization code for tokens. Include the <code>code_verifier</code>{" "}
                   that matches the <code>code_challenge</code> from the authorization request.
-                  The response includes an access token, a refresh token, and — when the{" "}
-                  <code>openid</code> scope was granted — an ID token.
+                  The response includes an access token, a refresh token, and, when the{" "}
+                  <code>openid</code> scope was granted, an ID token.
                 </p>
                 <CodeTabs tabs={[
                   {
@@ -305,7 +311,7 @@ const tokens = await new Promise((resolve, reject) => {
 // {
 //   "access_token": "eyJ...",
 //   "token_type": "Bearer",
-//   "expires_in": 3600,
+//   "expires_in": 900,
 //   "refresh_token": "...",
 //   "id_token": "eyJ...",   // only when openid scope was granted
 //   "scope": "openid profile email"
@@ -331,7 +337,7 @@ tokens = res.json()`
 
               <DocSection id="refresh" title="refresh tokens">
                 <p>
-                  Refresh tokens rotate on every use — the server returns a new refresh token with
+                  Refresh tokens rotate on every use: the server returns a new refresh token with
                   each response.{" "}
                   <strong className="text-fg">Always replace your stored refresh token with the new one.</strong>{" "}
                   Replaying a consumed refresh token is treated as a compromise signal: the server
@@ -360,7 +366,7 @@ res = requests.post('${base}/api/oauth/token', data={
   'refresh_token': stored_refresh_token,
 })
 tokens = res.json()
-# persist tokens['refresh_token'] — the old one is now invalid`
+# persist tokens['refresh_token']; the old one is now invalid`
                   }
                 ]} />
               </DocSection>
@@ -516,7 +522,7 @@ claims = jwt.decode(
                 <p>
                   Visit <a href="/request-bearer" className="text-secondary hover:text-fg underline underline-offset-2">/request-bearer</a> and
                   describe your application. An admin reviews and approves the request via Telegram.
-                  Once approved, the plaintext key is available once from your dashboard — copy it
+                  Once approved, the plaintext key is available once from your dashboard. Copy it
                   immediately. Only a SHA-256 hash is retained afterward.
                 </p>
 
@@ -560,7 +566,7 @@ const { id, activationUrl } = await res.json();
                   your server polls for the result.
                 </p>
 
-                <h3 className="text-[12px] uppercase tracking-wider text-faint mt-4 mb-2">step 1 — create request</h3>
+                <h3 className="text-[12px] uppercase tracking-wider text-faint mt-4 mb-2">step 1 - create request</h3>
                 <CodeTabs tabs={[
                   {
                     label: "cURL",
@@ -584,14 +590,14 @@ const { id, activationUrl } = await res.json();
                   }
                 ]} />
 
-                <h3 className="text-[12px] uppercase tracking-wider text-faint mt-4 mb-2">step 2 — redirect your user</h3>
+                <h3 className="text-[12px] uppercase tracking-wider text-faint mt-4 mb-2">step 2 - redirect your user</h3>
                 <p>
                   Send your user to the <code>activationUrl</code>. They see a consent screen listing
                   the requested scopes. If a subscription is required by your app, Bottleneck checks
                   that the user holds one before allowing approval.
                 </p>
 
-                <h3 className="text-[12px] uppercase tracking-wider text-faint mt-4 mb-2">step 3 — poll for result</h3>
+                <h3 className="text-[12px] uppercase tracking-wider text-faint mt-4 mb-2">step 3 - poll for result</h3>
                 <CodeTabs tabs={[
                   {
                     label: "cURL",
@@ -646,14 +652,14 @@ const { id, activationUrl } = await res.json();
 }
 
 // Common error codes:
-// invalid_request      — missing or malformed parameter
-// invalid_client       — client authentication failed
-// invalid_grant        — code, refresh token, or device code is invalid/expired
-// invalid_scope        — unknown or disallowed scope
-// access_denied        — user denied or subscription required
-// server_error         — unexpected server error
-// authorization_pending — device grant: user hasn't approved yet
-// expired_token        — device grant: code expired`
+// invalid_request      - missing or malformed parameter
+// invalid_client       - client authentication failed
+// invalid_grant        - code, refresh token, or device code is invalid/expired
+// invalid_scope        - unknown or disallowed scope
+// access_denied        - user denied or subscription required
+// server_error         - unexpected server error
+// authorization_pending - device grant: user hasn't approved yet
+// expired_token        - device grant: code expired`
                   }
                 ]} />
               </DocSection>
@@ -662,9 +668,9 @@ const { id, activationUrl } = await res.json();
                 <div className="divide-y divide-border border border-border rounded-sm">
                   {[
                     ["authorization code", "10 minutes", "single use"],
-                    ["access token", "1 hour", "JWT, RS256"],
+                    ["access token", "15 minutes", "JWT, RS256"],
                     ["refresh token", "30 days", "rotates on use"],
-                    ["ID token", "1 hour", "JWT, RS256, openid scope only"],
+                    ["ID token", "15 minutes", "JWT, RS256, openid scope only"],
                     ["device code", "10 minutes", "poll every interval seconds"],
                     ["PAR request_uri", "60 seconds", "single use"],
                   ].map(([type, ttl, note]) => (
