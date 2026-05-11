@@ -28,6 +28,16 @@ export async function revokeAuthorization(userId: number, appId: number) {
   );
 }
 
+export async function revokeAuthorizationsForUser(userId: number) {
+  await query(
+    `update app_authorizations
+        set revoked_at = now()
+      where user_id = $1
+        and revoked_at is null`,
+    [userId],
+  );
+}
+
 export async function listAuthorizationsForUser(userId: number) {
   const rows = await query<{
     app_name: string;

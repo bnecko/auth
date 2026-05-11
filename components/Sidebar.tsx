@@ -25,6 +25,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { href: "/#sessions", label: "sessions" },
       { href: "/#security", label: "password & 2fa" },
       { href: "/#events", label: "recent events" },
+      { href: "/security", label: "security center" },
     ],
   },
   {

@@ -174,3 +174,17 @@ export async function revokeSessionsForUser(userId: number) {
     [userId],
   );
 }
+
+export async function revokeOtherSessionsForUser(input: {
+  userId: number;
+  currentSessionId: number;
+}) {
+  await query(
+    `update sessions
+        set revoked_at = now()
+      where user_id = $1
+        and id <> $2
+        and revoked_at is null`,
+    [input.userId, input.currentSessionId],
+  );
+}

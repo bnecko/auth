@@ -30,6 +30,7 @@ type ActivationWithAppRow = ActivationRow & {
   app_allowed_grant_types: string[];
   app_allowed_scopes: string[];
   app_issue_refresh_tokens: boolean;
+  app_oauth_profile_version: string;
   app_required_product: string | null;
   app_status: ExternalApp["status"];
 };
@@ -68,6 +69,7 @@ function mapActivationWithApp(row: ActivationWithAppRow): ActivationWithApp {
       allowedGrantTypes: row.app_allowed_grant_types || [],
       allowedScopes: row.app_allowed_scopes || [],
       issueRefreshTokens: row.app_issue_refresh_tokens,
+      oauthProfileVersion: row.app_oauth_profile_version,
       requiredProduct: row.app_required_product,
       status: row.app_status,
     },
@@ -169,6 +171,7 @@ export async function findActivationByToken(token: string) {
       ea.allowed_grant_types as app_allowed_grant_types,
       ea.allowed_scopes as app_allowed_scopes,
       ea.issue_refresh_tokens as app_issue_refresh_tokens,
+      ea.oauth_profile_version as app_oauth_profile_version,
       ea.required_product as app_required_product,
       ea.status as app_status
      from activation_requests ar
@@ -194,6 +197,7 @@ export async function findActivationByPublicId(publicId: string) {
       ea.allowed_grant_types as app_allowed_grant_types,
       ea.allowed_scopes as app_allowed_scopes,
       ea.issue_refresh_tokens as app_issue_refresh_tokens,
+      ea.oauth_profile_version as app_oauth_profile_version,
       ea.required_product as app_required_product,
       ea.status as app_status
      from activation_requests ar
@@ -261,6 +265,7 @@ export async function listRecentActivationsForUser(userId: number, limit = 20) {
       ea.allowed_grant_types as app_allowed_grant_types,
       ea.allowed_scopes as app_allowed_scopes,
       ea.issue_refresh_tokens as app_issue_refresh_tokens,
+      ea.oauth_profile_version as app_oauth_profile_version,
       ea.required_product as app_required_product,
       ea.status as app_status
      from activation_requests ar

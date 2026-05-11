@@ -114,6 +114,26 @@ export function oauthAccessTokenTtlSeconds() {
   return Number(env("OAUTH_ACCESS_TOKEN_TTL_SECONDS") || 15 * 60);
 }
 
+export const currentOAuthProfileVersion = "bn-oauth-2026-05";
+export const legacyOAuthProfileVersion = "bn-oauth-2026-01";
+
+export const oauthProfileVersions = [
+  {
+    version: currentOAuthProfileVersion,
+    label: "Bottleneck OAuth 2026.05",
+    status: "current",
+  },
+  {
+    version: legacyOAuthProfileVersion,
+    label: "Bottleneck OAuth 2026.01",
+    status: "legacy",
+  },
+] as const;
+
+export function supportedOAuthProfileVersion(version: string) {
+  return oauthProfileVersions.some(item => item.version === version);
+}
+
 export function bearerAdminTelegramId() {
   return env("BEARER_ADMIN_TELEGRAM_ID");
 }

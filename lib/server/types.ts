@@ -46,6 +46,7 @@ export type ExternalApp = {
   allowedGrantTypes: string[];
   allowedScopes: string[];
   issueRefreshTokens: boolean;
+  oauthProfileVersion: string;
   requiredProduct: string | null;
   status: "active" | "disabled";
 };

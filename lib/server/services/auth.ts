@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import redis from "../redis";
+import { assessRequestRisk } from "../risk";
 import { login2faTtlMinutes, registrationTtlMinutes } from "../config";
 import {
   hashToken,
@@ -247,6 +248,11 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
     userId: user.id,
     eventType: "login_success",
     result: "ok",
+    context,
+  });
+  await assessRequestRisk({
+    userId: user.id,
+    eventType: "login_success",
     context,
   });
 
