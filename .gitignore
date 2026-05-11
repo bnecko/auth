@@ -19,14 +19,10 @@ AGENTS.md
 .aider.conf.yml
 .aider.chat.history.md
 .aider.input.history
-*.prompt.md
 notes-*.md
 scratch/
 _ai/
 *.pem
-docs/*prompt.md
-docs/pre-public-hygiene.md
-docs/security-audit.md
 test.log
 test-results/
 playwright-report/
