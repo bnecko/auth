@@ -34,7 +34,7 @@ FROM node:22-alpine AS worker
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY --chown=node:node worker.js ./worker.js
 USER node
 CMD ["node", "worker.js"]
