@@ -8,6 +8,7 @@
     "start": "next start",
     "migrate": "node scripts/migrate.mjs",
     "migrate:smoke": "node scripts/migration-smoke.mjs",
+    "public:hygiene": "node scripts/public-hygiene.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

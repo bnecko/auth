@@ -40,10 +40,13 @@ jobs:
           } >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm audit --omit=dev
+      - run: npm run public:hygiene
       - run: npm run migrate
       - run: npm run typecheck
       - run: npm run test:run
       - run: npm run migrate:smoke
       - run: npm run build
+      - run: docker build --target runner .
+      - run: docker build --target worker .
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
