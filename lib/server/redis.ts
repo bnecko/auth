@@ -4,6 +4,7 @@ import { env } from "./config";
 const redisUrl = env("REDIS_URL") || "redis://localhost:6379";
 
 const redis = new Redis(redisUrl, {
+  lazyConnect: true,
   maxRetriesPerRequest: 3,
   retryStrategy(times) {
     return Math.min(times * 50, 2000);

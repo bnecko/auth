@@ -6,6 +6,7 @@ import redis from "@/lib/server/redis";
 import { json, requestBody } from "@/lib/server/http";
 import { createUserSession } from "@/lib/server/session";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
+import { findUserById } from "@/lib/server/repositories/users";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,10 @@ export async function POST(req: NextRequest) {
     if (!credential) {
       return json({ error: "credential not found" }, 400);
     }
+    const user = await findUserById(credential.userId);
+    if (!user || user.status === "banned") {
+      return json({ error: "credential not found" }, 400);
+    }
 
     let verification;
     try {
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest) {
         expectedChallenge,
         expectedOrigin: getOrigin(),
         expectedRPID: getRpID(),
-        requireUserVerification: false,
+        requireUserVerification: user.role === "admin",
         credential: {
           id: credential.credentialId,
           publicKey: new Uint8Array(credential.publicKey),
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
       });
 
       const res = NextResponse.json({ success: true, redirectTo: "/" });
-      await createUserSession(credential.userId, req, res, { remember: true });
+      await createUserSession(user.id, req, res, { remember: true });
       return res;
     }
 

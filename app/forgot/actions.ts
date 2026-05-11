@@ -1,15 +1,15 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { findUserByIdentifier } from "@/lib/server/repositories/users";
 import redis from "@/lib/server/redis";
-import { randomToken } from "@/lib/server/crypto";
+import { hashToken, randomToken } from "@/lib/server/crypto";
 import { sendTelegramMessage } from "@/lib/server/telegramSend";
 import { authBaseUrl } from "@/lib/server/config";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 import { headers } from "next/headers";
 import { rateLimit } from "@/lib/server/rateLimit";
+import { requestContextFromHeaders } from "@/lib/server/http";
 
 export async function requestPasswordReset(formData: FormData) {
   const identifier = formData.get("identifier");
@@ -18,9 +18,9 @@ export async function requestPasswordReset(formData: FormData) {
   }
 
   const headersList = await headers();
-  const ip = headersList.get("x-forwarded-for") || "unknown";
+  const context = requestContextFromHeaders(headersList);
   
-  const rl = await rateLimit(`rl:forgot:ip:${ip}`, 3, 15 * 60 * 1000); // 3 per 15 min
+  const rl = await rateLimit(`rl:forgot:ip:${context.ip || "unknown"}`, 3, 15 * 60 * 1000);
   if (!rl.success) {
     return { error: "Too many requests. Please try again later." };
   }
@@ -32,11 +32,11 @@ export async function requestPasswordReset(formData: FormData) {
   }
 
   if (!user.telegramId) {
-    return { error: "No Telegram account linked. Please contact support manually." };
+    return { success: true };
   }
 
   const token = randomToken(32);
-  const key = `password_reset:${token}`;
+  const key = `password_reset:${hashToken(token)}`;
   
   await redis.setex(key, 15 * 60, user.id.toString());
 
@@ -52,12 +52,12 @@ export async function requestPasswordReset(formData: FormData) {
       userId: user.id,
       eventType: "password_reset_requested",
       result: "ok",
-      context: { ip: "", userAgent: "", country: "" },
+      context,
       metadata: {},
     });
   } catch (err) {
     console.error("Failed to send reset telegram", err);
-    return { error: "Failed to send reset link via Telegram. Please try again." };
+    return { success: true };
   }
 
   return { success: true };

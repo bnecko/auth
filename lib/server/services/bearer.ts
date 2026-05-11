@@ -14,7 +14,7 @@ import {
 import { createExternalApp } from "../repositories/externalApps";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { escapeHtml } from "../telegramSend";
-import { telegramQueue } from "../queue";
+import { getTelegramQueue } from "../queue";
 import type { BearerRequest, User } from "../types";
 
 const APP_NAME_MAX = 60;
@@ -110,7 +110,7 @@ async function notifyAdmin(input: { request: BearerRequest; user: User }) {
     `<a href="${authBaseUrl()}/admin/bearer/${input.request.publicId}">open in admin</a>`,
   ].join("\n");
 
-  await telegramQueue.add("send", {
+  await getTelegramQueue().add("send", {
     chat_id: adminId,
     text,
     reply_markup: {

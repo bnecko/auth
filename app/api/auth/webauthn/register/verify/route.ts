@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       expectedChallenge,
       expectedOrigin: getOrigin(),
       expectedRPID: getRpID(),
-      requireUserVerification: false,
+      requireUserVerification: session.user.role === "admin",
     });
 
     if (verification.verified && verification.registrationInfo) {

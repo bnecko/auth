@@ -3,7 +3,9 @@ import { createUser, findUserByIdentifier, updateUserPassword, findPasswordHash 
 import { randomToken, publicId } from '@/lib/server/crypto';
 
 // These tests require a running test database connected via DATABASE_URL
-describe('Database Integration: users repository', () => {
+const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
+
+describeDb('Database Integration: users repository', () => {
   it('creates and finds a user', async () => {
     const username = `testuser_${randomToken(8)}`;
     const email = `${username}@example.com`;

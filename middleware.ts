@@ -11,19 +11,32 @@ import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server
 //   from app/layout.tsx. If/when fonts are self-hosted these can drop to
 //   'self'.
 // - HSTS is only emitted in production to avoid breaking local http dev.
-const csp = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "img-src 'self' data: https://t.me",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com https://telegram.org",
-  "frame-src 'self' https://challenges.cloudflare.com https://telegram.org https://oauth.telegram.org",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://cloudflareinsights.com https://oauth.telegram.org",
-  "object-src 'none'",
-].join("; ");
+function contentSecurityPolicy() {
+  const scriptSources = [
+    "'self'",
+    "'unsafe-inline'",
+    "https://challenges.cloudflare.com",
+    "https://telegram.org",
+  ];
+
+  if (process.env.NODE_ENV !== "production") {
+    scriptSources.push("'unsafe-eval'");
+  }
+
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data: https://t.me",
+    `script-src ${scriptSources.join(" ")}`,
+    "frame-src 'self' https://challenges.cloudflare.com https://telegram.org https://oauth.telegram.org",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://oauth.telegram.org",
+    "object-src 'none'",
+  ].join("; ");
+}
 
 async function sendTelegramAnalytics(req: NextRequest) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -79,7 +92,7 @@ export function middleware(req: NextRequest, event: NextFetchEvent) {
   const res = NextResponse.next();
 
   res.headers.set("x-pathname", req.nextUrl.pathname);
-  res.headers.set("Content-Security-Policy", csp);
+  res.headers.set("Content-Security-Policy", contentSecurityPolicy());
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
