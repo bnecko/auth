@@ -27,6 +27,8 @@ test.log
 test-results/
 playwright-report/
 
+docs/prompts/
+
 # Python
 venv/
 .venv/
