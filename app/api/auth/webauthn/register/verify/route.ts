@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       expectedChallenge,
       expectedOrigin: getOrigin(),
       expectedRPID: getRpID(),
+      requireUserVerification: false,
     });
 
     if (verification.verified && verification.registrationInfo) {

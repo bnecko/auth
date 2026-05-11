@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
         expectedChallenge,
         expectedOrigin: getOrigin(),
         expectedRPID: getRpID(),
+        requireUserVerification: false,
         credential: {
           id: credential.credentialId,
           publicKey: new Uint8Array(credential.publicKey),
