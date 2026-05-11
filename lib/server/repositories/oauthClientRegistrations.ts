@@ -16,6 +16,7 @@ export type OAuthClientRegistrationRequest = {
   scopes: string[];
   tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
   clientType: "public" | "confidential";
+  oauthProfileVersion: string;
   status: OAuthClientRegistrationStatus;
   requesterIp: string | null;
   requesterUserAgent: string | null;
@@ -38,6 +39,7 @@ type RegistrationRow = {
   scopes: string[];
   token_endpoint_auth_method: OAuthClientRegistrationRequest["tokenEndpointAuthMethod"];
   client_type: OAuthClientRegistrationRequest["clientType"];
+  oauth_profile_version: string;
   status: OAuthClientRegistrationStatus;
   requester_ip: string | null;
   requester_user_agent: string | null;
@@ -60,6 +62,7 @@ const registrationSelect = `
   scopes,
   token_endpoint_auth_method,
   client_type,
+  oauth_profile_version,
   status,
   requester_ip,
   requester_user_agent,
@@ -83,6 +86,7 @@ function mapRegistration(row: RegistrationRow): OAuthClientRegistrationRequest {
     scopes: row.scopes || [],
     tokenEndpointAuthMethod: row.token_endpoint_auth_method,
     clientType: row.client_type,
+    oauthProfileVersion: row.oauth_profile_version,
     status: row.status,
     requesterIp: row.requester_ip,
     requesterUserAgent: row.requester_user_agent,
@@ -106,6 +110,7 @@ export async function createOAuthClientRegistrationRequest(input: {
   scopes: string[];
   tokenEndpointAuthMethod: OAuthClientRegistrationRequest["tokenEndpointAuthMethod"];
   clientType: OAuthClientRegistrationRequest["clientType"];
+  oauthProfileVersion: string;
   requesterIp: string;
   requesterUserAgent: string;
   requesterCountry: string;
@@ -121,12 +126,13 @@ export async function createOAuthClientRegistrationRequest(input: {
        scopes,
        token_endpoint_auth_method,
        client_type,
+       oauth_profile_version,
        requester_ip,
        requester_user_agent,
        requester_country,
        expires_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      returning ${registrationSelect}`,
     [
       input.publicId,
@@ -137,6 +143,7 @@ export async function createOAuthClientRegistrationRequest(input: {
       input.scopes,
       input.tokenEndpointAuthMethod,
       input.clientType,
+      input.oauthProfileVersion,
       input.requesterIp,
       input.requesterUserAgent,
       input.requesterCountry,
@@ -217,6 +224,7 @@ export async function approveOAuthClientRegistrationRequest(input: {
          allowed_grant_types,
          allowed_scopes,
          issue_refresh_tokens,
+         oauth_profile_version,
          status
        )
        select
@@ -231,6 +239,7 @@ export async function approveOAuthClientRegistrationRequest(input: {
          grant_types,
          scopes,
          'refresh_token' = any(grant_types),
+         oauth_profile_version,
          'active'
        from req
        returning id

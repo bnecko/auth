@@ -47,9 +47,10 @@ export async function createAppAction(formData: FormData) {
       allowed_grant_types,
       allowed_scopes,
       issue_refresh_tokens,
+      oauth_profile_version,
       status,
       owner_user_id
-    ) values ($1, $2, $3, $4, $4, $5, 'confidential', 'client_secret_post', $6, $7, true, 'active', $8) returning id`,
+    ) values ($1, $2, $3, $4, $4, $5, 'confidential', 'client_secret_post', $6, $7, true, 'bn-oauth-2026-05', 'active', $8) returning id`,
     [
       clientId,
       name,

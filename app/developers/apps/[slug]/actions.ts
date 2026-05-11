@@ -9,8 +9,10 @@ import { requestContextFromHeaders } from "@/lib/server/http";
 import {
   findExternalAppSecretHashForOwner,
   rotateExternalAppOAuthSecret,
+  updateExternalAppOAuthProfileVersion,
 } from "@/lib/server/repositories/externalApps";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
+import { supportedOAuthProfileVersion } from "@/lib/server/config";
 
 export async function updateAppAction(formData: FormData) {
   const current = await getCurrentSession();
@@ -46,6 +48,33 @@ export async function updateAppAction(formData: FormData) {
     });
     revalidatePath(`/developers/apps/${app.slug}`);
     return { clientSecret: newSecret };
+  }
+
+  if (action === "update_oauth_version") {
+    const version = String(formData.get("oauth_profile_version") || "");
+    if (!supportedOAuthProfileVersion(version)) {
+      throw new Error("Unsupported OAuth profile version");
+    }
+
+    await updateExternalAppOAuthProfileVersion({
+      appId,
+      ownerUserId: current.user.id,
+      version,
+    });
+    await recordSecurityEvent({
+      userId: current.user.id,
+      eventType: "oauth_client_profile_version",
+      result: "updated",
+      context: requestContextFromHeaders(await headers()),
+      metadata: {
+        appId,
+        appSlug: app.slug,
+        previousVersion: app.oauth_profile_version,
+        version,
+      },
+    });
+    revalidatePath(`/developers/apps/${app.slug}`);
+    return { ok: true };
   }
 
   const urisRaw = formData.get("redirect_uris")?.toString() || "";

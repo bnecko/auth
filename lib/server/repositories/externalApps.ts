@@ -15,6 +15,7 @@ type ExternalAppRow = {
   allowed_grant_types: string[];
   allowed_scopes: string[];
   issue_refresh_tokens: boolean;
+  oauth_profile_version: string;
   required_product: string | null;
   status: "active" | "disabled";
 };
@@ -33,6 +34,7 @@ function mapExternalApp(row: ExternalAppRow): ExternalApp {
     allowedGrantTypes: row.allowed_grant_types || [],
     allowedScopes: row.allowed_scopes || [],
     issueRefreshTokens: row.issue_refresh_tokens,
+    oauthProfileVersion: row.oauth_profile_version,
     requiredProduct: row.required_product,
     status: row.status,
   };
@@ -51,6 +53,7 @@ const externalAppSelect = `
   allowed_grant_types,
   allowed_scopes,
   issue_refresh_tokens,
+  oauth_profile_version,
   required_product,
   status
 `;
@@ -195,10 +198,30 @@ export async function findExternalAppSecretHashForOwner(
   appId: number,
   ownerUserId: number,
 ) {
-  return queryOne<{ slug: string; oauth_client_secret_hash: string | null }>(
-    `select slug, oauth_client_secret_hash
+  return queryOne<{
+    slug: string;
+    oauth_client_secret_hash: string | null;
+    oauth_profile_version: string;
+  }>(
+    `select slug, oauth_client_secret_hash, oauth_profile_version
        from external_apps
       where id = $1 and owner_user_id = $2`,
     [appId, ownerUserId],
   );
+}
+
+export async function updateExternalAppOAuthProfileVersion(input: {
+  appId: number;
+  ownerUserId: number;
+  version: string;
+}) {
+  const row = await queryOne<{ slug: string }>(
+    `update external_apps
+        set oauth_profile_version = $3,
+            updated_at = now()
+      where id = $1 and owner_user_id = $2
+      returning slug`,
+    [input.appId, input.ownerUserId, input.version],
+  );
+  return row;
 }

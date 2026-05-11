@@ -53,6 +53,8 @@ External apps can also use OAuth/OIDC Authorization Code + PKCE. The OAuth
 separately from bearer API keys.
 Dynamic client registration requires `OAUTH_DYNAMIC_REGISTRATION_TOKEN` and
 admin approval before the client becomes active.
+The current OAuth profile is `bn-oauth-2026-05`; `bn-oauth-2026-01` remains
+available as a per-client compatibility downgrade.
 
 ## Documentation
 

@@ -8,6 +8,8 @@ import type { NextRequest } from "next/server";
 import {
   activeOidcSigningKey,
   authBaseUrl,
+  currentOAuthProfileVersion,
+  legacyOAuthProfileVersion,
   oauthAccessTokenTtlSeconds,
   oauthDynamicRegistrationToken,
   oidcSigningKeys,
@@ -203,6 +205,26 @@ export function enforceClientGrant(app: ExternalApp, grantType: string) {
 
 function hasScope(scopes: readonly string[], standard: string, legacy: string) {
   return scopes.includes(standard) || scopes.includes(legacy);
+}
+
+export function oauthProfileCompatibility(version: string) {
+  if (version === legacyOAuthProfileVersion) {
+    return {
+      version,
+      accessTokenSubject: "user",
+      clientCredentialsSubject: "client",
+      refreshTokenRotation: true,
+      notes: ["legacy claim aliases are preserved"],
+    };
+  }
+
+  return {
+    version: currentOAuthProfileVersion,
+    accessTokenSubject: "user",
+    clientCredentialsSubject: "client",
+    refreshTokenRotation: true,
+    notes: ["strict client policy and one-time DCR secret reveal"],
+  };
 }
 
 async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null) {
@@ -568,6 +590,7 @@ async function issueTokenPair(input: {
     token_type: "Bearer",
     expires_in: accessTokenTtl,
     scope: input.scopes.join(" "),
+    oauth_profile_version: input.app.oauthProfileVersion,
   };
 
   if (input.app.issueRefreshTokens && input.app.allowedGrantTypes.includes("refresh_token")) {
@@ -709,6 +732,7 @@ export async function exchangeOAuthToken(
       expires_in: accessTokenTtl,
       refresh_token: replacement,
       scope: previous.scopes.join(" "),
+      oauth_profile_version: app.oauthProfileVersion,
     };
 
     if (previous.scopes.includes("openid")) {
@@ -815,6 +839,7 @@ export async function exchangeOAuthToken(
       token_type: "Bearer",
       expires_in: accessTokenTtl,
       scope: scopes.join(" "),
+      oauth_profile_version: app.oauthProfileVersion,
     };
   }
 
@@ -950,6 +975,11 @@ export function oauthServerMetadata() {
       "none",
     ],
     code_challenge_methods_supported: ["S256"],
+    oauth_profile_versions_supported: [
+      currentOAuthProfileVersion,
+      legacyOAuthProfileVersion,
+    ],
+    oauth_profile_version_current: currentOAuthProfileVersion,
     scopes_supported: [
       "openid",
       "profile",

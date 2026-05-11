@@ -35,6 +35,9 @@ export default async function AdminOAuthClientsPage() {
                       {request.clientName}
                     </div>
                     <Tag tone="warning">{request.clientType}</Tag>
+                    <Tag tone={request.oauthProfileVersion === "bn-oauth-2026-05" ? "success" : "warning"}>
+                      {request.oauthProfileVersion}
+                    </Tag>
                   </div>
                   <div className="mt-1 text-meta text-muted">
                     {request.publicId} · {request.tokenEndpointAuthMethod}

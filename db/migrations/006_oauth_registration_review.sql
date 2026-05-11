@@ -9,6 +9,7 @@ create table if not exists oauth_client_registration_requests (
   token_endpoint_auth_method text not null
     check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'none')),
   client_type text not null check (client_type in ('public', 'confidential')),
+  oauth_profile_version text not null default 'bn-oauth-2026-05',
   status text not null default 'pending' check (status in ('pending', 'approved', 'denied', 'expired')),
   requester_ip text,
   requester_user_agent text,
@@ -27,3 +28,6 @@ create index if not exists oauth_client_registration_requests_status_idx
 
 create index if not exists oauth_client_registration_requests_expires_at_idx
   on oauth_client_registration_requests(expires_at);
+
+alter table oauth_client_registration_requests
+  add column if not exists oauth_profile_version text not null default 'bn-oauth-2026-05';

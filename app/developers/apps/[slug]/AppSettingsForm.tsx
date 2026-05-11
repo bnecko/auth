@@ -8,9 +8,11 @@ import { updateAppAction } from "./actions";
 export function AppSettingsForm({
   appId,
   redirectUris,
+  oauthProfileVersion,
 }: {
   appId: number;
   redirectUris: string[];
+  oauthProfileVersion: string;
 }) {
   const [secret, setSecret] = useState("");
   const [error, setError] = useState("");
@@ -81,6 +83,36 @@ export function AppSettingsForm({
               {busy === "save" ? "Saving..." : "Save Changes"}
             </Button>
           </div>
+        </form>
+      </section>
+
+      <section className="border border-border bg-surface rounded-sm p-6">
+        <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
+          OAuth Version
+        </h2>
+        <form action={save} className="space-y-4">
+          <input type="hidden" name="app_id" value={appId} />
+          <input type="hidden" name="action" value="update_oauth_version" />
+          <div>
+            <label className="block text-[13px] font-medium text-fg mb-1.5">
+              Compatibility profile
+            </label>
+            <select
+              name="oauth_profile_version"
+              defaultValue={oauthProfileVersion}
+              className="w-full rounded-sm border border-border bg-bg px-3 py-2 text-[13px] text-fg focus:outline-none focus:ring-1 focus:ring-border"
+            >
+              <option value="bn-oauth-2026-05">Bottleneck OAuth 2026.05</option>
+              <option value="bn-oauth-2026-01">Bottleneck OAuth 2026.01</option>
+            </select>
+            <p className="text-faint text-[12px] mt-1.5">
+              Downgrade only for client compatibility. New apps should stay on 2026.05.
+            </p>
+          </div>
+
+          <Button type="submit" disabled={busy === "save"}>
+            {busy === "save" ? "Saving..." : "Save OAuth Version"}
+          </Button>
         </form>
       </section>
 

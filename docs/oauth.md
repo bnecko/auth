@@ -30,6 +30,18 @@ PKCE S256 is required for all authorization-code exchanges.
 Client policy is enforced per app: grant types, scopes, token endpoint auth
 method, and refresh-token issuance are configured on the `external_apps` row.
 
+## OAuth Profile Versions
+
+Current profile:
+
+- `bn-oauth-2026-05`: strict client policy, one-time DCR secret reveal,
+  short-lived JWT access tokens, refresh-token reuse detection.
+
+Legacy profile:
+
+- `bn-oauth-2026-01`: compatibility profile for clients that need a downgrade
+  while they migrate. Use it per client from the developer app settings page.
+
 ## Dynamic Client Registration
 
 `POST /api/oauth/register` is restricted. Set
@@ -105,6 +117,7 @@ Response:
   "token_type": "Bearer",
   "expires_in": 900,
   "refresh_token": "opaque-refresh-token",
+  "oauth_profile_version": "bn-oauth-2026-05",
   "scope": "openid profile email",
   "id_token": "signed-jwt"
 }

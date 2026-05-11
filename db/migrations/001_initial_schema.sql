@@ -50,6 +50,7 @@ create table if not exists external_apps (
   allowed_grant_types text[] not null default array['authorization_code', 'refresh_token'],
   allowed_scopes text[] not null default array['openid', 'profile', 'email', 'profile:read', 'email:read'],
   issue_refresh_tokens boolean not null default true,
+  oauth_profile_version text not null default 'bn-oauth-2026-05',
   required_product text,
   status text not null default 'active' check (status in ('active', 'disabled')),
   created_at timestamptz not null default now(),
@@ -330,6 +331,7 @@ create table if not exists oauth_client_registration_requests (
   token_endpoint_auth_method text not null
     check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'none')),
   client_type text not null check (client_type in ('public', 'confidential')),
+  oauth_profile_version text not null default 'bn-oauth-2026-05',
   status text not null default 'pending' check (status in ('pending', 'approved', 'denied', 'expired')),
   requester_ip text,
   requester_user_agent text,
@@ -348,3 +350,38 @@ create index if not exists oauth_client_registration_requests_status_idx
 
 create index if not exists oauth_client_registration_requests_expires_at_idx
   on oauth_client_registration_requests(expires_at);
+
+create table if not exists webhook_endpoints (
+  id bigserial primary key,
+  public_id text not null unique,
+  external_app_id bigint not null references external_apps(id) on delete cascade,
+  url text not null,
+  event_types text[] not null default '{}',
+  secret_hash text not null,
+  status text not null default 'active' check (status in ('active', 'disabled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  disabled_at timestamptz
+);
+
+create index if not exists webhook_endpoints_app_idx on webhook_endpoints(external_app_id);
+create index if not exists webhook_endpoints_status_idx on webhook_endpoints(status);
+
+create table if not exists webhook_deliveries (
+  id bigserial primary key,
+  public_id text not null unique,
+  webhook_endpoint_id bigint not null references webhook_endpoints(id) on delete cascade,
+  event_type text not null,
+  payload jsonb not null,
+  status text not null default 'pending' check (status in ('pending', 'delivered', 'failed', 'cancelled')),
+  attempt_count integer not null default 0,
+  next_attempt_at timestamptz,
+  response_status integer,
+  response_body text,
+  last_error text,
+  created_at timestamptz not null default now(),
+  delivered_at timestamptz
+);
+
+create index if not exists webhook_deliveries_endpoint_idx on webhook_deliveries(webhook_endpoint_id, created_at);
+create index if not exists webhook_deliveries_status_idx on webhook_deliveries(status, next_attempt_at);

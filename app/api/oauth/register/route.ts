@@ -2,10 +2,15 @@ import { type NextRequest, NextResponse } from "next/server";
 import { requestBody, badRequest, requestContext } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { randomToken, safeEqual } from "@/lib/server/crypto";
-import { oauthDynamicRegistrationToken } from "@/lib/server/config";
+import {
+  currentOAuthProfileVersion,
+  oauthDynamicRegistrationToken,
+  supportedOAuthProfileVersion,
+} from "@/lib/server/config";
 import { OAuthError, parseOAuthScopes } from "@/lib/server/services/oauth";
 import { createOAuthClientRegistrationRequest } from "@/lib/server/repositories/oauthClientRegistrations";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
+import { assessRequestRisk } from "@/lib/server/risk";
 
 export const runtime = "nodejs";
 
@@ -63,6 +68,10 @@ export async function POST(req: NextRequest) {
         : "client_secret_post";
     const clientType = tokenEndpointAuthMethod === "none" ? "public" : "confidential";
     const scopes = parseOAuthScopes(typeof body.scope === "string" ? body.scope : "openid profile email");
+    const oauthProfileVersion =
+      typeof body.oauth_profile_version === "string"
+        ? body.oauth_profile_version
+        : currentOAuthProfileVersion;
 
     if (!clientName) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "client_name is required" }, { status: 400 });
@@ -88,6 +97,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "public clients cannot use client_credentials" }, { status: 400 });
     }
 
+    if (!supportedOAuthProfileVersion(oauthProfileVersion)) {
+      return NextResponse.json({ error: "invalid_client_metadata", error_description: "unsupported oauth_profile_version" }, { status: 400 });
+    }
+
     for (const uri of redirectUris) {
       try {
         const parsed = new URL(uri);
@@ -110,6 +123,7 @@ export async function POST(req: NextRequest) {
       scopes,
       tokenEndpointAuthMethod: supportedTokenEndpointAuthMethod,
       clientType,
+      oauthProfileVersion,
       requesterIp: context.ip,
       requesterUserAgent: context.userAgent,
       requesterCountry: context.country,
@@ -126,7 +140,13 @@ export async function POST(req: NextRequest) {
         clientName,
         grantTypes: allowedGrantTypes,
         scopes,
+        oauthProfileVersion,
       },
+    });
+    await assessRequestRisk({
+      eventType: "oauth_client_registration",
+      context,
+      metadata: { requestId: request.publicId, clientId },
     });
 
     return NextResponse.json({
@@ -137,6 +157,7 @@ export async function POST(req: NextRequest) {
       grant_types: allowedGrantTypes,
       response_types: ["code"],
       token_endpoint_auth_method: supportedTokenEndpointAuthMethod,
+      oauth_profile_version: oauthProfileVersion,
       scope: scopes.join(" "),
       registration_client_uri: `${req.nextUrl.origin}/api/oauth/register/${clientId}`,
       registration_access_token: registrationAccessToken,

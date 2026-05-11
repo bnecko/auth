@@ -20,6 +20,7 @@ const app: ExternalApp = {
   allowedGrantTypes: ['authorization_code', 'refresh_token'],
   allowedScopes: ['openid', 'profile', 'email'],
   issueRefreshTokens: true,
+  oauthProfileVersion: 'bn-oauth-2026-05',
   requiredProduct: null,
   status: 'active',
 };

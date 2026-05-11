@@ -26,10 +26,11 @@ export default async function AppSettingsPage({
     name: string;
     public_id: string;
     allowed_redirect_urls: string[];
+    oauth_profile_version: string;
     status: string;
     created_at: string;
   }>(
-    `select id, name, public_id, allowed_redirect_urls, status, created_at::text
+    `select id, name, public_id, allowed_redirect_urls, oauth_profile_version, status, created_at::text
      from external_apps
      where slug = $1 and owner_user_id = $2`,
     [slug, current.user.id]
@@ -65,6 +66,7 @@ export default async function AppSettingsPage({
           <AppSettingsForm
             appId={app.id}
             redirectUris={app.allowed_redirect_urls}
+            oauthProfileVersion={app.oauth_profile_version}
           />
         </main>
       </div>

@@ -29,6 +29,7 @@ export async function GET(
     grant_types: request.grantTypes,
     response_types: ["code"],
     token_endpoint_auth_method: request.tokenEndpointAuthMethod,
+    oauth_profile_version: request.oauthProfileVersion,
     scope: request.scopes.join(" "),
     registration_status: request.status,
   };
