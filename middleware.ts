@@ -34,6 +34,9 @@ function contentSecurityPolicy(scriptNonce: string) {
     styleSources.push("'unsafe-inline'");
   } else {
     scriptSources.push(`'nonce-${scriptNonce}'`);
+    // 'strict-dynamic' trusts scripts loaded by nonced scripts, covering
+    // Next.js's dynamically imported chunks without needing per-chunk nonces.
+    scriptSources.push("'strict-dynamic'");
   }
 
   return [

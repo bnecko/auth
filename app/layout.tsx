@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,9 +10,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading x-nonce here causes Next.js to apply the nonce to its own
+  // generated inline scripts (hydration bootstrap), which is required for
+  // the nonce-based CSP in production to not block the page from loading.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
-    <html lang="en">
+    <html lang="en" nonce={nonce}>
       <head>
         <link
           rel="preconnect"
