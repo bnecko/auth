@@ -28,18 +28,24 @@ export async function POST(req: NextRequest) {
       return json({ error: "credential not found" }, 400);
     }
 
-    const verification = await verifyAuthenticationResponse({
-      response,
-      expectedChallenge,
-      expectedOrigin: getOrigin(),
-      expectedRPID: getRpID(),
-      credential: {
-        id: credential.credentialId,
-        publicKey: new Uint8Array(credential.publicKey),
-        counter: credential.signCount,
-        transports: credential.transports as any,
-      },
-    });
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge,
+        expectedOrigin: getOrigin(),
+        expectedRPID: getRpID(),
+        credential: {
+          id: credential.credentialId,
+          publicKey: new Uint8Array(credential.publicKey),
+          counter: credential.signCount,
+          transports: credential.transports as any,
+        },
+      });
+    } catch (verifyErr) {
+      console.error("[webauthn/login/verify] verifyAuthenticationResponse threw:", verifyErr);
+      return json({ error: verifyErr instanceof Error ? verifyErr.message : "verification failed" }, 400);
+    }
 
     if (verification.verified && verification.authenticationInfo) {
       await updateWebauthnCredentialSignCount(credential.credentialId, verification.authenticationInfo.newCounter);

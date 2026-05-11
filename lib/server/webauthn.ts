@@ -12,5 +12,5 @@ export function getRpID() {
 }
 
 export function getOrigin() {
-  return authBaseUrl();
+  return authBaseUrl().replace(/\/$/, "");
 }
