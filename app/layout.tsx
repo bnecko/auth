@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "bottleneck / auth",
   description: "Sign in to Bottleneck.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
