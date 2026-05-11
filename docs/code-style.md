@@ -76,16 +76,38 @@ This applies to strings too. `status === "active"` scattered across 10 files is 
 
 ## Comments
 
-Write a comment only when the WHY is non-obvious: a hidden constraint, a subtle invariant, a workaround for a specific bug, behavior that would surprise a reader. If removing the comment would not confuse a future reader, omit it.
+Write a comment only when the WHY is non-obvious: a hidden constraint, a security invariant, a caller contract, an intentional omission, or behavior that would surprise a reader. If removing the comment would not confuse a future maintainer, omit it.
 
-Never narrate what the code does. Well-named identifiers already do that. Never reference the current task, fix, or caller.
+Never narrate what the code does. Well-named identifiers already do that. Never reference the current task, fix, or ticket number.
 
-One short line per comment. No multi-line blocks unless the WHY genuinely requires more than one sentence.
+**Multi-line comments are encouraged when the explanation warrants it.** A short comment that leaves out the critical context is worse than a longer one that makes the reasoning clear. The target is comments like this:
+
+```ts
+// plaintext_key is intentionally not selected: the only callers that need
+// it are revealBearerRequestKey/clearBearerRequestKey, which select it
+// in the same atomic update. Everywhere else we expose only a boolean
+// for "is the plaintext still retrievable".
+const bearerSelect = `...`;
+
+// Atomically transition pending -> approved and stash the generated
+// plaintext key. Only succeeds for rows still in pending status, so
+// double-clicks on the approve button can't issue two keys.
+export async function approveBearerRequest(...) {
+
+// Refuse to overwrite an existing telegram link — preventing a CSRF on
+// GET /api/telegram/callback from rebinding a logged-in user's account to
+// an attacker-controlled Telegram identity.
+```
+
+What these have in common: they explain a constraint, a security property, or an invariant that the code alone does not express. They name the attack or failure mode. They justify a choice that looks surprising without context.
+
+What they do not do: restate what the function does, describe the caller, or explain things already visible from the code.
 
 Rules:
 - No em dashes (U+2014). Use a colon, comma, or rewrite the sentence.
 - No ALL CAPS words.
 - No exclamation marks.
+- No section-banner comments inside functions (`// === Validation ===`). If a function needs labeled sections, it needs to be split.
 
 ## Imports
 
