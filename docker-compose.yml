@@ -58,7 +58,9 @@ services:
         max-file: "3"
 
   app:
-    build: .
+    build:
+      context: .
+      target: runner
     restart: unless-stopped
     environment:
       AUTH_BASE_URL: ${AUTH_BASE_URL:-https://auth.bottleneck.cc}
