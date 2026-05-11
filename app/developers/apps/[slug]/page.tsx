@@ -49,7 +49,7 @@ export default async function AppSettingsPage({
         }}
       />
       <div className="flex-1 min-w-0 flex flex-col">
-        <TopNav trail={`developers / apps / ${app.name}`} />
+        <TopNav trail={`developers / apps / ${app.name}`} isAdmin={current.user.role === "admin"} />
         <main className="flex-1 p-6 lg:p-10 max-w-[800px] mx-auto w-full">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">

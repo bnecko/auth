@@ -38,7 +38,7 @@ export default async function DeveloperAppsPage() {
         }}
       />
       <div className="flex-1 min-w-0 flex flex-col">
-        <TopNav trail="developers / apps" />
+        <TopNav trail="developers / apps" isAdmin={current.user.role === "admin"} />
         <main className="flex-1 p-6 lg:p-10 max-w-[1040px] mx-auto w-full">
           <div className="flex items-end justify-between mb-8">
             <div>

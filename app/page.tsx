@@ -38,7 +38,7 @@ export default async function DashboardPage() {
     <div className="flex min-h-screen">
       <Sidebar user={{ name: account.firstName, username: account.username }} />
       <div className="flex-1 min-w-0">
-        <TopNav trail="account" />
+        <TopNav trail="account" isAdmin={current.user.role === "admin"} />
         <main className="max-w-[960px] mx-auto px-6 py-10">
           <header className="mb-9">
             <div className="flex items-baseline gap-3 mb-2">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export function TopNav({ trail }: { trail?: string }) {
+export function TopNav({ trail, isAdmin }: { trail?: string; isAdmin?: boolean }) {
   const router = useRouter();
 
   async function signOut() {
@@ -22,10 +22,14 @@ export function TopNav({ trail }: { trail?: string }) {
           <span className="text-secondary">{trail ?? "account"}</span>
         </div>
         <nav className="flex items-center gap-4 text-secondary">
-          <Link href="/admin" className="hover:text-fg transition-colors">
-            admin
-          </Link>
-          <span className="text-faint">/</span>
+          {isAdmin && (
+            <>
+              <Link href="/admin" className="hover:text-fg transition-colors">
+                admin
+              </Link>
+              <span className="text-faint">/</span>
+            </>
+          )}
           <button
             type="button"
             onClick={signOut}
