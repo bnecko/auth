@@ -6,11 +6,11 @@ import {
 } from "crypto";
 import type { NextRequest } from "next/server";
 import {
+  activeOidcSigningKey,
   authBaseUrl,
   oauthAccessTokenTtlSeconds,
   oauthDynamicRegistrationToken,
-  oidcKeyId,
-  oidcPrivateKeyPem,
+  oidcSigningKeys,
 } from "../config";
 import { randomToken, safeEqual } from "../crypto";
 import { requestContext } from "../http";
@@ -399,39 +399,38 @@ function jsonBase64Url(value: unknown) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }
 
-function oidcPrivateKey() {
-  return createPrivateKey(oidcPrivateKeyPem());
-}
-
 export function oauthJwks() {
-  const publicKey = createPublicKey(oidcPrivateKey()).export({
-    format: "jwk",
-  }) as Record<string, unknown>;
-
   return {
-    keys: [
-      {
-        ...publicKey,
-        use: "sig",
-        alg: "RS256",
-        kid: oidcKeyId(),
-      },
-    ],
+    keys: oidcSigningKeys()
+      .filter(key => key.status !== "revoked")
+      .map(key => {
+        const publicKey = createPublicKey(createPrivateKey(key.privateKeyPem)).export({
+          format: "jwk",
+        }) as Record<string, unknown>;
+
+        return {
+          ...publicKey,
+          use: "sig",
+          alg: "RS256",
+          kid: key.kid,
+        };
+      }),
   };
 }
 
 function signJwt(payload: Record<string, unknown>) {
+  const signingKey = activeOidcSigningKey();
   const encodedHeader = jsonBase64Url({
     alg: "RS256",
     typ: "JWT",
-    kid: oidcKeyId(),
+    kid: signingKey.kid,
   });
   const encodedPayload = jsonBase64Url(payload);
   const signingInput = `${encodedHeader}.${encodedPayload}`;
   const signature = signBytes(
     "RSA-SHA256",
     Buffer.from(signingInput),
-    oidcPrivateKey(),
+    createPrivateKey(signingKey.privateKeyPem),
   );
 
   return `${signingInput}.${signature.toString("base64url")}`;

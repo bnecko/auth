@@ -3,6 +3,8 @@ import { verifyTelegramLogin } from "@/lib/server/telegram";
 import { findUserByTelegramId, linkTelegram } from "@/lib/server/repositories/users";
 import { createUserSession, getSessionFromRequest } from "@/lib/server/session";
 import { authBaseUrl } from "@/lib/server/config";
+import { requestContext } from "@/lib/server/http";
+import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export const runtime = "nodejs";
 
@@ -22,6 +24,13 @@ export async function GET(req: NextRequest) {
     // attacker's signed Telegram payload would otherwise rebind the victim
     // account to the attacker's TG identity on a cross-site GET.
     const linked = await linkTelegram(current.user.id, telegram);
+    await recordSecurityEvent({
+      userId: current.user.id,
+      eventType: "telegram_2fa_link",
+      result: linked ? "success" : "failure",
+      context: requestContext(req),
+      metadata: { telegramId: telegram.id },
+    });
     const url = new URL("/", base);
     if (!linked) {
       url.searchParams.set("error", "telegram_link_failed");

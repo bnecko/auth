@@ -37,7 +37,6 @@ input:-webkit-autofill:focus {
   border-radius: 2px;
 }
 
-/* Subtle scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -54,9 +53,29 @@ input:-webkit-autofill:focus {
   background: #2a2a2e;
 }
 
-/* Hide native arrows on number inputs */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.oauth-code-block {
+  margin: 0;
+  border-radius: 0;
+  text-shadow: none;
+  background: #070707;
+}
+
+.oauth-code {
+  background: transparent;
+  text-shadow: none;
 }

@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getCurrentSession } from "@/lib/server/session";
 import { query } from "@/lib/server/db";
 import { randomToken } from "@/lib/server/crypto";
+import { requestContextFromHeaders } from "@/lib/server/http";
 import {
   findExternalAppSecretHashForOwner,
   rotateExternalAppOAuthSecret,
 } from "@/lib/server/repositories/externalApps";
+import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export async function updateAppAction(formData: FormData) {
   const current = await getCurrentSession();
@@ -34,6 +37,13 @@ export async function updateAppAction(formData: FormData) {
       newSecret,
       previousExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
+    await recordSecurityEvent({
+      userId: current.user.id,
+      eventType: "oauth_client_secret",
+      result: "rotated",
+      context: requestContextFromHeaders(await headers()),
+      metadata: { appId, appSlug: app.slug },
+    });
     revalidatePath(`/developers/apps/${app.slug}`);
     return { clientSecret: newSecret };
   }
@@ -56,6 +66,13 @@ export async function updateAppAction(formData: FormData) {
     `update external_apps set allowed_redirect_urls = $1, updated_at = now() where id = $2`,
     [redirectUris, appId]
   );
+  await recordSecurityEvent({
+    userId: current.user.id,
+    eventType: "oauth_client_redirects",
+    result: "updated",
+    context: requestContextFromHeaders(await headers()),
+    metadata: { appId, appSlug: app.slug, redirectCount: redirectUris.length },
+  });
 
   revalidatePath(`/developers/apps/${app.slug}`);
   return { ok: true };

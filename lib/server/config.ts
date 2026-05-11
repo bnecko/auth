@@ -51,6 +51,61 @@ export function oidcKeyId() {
   return env("OIDC_KEY_ID") || "default";
 }
 
+type OidcSigningKey = {
+  kid: string;
+  privateKeyPem: string;
+  status: "active" | "retired" | "revoked";
+};
+
+function normalizePem(value: string) {
+  return value.includes("\\n") ? value.replace(/\\n/g, "\n") : value;
+}
+
+export function oidcSigningKeys(): OidcSigningKey[] {
+  const raw = env("OIDC_SIGNING_KEYS_JSON");
+  if (!raw) {
+    return [
+      {
+        kid: oidcKeyId(),
+        privateKeyPem: oidcPrivateKeyPem(),
+        status: "active",
+      },
+    ];
+  }
+
+  const parsed = JSON.parse(raw) as Array<{
+    kid?: unknown;
+    privateKeyPem?: unknown;
+    private_key_pem?: unknown;
+    status?: unknown;
+  }>;
+
+  return parsed.map(item => {
+    const privateKey = item.privateKeyPem || item.private_key_pem;
+    if (typeof item.kid !== "string" || typeof privateKey !== "string") {
+      throw new Error("OIDC_SIGNING_KEYS_JSON entries require kid and privateKeyPem");
+    }
+
+    const status = item.status === "retired" || item.status === "revoked"
+      ? item.status
+      : "active";
+
+    return {
+      kid: item.kid,
+      privateKeyPem: normalizePem(privateKey),
+      status,
+    };
+  });
+}
+
+export function activeOidcSigningKey() {
+  const key = oidcSigningKeys().find(item => item.status === "active");
+  if (!key) {
+    throw new Error("OIDC_SIGNING_KEYS_JSON must contain an active key");
+  }
+  return key;
+}
+
 export function oauthDynamicRegistrationToken() {
   return env("OAUTH_DYNAMIC_REGISTRATION_TOKEN");
 }

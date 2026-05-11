@@ -6,7 +6,7 @@ import "prismjs/components/prism-bash";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-python";
 import "prismjs/components/prism-json";
-import "prismjs/themes/prism-tomorrow.css"; // IDE-like dark theme
+import "prismjs/themes/prism-tomorrow.css";
 
 export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) {
   const [active, setActive] = useState(0);
@@ -32,14 +32,8 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
 
   return (
     <div className="rounded-sm border border-border bg-bg overflow-hidden">
-      <style>{`
-        .hide-scroll::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-      <div 
-        className="flex bg-surface border-b border-border overflow-x-auto overflow-y-hidden hide-scroll"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      <div
+        className="flex bg-surface border-b border-border overflow-x-auto overflow-y-hidden no-scrollbar"
       >
         {tabs.map((tab, idx) => (
           <button
@@ -55,14 +49,12 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
           </button>
         ))}
       </div>
-      <pre 
-        className="overflow-x-auto px-4 py-4 text-[13px] leading-6" 
-        style={{ margin: 0, borderRadius: 0, textShadow: "none", background: "#070707" }}
+      <pre
+        className="oauth-code-block overflow-x-auto px-4 py-4 text-[13px] leading-6"
       >
-        <code 
-          className={`language-${lang}`} 
-          style={{ background: "transparent", textShadow: "none" }}
-          dangerouslySetInnerHTML={{ __html: highlightedCode }} 
+        <code
+          className={`oauth-code language-${lang}`}
+          dangerouslySetInnerHTML={{ __html: highlightedCode }}
         />
       </pre>
     </div>
