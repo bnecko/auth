@@ -206,7 +206,10 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
         </nav>
 
         <div className="px-3 py-3 border-t border-border">
-          <div className="flex items-center gap-2 px-2 py-2 rounded-sm hover:bg-hover transition-colors">
+          <Link
+            href={`/user/${user.username}`}
+            className="flex items-center gap-2 px-2 py-2 rounded-sm hover:bg-hover transition-colors"
+          >
             <div
               className="h-6 w-6 rounded-sm bg-elevated border border-border flex items-center justify-center text-meta text-secondary"
               aria-hidden
@@ -217,7 +220,7 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
               <div className="text-[12.5px] text-fg truncate">{user.name}</div>
               <div className="text-meta text-muted truncate">@{user.username}</div>
             </div>
-          </div>
+          </Link>
         </div>
       </aside>
 
