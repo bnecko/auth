@@ -1,6 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export function TopNav({ trail }: { trail?: string }) {
+  const router = useRouter();
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
+
   return (
     <header className="border-b border-border bg-bg sticky top-0 z-10 backdrop-blur">
       <div className="max-w-[1140px] mx-auto px-6 h-12 flex items-center justify-between text-meta">
@@ -16,14 +26,13 @@ export function TopNav({ trail }: { trail?: string }) {
             admin
           </Link>
           <span className="text-faint">/</span>
-          <form action="/api/auth/logout" method="POST" className="inline m-0 p-0">
-            <button
-              type="submit"
-              className="hover:text-fg transition-colors"
-            >
-              sign out
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={signOut}
+            className="hover:text-fg transition-colors"
+          >
+            sign out
+          </button>
         </nav>
       </div>
     </header>
