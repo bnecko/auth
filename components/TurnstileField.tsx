@@ -99,7 +99,7 @@ export function TurnstileField() {
     <div className="space-y-1.5">
       <input type="hidden" name="turnstileToken" value={token} />
       <div ref={containerRef} />
-      {error && <p className="text-meta text-danger">x {error}</p>}
+      {error && <p className="text-meta text-danger">× {error}</p>}
     </div>
   );
 }

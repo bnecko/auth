@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
+import { Field } from "@/components/Field";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
+import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import {
   createWebhookEndpointAction,
   deleteWebhookEndpointAction,
@@ -19,9 +22,9 @@ type Endpoint = {
 };
 
 const EVENT_OPTIONS = [
-  { value: "activation.approved", label: "Activation approved" },
-  { value: "activation.denied", label: "Activation denied" },
-  { value: "activation.cancelled", label: "Activation cancelled" },
+  { value: "activation.approved", label: "activation approved" },
+  { value: "activation.denied", label: "activation denied" },
+  { value: "activation.cancelled", label: "activation cancelled" },
 ];
 
 export function WebhookEndpointsSection({
@@ -45,58 +48,63 @@ export function WebhookEndpointsSection({
         setRevealedSecret(result.secret);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to create endpoint");
+      setError(
+        err instanceof Error ? err.message : "failed to create endpoint",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section className="border border-border bg-surface rounded-sm p-6">
-      <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
-        Webhook endpoints
-      </h2>
-
+    <div className="space-y-4">
       {error && <Alert tone="danger">{error}</Alert>}
       {revealedSecret && (
         <Alert tone="warning">
-          <div className="mb-1">
-            This is the only time the signing secret will be shown. Copy it now.
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <Glyph kind="warn" />
+            <span className="uppercase tracking-wider">
+              signing secret — shown once
+            </span>
           </div>
-          <code className="block font-mono select-all text-[12px] mt-1 break-all">
+          <code className="block font-mono select-all text-accent break-all">
             {revealedSecret}
           </code>
         </Alert>
       )}
 
-      {endpoints.length === 0 ? (
-        <p className="text-meta text-faint mb-4">No webhook endpoints yet.</p>
-      ) : (
-        <ul className="space-y-2 mb-4">
-          {endpoints.map(ep => (
-            <li
-              key={ep.publicId}
-              className="border border-border rounded-sm px-3 py-2 flex items-start justify-between gap-3"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <code className="text-[12px] text-fg truncate">{ep.url}</code>
-                  <Tag tone={ep.status === "active" ? "success" : "neutral"} bracket={false}>
-                    {ep.status}
-                  </Tag>
-                </div>
-                <div className="text-meta text-muted mt-1">
+      <Section
+        index="3.0"
+        title="webhook endpoints"
+        hint="event delivery targets"
+      >
+        {endpoints.length === 0 ? (
+          <Empty>no webhook endpoints</Empty>
+        ) : (
+          endpoints.map((ep) => (
+            <Row key={ep.publicId}>
+              <RowLabel>
+                <span className="normal-case tracking-normal text-fg truncate">
+                  {ep.url}
+                </span>
+              </RowLabel>
+              <RowValue>
+                <Tag tone={ep.status === "active" ? "success" : "neutral"}>
+                  {ep.status}
+                </Tag>
+                <Glyph kind="dot" />
+                <span className="text-muted text-meta truncate">
                   {ep.eventTypes.join(", ") || "no events"}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-meta">
+                </span>
+              </RowValue>
+              <div className="flex items-baseline gap-3 text-meta uppercase tracking-wider">
                 {ep.status === "active" && (
                   <form action={disableWebhookEndpointAction}>
                     <input type="hidden" name="app_id" value={appId} />
                     <input type="hidden" name="endpoint_id" value={ep.publicId} />
                     <button
                       type="submit"
-                      className="text-secondary hover:text-warning transition-colors"
+                      className="text-secondary hover:text-accent transition-colors"
                     >
                       disable
                     </button>
@@ -113,51 +121,51 @@ export function WebhookEndpointsSection({
                   </button>
                 </form>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+            </Row>
+          ))
+        )}
+      </Section>
 
-      <form action={create} className="space-y-3 pt-4 border-t border-border">
-        <input type="hidden" name="app_id" value={appId} />
-        <div>
-          <label className="block text-[13px] font-medium text-fg mb-1.5">
-            Endpoint URL
-          </label>
-          <input
-            type="url"
+      <Section index="3.1" title="add endpoint" hint="register new target">
+        <form action={create} className="space-y-5 py-3 px-1">
+          <input type="hidden" name="app_id" value={appId} />
+          <Field
+            label="endpoint url"
             name="url"
+            type="url"
             required
             placeholder="https://app.example.com/webhooks/bottleneck"
-            className="w-full rounded-sm border border-border bg-bg px-3 py-2 text-[13px] text-fg focus:outline-none focus:ring-1 focus:ring-border font-mono"
+            hint="https required (or http://localhost in development)"
           />
-          <p className="text-faint text-[12px] mt-1.5">
-            HTTPS required (or http://localhost in development).
-          </p>
-        </div>
-        <div>
-          <label className="block text-[13px] font-medium text-fg mb-1.5">
-            Events
-          </label>
-          <div className="space-y-1.5">
-            {EVENT_OPTIONS.map(opt => (
-              <label key={opt.value} className="flex items-center gap-2 text-[13px] text-fg">
-                <input
-                  type="checkbox"
-                  name="event_types"
-                  value={opt.value}
-                  defaultChecked
-                  className="accent-fg"
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
+          <div>
+            <label className="block text-meta uppercase tracking-wider text-muted mb-2">
+              events
+            </label>
+            <div className="border-t border-rule">
+              {EVENT_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    name="event_types"
+                    value={opt.value}
+                    defaultChecked
+                    className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+                  />
+                  <span className="text-meta text-fg group-hover:text-accent transition-colors">
+                    {opt.label}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
-        <Button type="submit" disabled={busy}>
-          {busy ? "Creating..." : "Add endpoint"}
-        </Button>
-      </form>
-    </section>
+          <Button type="submit" loading={busy}>
+            add endpoint
+          </Button>
+        </form>
+      </Section>
+    </div>
   );
 }

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
+import { Glyph } from "@/components/Glyph";
+import { Section } from "@/components/Section";
 import { updateAppAction } from "./actions";
 
 export function AppSettingsForm({
@@ -47,100 +49,109 @@ export function AppSettingsForm({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {error && <Alert tone="danger">{error}</Alert>}
       {secret && (
-        <Alert tone="success">
-          New client secret: <span className="font-mono select-all">{secret}</span>
+        <Alert tone="warning">
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <Glyph kind="warn" />
+            <span className="uppercase tracking-wider">new client secret</span>
+          </div>
+          <code className="block font-mono select-all text-accent break-all">
+            {secret}
+          </code>
         </Alert>
       )}
 
-      <section className="border border-border bg-surface rounded-sm p-6">
-        <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
-          Configuration
-        </h2>
-
-        <form action={save} className="space-y-4">
+      <Section index="2.0" title="configuration" hint="oauth client details">
+        <form action={save} className="space-y-5 py-3 px-1">
           <input type="hidden" name="app_id" value={appId} />
 
           <div>
-            <label className="block text-[13px] font-medium text-fg mb-1.5">
-              Allowed Redirect URIs (one per line)
+            <label className="block text-meta uppercase tracking-wider text-muted mb-1">
+              allowed redirect uris
             </label>
             <textarea
               name="redirect_uris"
               rows={4}
               defaultValue={redirectUris.join("\n")}
-              className="w-full rounded-sm border border-border bg-bg px-3 py-2 text-[13px] text-fg focus:outline-none focus:ring-1 focus:ring-border font-mono"
+              className="w-full bg-transparent border-0 border-b border-rule px-1 py-2 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors resize-y leading-relaxed"
             />
-            <p className="text-faint text-[12px] mt-1.5">
-              Must be strict HTTPS URLs where you expect to receive authorization codes.
+            <p className="text-meta text-muted mt-2">
+              one per line. strict https required (except localhost).
             </p>
           </div>
 
-          <div className="pt-2">
-            <Button type="submit" disabled={busy === "save"}>
-              {busy === "save" ? "Saving..." : "Save Changes"}
+          <div>
+            <Button type="submit" loading={busy === "save"}>
+              save changes
             </Button>
           </div>
         </form>
-      </section>
+      </Section>
 
-      <section className="border border-border bg-surface rounded-sm p-6">
-        <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
-          OAuth Version
-        </h2>
-        <form action={save} className="space-y-4">
+      <Section
+        index="2.1"
+        title="oauth version"
+        hint="compatibility profile"
+      >
+        <form action={save} className="space-y-5 py-3 px-1">
           <input type="hidden" name="app_id" value={appId} />
           <input type="hidden" name="action" value="update_oauth_version" />
           <div>
-            <label className="block text-[13px] font-medium text-fg mb-1.5">
-              Compatibility profile
+            <label className="block text-meta uppercase tracking-wider text-muted mb-1">
+              compatibility profile
             </label>
-            <select
-              name="oauth_profile_version"
-              defaultValue={oauthProfileVersion}
-              className="w-full rounded-sm border border-border bg-bg px-3 py-2 text-[13px] text-fg focus:outline-none focus:ring-1 focus:ring-border"
-            >
-              <option value="bn-oauth-2026-05">Bottleneck OAuth 2026.05</option>
-              <option value="bn-oauth-2026-01">Bottleneck OAuth 2026.01</option>
-            </select>
-            <p className="text-faint text-[12px] mt-1.5">
-              Forward-compat tag. Both versions behave identically today; new apps should stay on 2026.05.
+            <div className="border-b border-rule">
+              <select
+                name="oauth_profile_version"
+                defaultValue={oauthProfileVersion}
+                className="w-full bg-transparent border-0 px-1 py-2 text-[14px] text-fg focus:outline-none focus:text-accent transition-colors appearance-none cursor-pointer"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(45deg, transparent 50%, var(--fg) 50%), linear-gradient(135deg, var(--fg) 50%, transparent 50%)",
+                  backgroundPosition:
+                    "calc(100% - 12px) calc(50% - 3px), calc(100% - 8px) calc(50% - 3px)",
+                  backgroundSize: "4px 4px",
+                  backgroundRepeat: "no-repeat",
+                }}
+              >
+                <option value="bn-oauth-2026-05">bottleneck oauth 2026.05</option>
+                <option value="bn-oauth-2026-01">bottleneck oauth 2026.01</option>
+              </select>
+            </div>
+            <p className="text-meta text-muted mt-2">
+              both versions behave identically today — new apps should stay on 2026.05.
             </p>
           </div>
 
-          <Button type="submit" disabled={busy === "save"}>
-            {busy === "save" ? "Saving..." : "Save OAuth Version"}
+          <Button type="submit" loading={busy === "save"}>
+            save oauth version
           </Button>
         </form>
-      </section>
+      </Section>
 
-      <section className="border border-border bg-surface rounded-sm p-6">
-        <h2 className="text-micro uppercase tracking-[0.08em] text-muted mb-4">
-          Danger Zone
-        </h2>
-        <div className="flex items-center justify-between py-2 gap-4">
-          <div>
-            <div className="text-[14px] text-fg font-medium">Rotate Client Secret</div>
-            <div className="text-[13px] text-muted">
-              The previous secret remains valid for 7 days.
+      <Section index="2.2" title="danger zone" hint="destructive operations">
+        <div className="flex items-baseline justify-between py-3 px-1 gap-4">
+          <div className="min-w-0">
+            <div className="text-[14px] text-fg mb-1">rotate client secret</div>
+            <div className="text-meta text-muted">
+              the previous secret remains valid for 7 days.
             </div>
           </div>
           <form action={rotate}>
             <input type="hidden" name="app_id" value={appId} />
             <input type="hidden" name="action" value="rotate_secret" />
-            <Button
-              variant="ghost"
+            <button
               type="submit"
-              className="text-danger hover:bg-danger/10"
               disabled={busy === "rotate"}
+              className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors disabled:text-faint disabled:cursor-not-allowed"
             >
-              {busy === "rotate" ? "Rotating..." : "Rotate"}
-            </Button>
+              {busy === "rotate" ? "rotating" : "rotate"}
+            </button>
           </form>
         </div>
-      </section>
+      </Section>
     </div>
   );
 }

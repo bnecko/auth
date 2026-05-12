@@ -31,27 +31,24 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
     : activeTab.code;
 
   return (
-    <div className="rounded-sm border border-border bg-bg overflow-hidden">
-      <div
-        className="flex bg-surface border-b border-border overflow-x-auto overflow-y-hidden no-scrollbar"
-      >
+    <div className="border-t border-b border-rule bg-bg-soft">
+      <div className="flex border-b border-rule overflow-x-auto overflow-y-hidden no-scrollbar">
         {tabs.map((tab, idx) => (
           <button
             key={tab.label}
             onClick={() => setActive(idx)}
-            className={`px-4 py-2.5 text-micro uppercase tracking-[0.05em] font-medium transition-colors whitespace-nowrap focus:outline-none focus-visible:bg-hover ${
+            className={`px-3 h-8 text-meta uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-none ${
               active === idx
-                ? "text-fg border-b-2 border-fg"
-                : "text-faint hover:text-secondary hover:bg-hover/50 border-b-2 border-transparent"
+                ? "text-accent"
+                : "text-secondary hover:text-fg"
             }`}
           >
+            {active === idx && <span className="text-accent mr-1.5">▸</span>}
             {tab.label}
           </button>
         ))}
       </div>
-      <pre
-        className="oauth-code-block overflow-x-auto px-4 py-4 text-[13px] leading-6"
-      >
+      <pre className="oauth-code-block overflow-x-auto px-4 py-3 text-[12.5px] leading-6">
         <code
           className={`oauth-code language-${lang}`}
           dangerouslySetInnerHTML={{ __html: highlightedCode }}

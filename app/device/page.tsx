@@ -3,8 +3,12 @@ import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
+import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
-import { findDeviceCodeByUserCode, updateDeviceCodeStatus } from "@/lib/server/repositories/oauth";
+import {
+  findDeviceCodeByUserCode,
+  updateDeviceCodeStatus,
+} from "@/lib/server/repositories/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -51,15 +55,19 @@ export default async function DevicePage({
 
   if (isSuccess) {
     return (
-      <AuthShell tag="auth/device">
-        <div className="text-center py-6">
-          <div className="text-[24px] tracking-tightest text-fg mb-2">
-            Device Connected
-          </div>
-          <p className="text-muted text-[14px]">
-            You can now close this window and return to your device.
-          </p>
+      <AuthShell tag="auth/device / linked">
+        <div className="flex items-baseline gap-3 mb-1">
+          <Glyph kind="ok" />
+          <span className="text-meta uppercase tracking-wider text-ok">
+            connected
+          </span>
         </div>
+        <h1 className="text-[28px] tracking-tightest text-fg mb-2 leading-none">
+          device connected
+        </h1>
+        <p className="text-meta text-muted">
+          you can close this window and return to your device.
+        </p>
       </AuthShell>
     );
   }
@@ -68,50 +76,57 @@ export default async function DevicePage({
     const deviceCode = await findDeviceCodeByUserCode(user_code);
     if (!deviceCode || deviceCode.status !== "pending") {
       return (
-        <AuthShell tag="auth/device">
-          <Alert tone="danger">Invalid or expired code.</Alert>
-          <div className="mt-4 text-center">
-            <Link href="/device" className="text-meta text-secondary hover:text-fg">
-              Try Again
-            </Link>
-          </div>
+        <AuthShell tag="auth/device / invalid">
+          <Alert tone="danger">invalid or expired code</Alert>
+          <Link href="/device" className="block mt-5">
+            <Button variant="ghost" type="button">
+              try again
+            </Button>
+          </Link>
         </AuthShell>
       );
     }
 
     return (
-      <AuthShell tag="auth/device">
-        <div className="text-center mb-6">
-          <div className="text-micro uppercase text-faint mb-1">
-            Connect Device
-          </div>
-          <h1 className="text-[24px] tracking-tightest text-fg">
-            {deviceCode.appName}
-          </h1>
-          <p className="mt-2 text-muted text-[13px]">
-            This device is requesting access to your account with the following permissions:
-          </p>
+      <AuthShell tag="auth/device / consent">
+        <div className="flex items-baseline gap-3 mb-1">
+          <span className="text-meta uppercase tracking-wider text-accent">
+            connect device
+          </span>
+        </div>
+        <h1 className="text-[28px] tracking-tightest text-fg mb-2 leading-none">
+          {deviceCode.appName}
+        </h1>
+        <p className="text-meta text-secondary mb-5">
+          this device is requesting access with the following scopes:
+        </p>
+
+        <div className="border-t border-rule mb-6">
+          {deviceCode.scopes.map((scope, i) => (
+            <div
+              key={scope}
+              className={`flex items-baseline gap-3 py-2.5 ${
+                i > 0 ? "border-t border-rule" : ""
+              }`}
+            >
+              <Glyph kind="ok" />
+              <span className="text-meta text-fg">{scope}</span>
+            </div>
+          ))}
+          <div className="border-t border-rule" />
         </div>
 
-        <ul className="border border-border rounded-sm divide-y divide-border bg-bg mb-6">
-          {deviceCode.scopes.map(scope => (
-            <li key={scope} className="px-3 py-2 text-[13px] text-fg">
-              {scope}
-            </li>
-          ))}
-        </ul>
-
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           <form action={denyCode}>
             <input type="hidden" name="user_code" value={user_code} />
             <Button variant="ghost" type="submit" className="w-full">
-              Deny
+              deny
             </Button>
           </form>
           <form action={approveCode}>
             <input type="hidden" name="user_code" value={user_code} />
             <Button type="submit" className="w-full">
-              Approve
+              approve
             </Button>
           </form>
         </div>
@@ -120,29 +135,26 @@ export default async function DevicePage({
   }
 
   return (
-    <AuthShell tag="auth/device">
-      <div className="mb-5">
-        <div className="text-micro uppercase text-faint mb-1">
-          Connect Device
-        </div>
-        <h1 className="text-[24px] tracking-tightest text-fg">
-          Enter Code
-        </h1>
-        <p className="mt-2 text-muted text-[13px]">
-          Enter the code displayed on your device screen to grant it access to your account.
-        </p>
-      </div>
+    <AuthShell tag="auth/device / enter code">
+      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
+        enter code
+      </h1>
+      <p className="text-meta text-muted mb-7">
+        the code is displayed on your device screen
+      </p>
 
-      <form action={submitCode} className="space-y-4">
-        <input
-          name="user_code"
-          placeholder="ABCD-EFGH"
-          required
-          autoFocus
-          className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-fg focus:outline-none focus:ring-1 focus:ring-border text-center uppercase tracking-widest text-[18px]"
-        />
+      <form action={submitCode} className="space-y-5">
+        <div className="border-b border-rule">
+          <input
+            name="user_code"
+            placeholder="ABCD-EFGH"
+            required
+            autoFocus
+            className="w-full bg-transparent border-0 px-1 py-2 text-fg focus:outline-none text-center uppercase tracking-[0.3em] text-[24px] tabular-nums placeholder:text-faint"
+          />
+        </div>
         <Button type="submit" className="w-full">
-          Continue
+          continue
         </Button>
       </form>
     </AuthShell>

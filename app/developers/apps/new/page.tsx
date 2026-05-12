@@ -22,17 +22,28 @@ export default async function NewAppPage() {
       />
       <div className="flex-1 min-w-0 flex flex-col">
         <TopNav trail="developers / apps / new" />
-        <main className="flex-1 p-6 lg:p-10 max-w-[800px] mx-auto w-full">
-          <div className="mb-8">
-            <h1 className="text-[30px] tracking-tightest text-fg leading-none mb-2">
-              Create Application
+        <main
+          className="flex-1 p-6 lg:p-10 max-w-[720px] mx-auto w-full"
+          data-mount-stagger
+        >
+          <header className="mb-10" data-mount-row>
+            <div className="flex items-baseline gap-2 mb-2 text-meta">
+              <span className="text-accent">$</span>
+              <span className="uppercase tracking-wider text-muted">
+                app.create
+              </span>
+            </div>
+            <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-3">
+              new application
             </h1>
-            <p className="text-muted text-[13px]">
-              Register a new OAuth client to authenticate users and access APIs.
+            <p className="text-meta text-muted max-w-prose">
+              register a new oauth client to authenticate users and access apis.
             </p>
-          </div>
+          </header>
 
-          <ClientForm />
+          <div data-mount-row>
+            <ClientForm />
+          </div>
         </main>
       </div>
     </div>

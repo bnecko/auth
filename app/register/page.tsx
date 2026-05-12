@@ -66,20 +66,20 @@ export default function RegisterPage() {
 
   return (
     <AuthShell tag="auth/register">
-      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
         create account
       </h1>
-      <p className="text-meta text-muted mb-5">
-        telegram verification is required to complete sign-up.
+      <p className="text-meta text-muted mb-7">
+        telegram verification is required to complete sign-up
       </p>
 
       {errors.form && (
-        <div className="mb-4">
+        <div className="mb-5">
           <Alert tone="danger">{errors.form}</Alert>
         </div>
       )}
 
-      <form className="space-y-4" onSubmit={onSubmit} noValidate>
+      <form className="space-y-5" onSubmit={onSubmit} noValidate>
         <Field
           label="first name"
           name="first_name"
@@ -94,7 +94,7 @@ export default function RegisterPage() {
           error={errors.username}
           required
         />
-        <Field label="bio" name="bio" hint="shown publicly." optional />
+        <Field label="bio" name="bio" hint="shown publicly" optional />
         <Field
           label="email"
           name="email"
@@ -107,7 +107,7 @@ export default function RegisterPage() {
           label="date of birth"
           name="dob"
           type="date"
-          hint="may be shared with external apps when you approve them."
+          hint="may be shared with apps when you approve them"
           error={errors.dob}
           optional
         />
@@ -121,17 +121,17 @@ export default function RegisterPage() {
         />
         <TurnstileField />
         <Button type="submit" loading={loading}>
-          verify with telegram and complete
+          verify with telegram
         </Button>
       </form>
 
-      <p className="text-meta text-secondary mt-4">
+      <p className="text-meta uppercase tracking-wider text-muted mt-5">
         already have an account?{" "}
         <Link
           href="/login"
-          className="text-fg hover:underline transition-colors"
+          className="text-accent hover:text-fg transition-colors"
         >
-          sign in instead
+          sign in
         </Link>
       </p>
     </AuthShell>

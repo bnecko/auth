@@ -1,6 +1,7 @@
 import { createHash, createPrivateKey, createPublicKey } from "crypto";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
 import { oauthProfileVersions, oidcSigningKeys } from "@/lib/server/config";
 
 export const dynamic = "force-dynamic";
@@ -27,59 +28,91 @@ export default function AdminKeysPage() {
   }));
 
   return (
-    <main className="flex-1 max-w-[960px] w-full mx-auto px-6 py-10">
-      <header className="mb-7">
-        <h1 className="text-[26px] tracking-tightest text-fg leading-none">
-          Signing Keys
+    <main
+      className="flex-1 max-w-[1040px] w-full mx-auto px-6 py-10"
+      data-mount-stagger
+    >
+      <header className="mb-10" data-mount-row>
+        <div className="flex items-baseline gap-2 mb-2 text-meta">
+          <span className="text-danger">$</span>
+          <span className="uppercase tracking-wider text-muted">
+            admin.keys
+          </span>
+          <span className="text-faint">·</span>
+          <span className="text-meta text-faint tabular-nums">
+            {String(keys.length).padStart(2, "0")}
+          </span>
+        </div>
+        <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-3">
+          signing keys
         </h1>
-        <p className="mt-3 text-meta text-muted max-w-prose">
-          OIDC keys are environment-backed. Active keys sign new tokens, retired keys stay in JWKS, and revoked keys are removed from JWKS.
+        <p className="text-meta text-muted max-w-prose">
+          oidc keys are environment-backed. active keys sign new tokens, retired
+          keys stay in jwks, and revoked keys are removed from jwks.
         </p>
       </header>
 
-      <Section title={`keys ${keys.length}`}>
-        {keys.map(key => (
-          <Row key={key.kid}>
-            <RowLabel>{key.kid}</RowLabel>
+      <div data-mount-row>
+        <Section index="1.0" title="keys" hint="oidc signing keys">
+          {keys.map(key => (
+            <Row key={key.kid}>
+              <RowLabel>
+                <span className="normal-case tracking-normal text-fg">
+                  {key.kid}
+                </span>
+              </RowLabel>
+              <RowValue>
+                <span className="text-muted truncate">{key.fingerprint}</span>
+                <Glyph kind="dot" />
+                <Tag tone={tone(key.status)}>{key.status}</Tag>
+              </RowValue>
+              <span />
+            </Row>
+          ))}
+        </Section>
+      </div>
+
+      <div data-mount-row>
+        <Section index="2.0" title="rotation path" hint="env driven">
+          <Row>
+            <RowLabel>add</RowLabel>
             <RowValue>
-              <span className="text-secondary">{key.fingerprint}</span>
-              <span className="text-faint">/</span>
-              <Tag tone={tone(key.status)}>{key.status}</Tag>
+              append a new active entry to OIDC_SIGNING_KEYS_JSON
             </RowValue>
             <span />
           </Row>
-        ))}
-      </Section>
-
-      <Section title="rotation path" hint="// env driven">
-        <Row>
-          <RowLabel>add</RowLabel>
-          <RowValue>append a new active entry to OIDC_SIGNING_KEYS_JSON</RowValue>
-          <span />
-        </Row>
-        <Row>
-          <RowLabel>retire</RowLabel>
-          <RowValue>mark the previous key retired after deploy</RowValue>
-          <span />
-        </Row>
-        <Row>
-          <RowLabel>revoke</RowLabel>
-          <RowValue>mark compromised keys revoked and redeploy immediately</RowValue>
-          <span />
-        </Row>
-      </Section>
-
-      <Section title="oauth profiles" hint="// compatibility">
-        {oauthProfileVersions.map(profile => (
-          <Row key={profile.version}>
-            <RowLabel>{profile.version}</RowLabel>
-            <RowValue>{profile.label}</RowValue>
-            <Tag tone={profile.status === "current" ? "success" : "warning"}>
-              {profile.status}
-            </Tag>
+          <Row>
+            <RowLabel>retire</RowLabel>
+            <RowValue>mark the previous key retired after deploy</RowValue>
+            <span />
           </Row>
-        ))}
-      </Section>
+          <Row>
+            <RowLabel>revoke</RowLabel>
+            <RowValue>
+              mark compromised keys revoked and redeploy immediately
+            </RowValue>
+            <span />
+          </Row>
+        </Section>
+      </div>
+
+      <div data-mount-row>
+        <Section index="3.0" title="oauth profiles" hint="compatibility">
+          {oauthProfileVersions.map(profile => (
+            <Row key={profile.version}>
+              <RowLabel>
+                <span className="normal-case tracking-normal text-fg">
+                  {profile.version}
+                </span>
+              </RowLabel>
+              <RowValue>{profile.label}</RowValue>
+              <Tag tone={profile.status === "current" ? "success" : "warning"}>
+                {profile.status}
+              </Tag>
+            </Row>
+          ))}
+        </Section>
+      </div>
     </main>
   );
 }

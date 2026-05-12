@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
+import { Cursor } from "@/components/Glyph";
 
 type Status = "waiting" | "completed" | "failed";
 
@@ -76,25 +77,35 @@ export default function VerifyPage() {
 
   return (
     <AuthShell tag="auth/verify">
-      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
         verify with telegram
       </h1>
-      <p className="text-meta text-muted mb-5">
-        open the bot to finish signing up.
+      <p className="text-meta text-muted mb-7">
+        open the bot to finish signing up
       </p>
 
-      <div className="bg-bg border border-border rounded-sm p-4 mb-4">
-        <div className="flex items-baseline justify-between">
-          <span className="text-micro uppercase text-faint">telegram</span>
-          <span className="text-meta text-muted tabular-nums">
-            expires in {Math.floor(secondsLeft / 60)}:
+      <div className="border-t border-rule">
+        <div className="flex items-baseline justify-between py-2.5">
+          <span className="text-meta uppercase tracking-wider text-muted">
+            channel
+          </span>
+          <span className="text-meta text-fg">telegram</span>
+        </div>
+        <div className="flex items-baseline justify-between py-2.5 border-t border-rule">
+          <span className="text-meta uppercase tracking-wider text-muted">
+            expires in
+          </span>
+          <span className="text-meta text-accent tabular-nums">
+            {Math.floor(secondsLeft / 60)}:
             {(secondsLeft % 60).toString().padStart(2, "0")}
           </span>
         </div>
-        <p className="text-[13px] text-secondary mt-2">
-          The button opens Telegram with a one-time start token attached.
-        </p>
+        <div className="border-t border-rule" />
       </div>
+
+      <p className="text-meta text-secondary mt-3 mb-5">
+        the button opens telegram with a one-time start token attached.
+      </p>
 
       <a
         href={botUrl || undefined}
@@ -110,22 +121,24 @@ export default function VerifyPage() {
       {!botUrl && (
         <div className="mb-4">
           <Alert tone="warning">
-            verification link missing. start registration again.
+            verification link missing — start registration again
           </Alert>
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-2 text-meta text-muted my-4">
-        <span className="animate-pulse">|</span>
-        <span>waiting for verification</span>
-      </div>
+      {status === "waiting" && (
+        <div className="flex items-baseline gap-2 text-meta uppercase tracking-wider text-muted my-5">
+          <Cursor />
+          <span>waiting for verification</span>
+        </div>
+      )}
 
       {error && <Alert tone="danger">{error}</Alert>}
       {status === "completed" && (
-        <Alert tone="success">verified. redirecting.</Alert>
+        <Alert tone="success">verified — redirecting</Alert>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-2">
+      <div className="mt-6 grid grid-cols-2 gap-3">
         <Button
           variant="ghost"
           type="button"

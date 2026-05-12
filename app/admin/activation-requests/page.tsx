@@ -1,5 +1,6 @@
-import { Section, Empty } from "@/components/Section";
+import { Section, Empty, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
 import { query } from "@/lib/server/db";
 import { getCurrentSession } from "@/lib/server/session";
 import { redirect } from "next/navigation";
@@ -27,7 +28,10 @@ async function getActivationRequests() {
   );
 }
 
-const statusTone: Record<string, "success" | "danger" | "warning" | "neutral"> = {
+const statusTone: Record<
+  string,
+  "success" | "danger" | "warning" | "neutral"
+> = {
   approved: "success",
   denied: "danger",
   expired: "neutral",
@@ -42,40 +46,75 @@ export default async function AdminActivationRequestsPage() {
   const requests = await getActivationRequests();
 
   return (
-    <main className="flex-1 max-w-[960px] w-full mx-auto px-6 py-10">
-      <header className="mb-7">
-        <h1 className="text-[26px] tracking-tightest text-fg leading-none">
-          Activation Requests
+    <main
+      className="flex-1 max-w-[1040px] w-full mx-auto px-6 py-10"
+      data-mount-stagger
+    >
+      <header className="mb-10" data-mount-row>
+        <div className="flex items-baseline gap-2 mb-2 text-meta">
+          <span className="text-danger">$</span>
+          <span className="uppercase tracking-wider text-muted">
+            admin.activations
+          </span>
+          <span className="text-faint">·</span>
+          <span className="text-meta text-faint tabular-nums">
+            {String(requests.length).padStart(2, "0")}
+          </span>
+        </div>
+        <h1 className="text-[32px] tracking-tightest text-fg leading-none">
+          activation requests
         </h1>
       </header>
 
-      <Section title={`last ${requests.length} requests`}>
-        {requests.length === 0 ? (
-          <Empty>no activation requests</Empty>
-        ) : (
-          requests.map(req => (
-            <div
-              key={req.public_id}
-              className="border-b border-border last:border-0 px-4 py-2.5 flex items-center gap-4 text-[13px]"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-fg">{req.app_name}</span>
-                  <Tag tone={statusTone[req.status] ?? "neutral"}>{req.status}</Tag>
-                </div>
-                <div className="text-muted text-meta mt-0.5">
-                  {req.requested_subject && `sub: ${req.requested_subject} · `}
-                  {req.approved_username && `approved by @${req.approved_username} · `}
-                  id: {req.public_id}
-                </div>
-              </div>
-              <div className="text-faint text-meta shrink-0">
-                {req.created_at?.slice(0, 10)}
-              </div>
-            </div>
-          ))
-        )}
-      </Section>
+      <div data-mount-row>
+        <Section
+          index="1.0"
+          title="recent activations"
+          hint={`last ${requests.length}`}
+        >
+          {requests.length === 0 ? (
+            <Empty>no activation requests</Empty>
+          ) : (
+            requests.map(req => (
+              <Row key={req.public_id}>
+                <RowLabel>
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-fg normal-case tracking-normal truncate">
+                      {req.app_name}
+                    </span>
+                    <Tag tone={statusTone[req.status] ?? "neutral"}>
+                      {req.status}
+                    </Tag>
+                  </span>
+                </RowLabel>
+                <RowValue>
+                  {req.approved_username && (
+                    <>
+                      <Glyph kind="ok" />
+                      <span className="text-muted truncate">
+                        @{req.approved_username}
+                      </span>
+                      <Glyph kind="dot" />
+                    </>
+                  )}
+                  {req.requested_subject && (
+                    <>
+                      <span className="text-faint truncate">
+                        sub:{req.requested_subject}
+                      </span>
+                      <Glyph kind="dot" />
+                    </>
+                  )}
+                  <span className="text-faint truncate">{req.public_id}</span>
+                </RowValue>
+                <span className="text-meta text-faint tabular-nums">
+                  {req.created_at?.slice(0, 10)}
+                </span>
+              </Row>
+            ))
+          )}
+        </Section>
+      </div>
     </main>
   );
 }

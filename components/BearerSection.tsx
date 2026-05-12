@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Empty, Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
 import type { BearerRequest } from "@/lib/server/types";
 
 type Tone = "neutral" | "success" | "danger" | "warning";
@@ -31,13 +32,15 @@ export function BearerSection({ bearers }: { bearers: BearerRequest[] }) {
   return (
     <Section
       title="api bearers"
-      hint="// keys for external apps"
+      hint="keys for external apps"
+      index="3.1"
       action={
         <Link
           href="/request-bearer"
-          className="text-meta text-secondary hover:text-fg transition-colors"
+          className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors flex items-baseline gap-1.5"
         >
-          request bearer
+          <Glyph kind="ok" />
+          <span>request bearer</span>
         </Link>
       }
     >
@@ -71,9 +74,6 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
         return;
       }
       setRevealed(data.key);
-      // The reveal endpoint atomically clears the plaintext on the
-      // server, so once we hold the key in memory there is nothing
-      // left to dismiss server-side. The row is now 'cleared'.
       setHasPlaintext(false);
     } finally {
       setBusy(false);
@@ -91,10 +91,6 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
     }
   }
 
-  // Abandon path: user never reveals the key (got it out-of-band or
-  // changed their mind) and wants to clear the row. The reveal path
-  // already destroys the plaintext atomically, so this is only useful
-  // before the first reveal.
   async function abandon() {
     if (!confirm("clear the saved key? you won't be able to view it again.")) {
       return;
@@ -119,18 +115,17 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
   const canReveal = bearer.status === "approved" && hasPlaintext;
   const hasKey = revealed !== null;
   const masked = revealed ? revealed : "•".repeat(48);
-
   const inKeyMode = canReveal || hasKey;
 
   return (
     <>
       {hasKey && (
-        <Row className="bg-warning/5">
-          <span />
-          <span className="text-meta text-warning col-span-2">
+        <div className="border-t border-rule first:border-t-0 px-1 py-2.5 flex items-baseline gap-2 text-meta">
+          <Glyph kind="warn" />
+          <span className="text-accent">
             this is the only time the key will be shown. copy it now.
           </span>
-        </Row>
+        </div>
       )}
       <Row>
         <RowLabel>{bearer.appName}</RowLabel>
@@ -139,41 +134,37 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
             <span className="flex items-center gap-2 min-w-0 flex-1">
               <code
                 className={[
-                  "text-[12px] truncate flex-1 px-2 py-1 rounded-sm border border-border bg-bg",
-                  revealed ? "text-fg" : "text-faint blur-[3px] select-none",
+                  "text-[12px] truncate flex-1 px-2 py-1 border border-rule bg-bg-soft",
+                  revealed ? "text-accent" : "text-faint blur-[3px] select-none",
                 ].join(" ")}
                 title={revealed ? "your bearer key" : "click show to reveal"}
               >
                 {masked}
               </code>
-              <Tag tone="success" bracket={false}>
-                {statusLabel(bearer)}
-              </Tag>
+              <Tag tone="success">{statusLabel(bearer)}</Tag>
             </span>
           ) : (
             <span className="flex items-center gap-2">
               <span className="text-secondary truncate max-w-[260px]">
                 {bearer.reason}
               </span>
-              <Tag tone={statusTone(bearer.status)} bracket={false}>
-                {statusLabel(bearer)}
-              </Tag>
-              <span className="text-faint">/</span>
+              <Tag tone={statusTone(bearer.status)}>{statusLabel(bearer)}</Tag>
+              <Glyph kind="dot" />
               <span className="text-muted text-meta">
                 {shortDate(bearer.createdAt)}
               </span>
             </span>
           )}
         </RowValue>
-        <span className="flex items-center gap-3 text-meta">
-          {error && <span className="text-danger">{error}</span>}
+        <span className="flex items-center gap-3 text-meta uppercase tracking-wider">
+          {error && <span className="text-danger normal-case">{error}</span>}
           {canReveal && !hasKey && (
             <>
               <button
                 type="button"
                 onClick={reveal}
                 disabled={busy}
-                className="text-secondary hover:text-fg transition-colors disabled:text-faint"
+                className="text-secondary hover:text-accent transition-colors disabled:text-faint"
               >
                 show
               </button>
@@ -192,7 +183,7 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
               <button
                 type="button"
                 onClick={copy}
-                className="text-secondary hover:text-fg transition-colors"
+                className="text-secondary hover:text-accent transition-colors"
               >
                 {copied ? "copied" : "copy"}
               </button>

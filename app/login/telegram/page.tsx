@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
+import { Cursor } from "@/components/Glyph";
 
 type Status = "waiting" | "completed" | "failed";
 
@@ -78,23 +79,33 @@ export default function TelegramLoginPage() {
 
   return (
     <AuthShell tag="auth/2fa">
-      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
         verify login
       </h1>
-      <p className="text-meta text-muted mb-5">
-        open Telegram from the same account linked to this Bottleneck account.
+      <p className="text-meta text-muted mb-7">
+        open telegram from the same account linked to bottleneck
       </p>
 
-      <div className="bg-bg border border-border rounded-sm p-4 mb-4">
-        <div className="flex items-baseline justify-between">
-          <span className="text-micro uppercase text-faint">telegram 2fa</span>
-          <span className="text-meta text-muted">required</span>
+      <div className="border-t border-rule">
+        <div className="flex items-baseline justify-between py-2.5">
+          <span className="text-meta uppercase tracking-wider text-muted">
+            channel
+          </span>
+          <span className="text-meta text-fg">telegram 2fa</span>
         </div>
-        <p className="text-[13px] text-secondary mt-2">
-          The bot receives a one-time login token and confirms it belongs to
-          your linked Telegram account.
-        </p>
+        <div className="flex items-baseline justify-between py-2.5 border-t border-rule">
+          <span className="text-meta uppercase tracking-wider text-muted">
+            status
+          </span>
+          <span className="text-meta text-accent">required</span>
+        </div>
+        <div className="border-t border-rule" />
       </div>
+
+      <p className="text-meta text-secondary mt-3 mb-5">
+        the bot receives a one-time login token and confirms it belongs to your
+        linked telegram account.
+      </p>
 
       <a
         href={botUrl || undefined}
@@ -109,23 +120,23 @@ export default function TelegramLoginPage() {
 
       {!botUrl && (
         <div className="mb-4">
-          <Alert tone="warning">
-            verification link missing. sign in again.
-          </Alert>
+          <Alert tone="warning">verification link missing — sign in again</Alert>
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-2 text-meta text-muted my-4">
-        <span className="animate-pulse">|</span>
-        <span>waiting for telegram</span>
-      </div>
+      {status === "waiting" && (
+        <div className="flex items-baseline gap-2 text-meta uppercase tracking-wider text-muted my-5">
+          <Cursor />
+          <span>waiting for telegram</span>
+        </div>
+      )}
 
       {error && <Alert tone="danger">{error}</Alert>}
       {status === "completed" && (
-        <Alert tone="success">verified. redirecting.</Alert>
+        <Alert tone="success">verified — redirecting</Alert>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-2">
+      <div className="mt-6 grid grid-cols-2 gap-3">
         <Button
           variant="ghost"
           type="button"

@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
+import { Field } from "@/components/Field";
+import { Glyph } from "@/components/Glyph";
 import { createAppAction } from "./actions";
 
 export function ClientForm() {
@@ -35,87 +37,81 @@ export function ClientForm() {
 
   if (created) {
     return (
-      <div className="border border-border bg-surface rounded-sm p-6 lg:p-8">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success/10 text-success mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </div>
-          <h2 className="text-[20px] text-fg font-medium tracking-tight">
-            Application Created
-          </h2>
-          <p className="text-muted text-[13px] mt-2">
-            Please copy your client secret now. For security reasons, it will never be shown again.
-          </p>
+      <div>
+        <div className="flex items-baseline gap-3 mb-1">
+          <Glyph kind="ok" />
+          <span className="text-meta uppercase tracking-wider text-ok">
+            application created
+          </span>
         </div>
+        <h2 className="text-[24px] tracking-tightest text-fg mb-2 leading-none">
+          credentials issued
+        </h2>
+        <p className="text-meta text-muted mb-7">
+          copy your client secret now — it will never be shown again
+        </p>
 
-        <div className="space-y-4 mb-8">
+        <div className="space-y-5 mb-8">
           <div>
-            <label className="block text-micro uppercase text-faint mb-1">Client ID</label>
-            <code className="block px-3 py-2 bg-bg border border-border rounded-sm text-[13px] text-fg font-mono select-all">
+            <label className="block text-meta uppercase tracking-wider text-muted mb-1">
+              client id
+            </label>
+            <code className="block px-1 py-2 border-b border-rule text-[13.5px] text-accent select-all break-all">
               {created.clientId}
             </code>
           </div>
           <div>
-            <label className="block text-micro uppercase text-faint mb-1">Client Secret</label>
-            <code className="block px-3 py-2 bg-bg border border-border rounded-sm text-[13px] text-fg font-mono select-all">
+            <label className="block text-meta uppercase tracking-wider text-muted mb-1">
+              client secret
+            </label>
+            <code className="block px-1 py-2 border-b border-rule text-[13.5px] text-accent select-all break-all">
               {created.clientSecret}
             </code>
+            <p className="mt-2 text-meta text-accent flex items-baseline gap-1.5">
+              <Glyph kind="warn" />
+              <span>shown once — store immediately</span>
+            </p>
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <Link href={`/developers/apps/${created.slug}`} className="inline-flex items-center justify-center h-9 px-4 rounded-sm bg-fg text-bg font-medium text-[13px] hover:bg-fg/90 transition-colors">
-            Go to App Settings
-          </Link>
-        </div>
+        <Link href={`/developers/apps/${created.slug}`}>
+          <Button>go to app settings</Button>
+        </Link>
       </div>
     );
   }
 
   return (
-    <form action={handleSubmit} className="border border-border bg-surface rounded-sm p-6 lg:p-8 space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       {error && <Alert tone="danger">{error}</Alert>}
-      
-      <div>
-        <label className="block text-[13px] font-medium text-fg mb-1.5">
-          Application Name
-        </label>
-        <input 
-          name="name" 
-          placeholder="e.g. My Cool App" 
-          required 
-          maxLength={50}
-          className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-fg focus:outline-none focus:ring-1 focus:ring-border"
-        />
-        <p className="text-faint text-[12px] mt-1.5">
-          This will be displayed to users on the authorization consent screen.
-        </p>
-      </div>
 
-      <div>
-        <label className="block text-[13px] font-medium text-fg mb-1.5">
-          Redirect URI
-        </label>
-        <input 
-          name="redirect_uri" 
-          type="url"
-          placeholder="https://yourapp.com/oauth/callback" 
-          required 
-          className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-fg focus:outline-none focus:ring-1 focus:ring-border"
-        />
-        <p className="text-faint text-[12px] mt-1.5">
-          Where users will be sent after authorizing. Must use HTTPS unless localhost.
-        </p>
-      </div>
+      <Field
+        label="application name"
+        name="name"
+        placeholder="my cool app"
+        required
+        maxLength={50}
+        hint="displayed to users on the authorization consent screen"
+      />
 
-      <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
-        <Link href="/developers/apps" className="text-secondary hover:text-fg text-[13px] font-medium">
-          Cancel
+      <Field
+        label="redirect uri"
+        name="redirect_uri"
+        type="url"
+        placeholder="https://yourapp.com/oauth/callback"
+        required
+        hint="where users are sent after authorizing — https required (except localhost)"
+      />
+
+      <div className="pt-4 border-t border-rule flex items-center justify-end gap-4">
+        <Link
+          href="/developers/apps"
+          className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+        >
+          cancel
         </Link>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Create App"}
+        <Button type="submit" loading={loading}>
+          create app
         </Button>
       </div>
     </form>

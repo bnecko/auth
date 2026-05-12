@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/Button";
+import { Section } from "@/components/Section";
 
 type Method = "GET" | "POST";
 
@@ -95,7 +96,9 @@ export function TestLab() {
       }
       setResponse(pretty({ status: res.status, body }));
     } catch (err) {
-      setResponse(pretty({ error: err instanceof Error ? err.message : "request failed" }));
+      setResponse(
+        pretty({ error: err instanceof Error ? err.message : "request failed" }),
+      );
     } finally {
       setBusy("");
     }
@@ -175,18 +178,18 @@ export function TestLab() {
   }
 
   return (
-    <div className="grid xl:grid-cols-[1fr_380px] gap-6 items-start">
-      <div className="space-y-6">
-        <Panel title="client">
-          <div className="mb-4 border border-border bg-bg rounded-sm px-3 py-2">
-            <div className="text-micro uppercase text-faint mb-1">
+    <div className="grid xl:grid-cols-[1fr_360px] gap-10 items-start">
+      <div>
+        <Section index="1.0" title="client" hint="oauth client config">
+          <div className="grid sm:grid-cols-[120px_1fr] gap-3 py-3 px-1 border-b border-rule">
+            <span className="text-meta uppercase tracking-wider text-muted">
               server
-            </div>
-            <div className="text-[13px] text-fg truncate">
+            </span>
+            <span className="text-meta text-fg truncate">
               {cleanBase || "current origin"}
-            </div>
+            </span>
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 py-4 px-1">
             <LabField label="client id" value={clientId} onChange={setClientId} />
             <LabField
               label="client secret"
@@ -203,10 +206,10 @@ export function TestLab() {
             <LabField label="state" value={state} onChange={setState} />
             <LabField label="nonce" value={nonce} onChange={setNonce} />
           </div>
-        </Panel>
+        </Section>
 
-        <Panel title="pkce">
-          <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end">
+        <Section index="2.0" title="pkce" hint="proof key for code exchange">
+          <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end py-4 px-1">
             <LabField
               label="code verifier"
               value={verifier}
@@ -221,30 +224,41 @@ export function TestLab() {
               </Button>
             </div>
           </div>
-          <div className="mt-4">
-            <LabText label="code challenge" value={challenge} onChange={setChallenge} />
+          <div className="py-4 px-1 border-t border-rule">
+            <LabText
+              label="code challenge"
+              value={challenge}
+              onChange={setChallenge}
+            />
           </div>
-        </Panel>
+        </Section>
 
-        <Panel title="authorize url">
-          <LabText label="url" value={authorizeUrl} onChange={() => undefined} />
-          <div className="grid sm:grid-cols-2 gap-2 mt-3">
-            <Button variant="secondary" type="button" onClick={() => copy(authorizeUrl)}>
-              copy url
-            </Button>
-            <a
-              href={authorizeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="h-10 rounded-sm text-[13px] border border-border text-fg hover:border-border-strong hover:bg-hover transition-colors inline-flex items-center justify-center"
-            >
-              open authorize
-            </a>
+        <Section index="3.0" title="authorize url" hint="full request">
+          <div className="py-4 px-1">
+            <LabText
+              label="url"
+              value={authorizeUrl}
+              onChange={() => undefined}
+            />
+            <div className="grid sm:grid-cols-2 gap-3 mt-4">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => copy(authorizeUrl)}
+              >
+                copy url
+              </Button>
+              <a href={authorizeUrl} target="_blank" rel="noreferrer">
+                <Button variant="secondary" type="button" className="w-full">
+                  open authorize ↗
+                </Button>
+              </a>
+            </div>
           </div>
-        </Panel>
+        </Section>
 
-        <Panel title="token operations">
-          <div className="grid md:grid-cols-2 gap-4">
+        <Section index="4.0" title="token operations" hint="exchange / refresh / introspect / revoke">
+          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 py-4 px-1">
             <LabField label="authorization code" value={code} onChange={setCode} />
             <LabField
               label="refresh token"
@@ -258,21 +272,17 @@ export function TestLab() {
               onChange={setAccessToken}
               type="password"
             />
-            <label className="space-y-1.5">
-              <span className="text-micro uppercase text-muted">
-                revoke target
-              </span>
-              <select
-                value={tokenHint}
-                onChange={event => setTokenHint(event.target.value)}
-                className="w-full bg-bg border border-border px-3 h-10 text-[13.5px] text-fg rounded-sm font-mono focus:outline-none focus:border-fg"
-              >
-                <option value="refresh_token">refresh token</option>
-                <option value="access_token">access token</option>
-              </select>
-            </label>
+            <LabSelect
+              label="revoke target"
+              value={tokenHint}
+              onChange={setTokenHint}
+              options={[
+                { value: "refresh_token", label: "refresh token" },
+                { value: "access_token", label: "access token" },
+              ]}
+            />
           </div>
-          <div className="grid sm:grid-cols-4 gap-2 mt-4">
+          <div className="grid sm:grid-cols-4 gap-2 py-4 px-1 border-t border-rule">
             <Button
               variant="secondary"
               type="button"
@@ -306,12 +316,12 @@ export function TestLab() {
               revoke
             </Button>
           </div>
-        </Panel>
+        </Section>
       </div>
 
       <aside className="space-y-6 xl:sticky xl:top-16">
-        <Panel title="metadata">
-          <div className="grid gap-2">
+        <Section index="5.0" title="metadata" hint="discovery">
+          <div className="grid gap-2 py-4 px-1">
             <Button
               variant="secondary"
               type="button"
@@ -334,41 +344,35 @@ export function TestLab() {
               variant="secondary"
               type="button"
               loading={busy === "userinfo"}
-              onClick={() => bearerRequest("userinfo", "/api/oauth/userinfo", "GET")}
+              onClick={() =>
+                bearerRequest("userinfo", "/api/oauth/userinfo", "GET")
+              }
             >
               userinfo
             </Button>
           </div>
-        </Panel>
+        </Section>
 
-        <Panel title="response">
-          <pre className="min-h-[320px] max-h-[560px] overflow-auto rounded-sm border border-border bg-bg px-3 py-3 text-[12px] leading-5 text-fg whitespace-pre-wrap">
-            {response || "{ }"}
+        <div>
+          <div className="flex items-baseline gap-3 mb-3">
+            <span className="text-meta text-faint tabular-nums shrink-0">
+              6.0
+            </span>
+            <h2 className="text-[15px] uppercase tracking-wider text-fg">
+              response
+            </h2>
+            <span className="text-meta text-muted">
+              <span className="text-faint">// </span>
+              last request
+            </span>
+          </div>
+          <pre className="min-h-[320px] max-h-[560px] overflow-auto border-t border-b border-rule bg-bg-soft px-3 py-3 text-[12px] leading-5 text-fg whitespace-pre-wrap">
+            <span className="text-faint">{"$ "}</span>
+            {response || "(no response yet)"}
           </pre>
-        </Panel>
+        </div>
       </aside>
     </div>
-  );
-}
-
-function Panel({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <header className="flex items-baseline gap-3 mb-2.5">
-        <h2 className="text-micro uppercase tracking-[0.08em] text-muted">
-          {title}
-        </h2>
-      </header>
-      <div className="border border-border bg-surface rounded-sm p-4">
-        {children}
-      </div>
-    </section>
   );
 }
 
@@ -384,13 +388,15 @@ function LabField({
   type?: string;
 }) {
   return (
-    <label className="space-y-1.5">
-      <span className="text-micro uppercase text-muted">{label}</span>
+    <label className="block">
+      <span className="block text-meta uppercase tracking-wider text-muted mb-1">
+        {label}
+      </span>
       <input
         type={type}
         value={value}
         onChange={event => onChange(event.target.value)}
-        className="w-full bg-bg border border-border px-3 h-10 text-[13.5px] text-fg rounded-sm placeholder:text-faint font-mono focus:outline-none focus:border-fg transition-colors"
+        className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
       />
     </label>
   );
@@ -406,14 +412,47 @@ function LabText({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="space-y-1.5 block">
-      <span className="text-micro uppercase text-muted">{label}</span>
+    <label className="block">
+      <span className="block text-meta uppercase tracking-wider text-muted mb-1">
+        {label}
+      </span>
       <textarea
         value={value}
         onChange={event => onChange(event.target.value)}
         rows={4}
-        className="w-full resize-y bg-bg border border-border px-3 py-2 text-[12px] leading-5 text-fg rounded-sm placeholder:text-faint font-mono focus:outline-none focus:border-fg transition-colors"
+        className="w-full resize-y bg-transparent border-0 border-b border-rule px-1 py-1 text-[12px] leading-5 text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
       />
+    </label>
+  );
+}
+
+function LabSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="block">
+      <span className="block text-meta uppercase tracking-wider text-muted mb-1">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg focus:outline-none focus:border-accent transition-colors appearance-none cursor-pointer"
+      >
+        {options.map(o => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

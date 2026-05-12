@@ -3,6 +3,7 @@ import { Alert } from "@/components/Alert";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import { mintAuthorizeCsrf } from "@/lib/server/oauthCsrf";
 import {
@@ -41,10 +42,6 @@ export default async function OAuthAuthorizePage({
       current?.session.createdAt || null,
     );
   } catch (err) {
-    // OIDC silent-failure errors (login_required, consent_required)
-    // arrive here with a validated redirect_uri attached. Redirect the
-    // user-agent back to the client with the OAuth error params rather
-    // than rendering a server-side error page — per RFC 6749 §4.1.2.1.
     if (err instanceof OAuthError && err.redirectUri) {
       const target = oauthRedirectError(
         err.redirectUri,
@@ -56,11 +53,19 @@ export default async function OAuthAuthorizePage({
     }
     return (
       <AuthShell tag="oauth/error">
-        <h1 className="text-[24px] tracking-tightest text-fg mb-4">
+        <div className="flex items-baseline gap-3 mb-1">
+          <Glyph kind="error" />
+          <span className="text-meta uppercase tracking-wider text-danger">
+            oauth error
+          </span>
+        </div>
+        <h1 className="text-[28px] tracking-tightest text-fg mb-5 leading-none">
           authorization failed
         </h1>
         <Alert tone="danger">
-          {err instanceof OAuthError ? err.message : "invalid authorization request"}
+          {err instanceof OAuthError
+            ? err.message
+            : "invalid authorization request"}
         </Alert>
       </AuthShell>
     );
@@ -71,9 +76,6 @@ export default async function OAuthAuthorizePage({
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
   if (view.requireReauth) {
-    // prompt=login or max_age exceeded — bounce through /api/oauth/reauth
-    // so the existing session cookie + DB row are cleared before /login
-    // runs. The fresh login is then the only valid session.
     redirect(`/api/oauth/reauth?next=${encodeURIComponent(next)}`);
   }
 
@@ -83,110 +85,119 @@ export default async function OAuthAuthorizePage({
     state: view.state,
   });
 
+  const sensitiveScopes = view.scopes.filter(s => scopeLabels[s]?.sensitive);
+  const standardScopes = view.scopes.filter(s => !scopeLabels[s]?.sensitive);
+
   return (
     <AuthShell tag="oauth/authorize">
-      <div className="flex items-start justify-between gap-3 mb-5">
-        <div className="min-w-0">
-          <div className="text-micro uppercase text-faint mb-1">
+      <div className="flex items-start gap-4 mb-7">
+        <div
+          className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
+          aria-hidden
+        >
+          {view.app.name.slice(0, 2)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-meta uppercase tracking-wider text-muted mb-1">
             authorize app
           </div>
-          <h1 className="text-[24px] tracking-tightest text-fg truncate">
+          <h1 className="text-[26px] tracking-tightest text-fg truncate leading-none">
             {view.app.name}
           </h1>
           <div className="mt-2 flex items-center gap-2">
             <Tag tone="success">oauth</Tag>
             <span className="text-meta text-muted truncate">
-              client {view.app.publicId}
+              {view.app.publicId}
             </span>
           </div>
         </div>
-        <div
-          className="h-10 w-10 rounded-sm bg-elevated border border-border flex items-center justify-center text-secondary text-meta shrink-0"
-          aria-hidden
-        >
-          {view.app.name.slice(0, 2).toUpperCase()}
-        </div>
       </div>
 
-      <div className="space-y-2.5 mb-4">
-        <Row label="signed in" value={`${current.user.username} / ${current.user.email}`} />
-        <Row label="redirect" value={view.redirectUri} />
-        <Row
+      <div className="border-t border-rule mb-5">
+        <DetailRow label="signed in" value={current.user.username} />
+        <DetailRow label="email" value={current.user.email} />
+        <DetailRow label="redirect" value={view.redirectUri} mono />
+        <DetailRow
           label="access"
           value={
             view.existingScopes.length > 0
-              ? "previous authorization found"
+              ? "previous authorization"
               : "new authorization"
           }
         />
-        <Row
-          label="requires"
-          value={view.requiredProduct || "none"}
-          right={
-            view.requiredProduct ? (
+        {view.requiredProduct && (
+          <DetailRow
+            label="requires"
+            value={view.requiredProduct}
+            right={
               <Tag tone={view.subscriptionOk ? "success" : "warning"}>
                 {view.subscriptionOk ? "active" : "missing"}
               </Tag>
-            ) : undefined
-          }
-        />
+            }
+          />
+        )}
+        <div className="border-t border-rule" />
       </div>
 
-      <div className="mb-4">
-        <div className="text-micro uppercase text-faint mb-2">
+      <div className="mb-5">
+        <div className="text-meta uppercase tracking-wider text-muted mb-2">
           will share
         </div>
-        <ul className="border border-border rounded-sm divide-y divide-border bg-bg">
-          {view.scopes.map(scope => {
+        <div className="border-t border-rule">
+          {standardScopes.map((scope) => {
             const item = scopeLabels[scope] || { label: scope };
             return (
-              <li
+              <div
                 key={scope}
-                className="flex items-center justify-between px-3 py-2 text-[13px]"
+                className="flex items-baseline gap-3 py-2.5 border-b border-rule"
               >
-                {item.sensitive ? (
-                  <label className="flex items-center gap-2 cursor-pointer text-fg">
-                    <input
-                      type="checkbox"
-                      name="scopes"
-                      value={scope}
-                      defaultChecked
-                      form="oauth-approve-form"
-                      className="rounded-sm border-border bg-transparent focus:ring-1 focus:ring-border accent-fg"
-                    />
-                    <span>{item.label}</span>
-                  </label>
-                ) : (
-                  <>
-                    <span className="text-fg">{item.label}</span>
-                    <input
-                      type="hidden"
-                      name="scopes"
-                      value={scope}
-                      form="oauth-approve-form"
-                    />
-                  </>
-                )}
-                {item.sensitive && (
-                  <span className="text-micro uppercase text-warning">
-                    optional
-                  </span>
-                )}
-              </li>
+                <Glyph kind="ok" />
+                <span className="text-meta text-fg flex-1">{item.label}</span>
+                <input
+                  type="hidden"
+                  name="scopes"
+                  value={scope}
+                  form="oauth-approve-form"
+                />
+              </div>
             );
           })}
-        </ul>
+          {sensitiveScopes.map((scope) => {
+            const item = scopeLabels[scope] || { label: scope };
+            return (
+              <label
+                key={scope}
+                className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"
+              >
+                <input
+                  type="checkbox"
+                  name="scopes"
+                  value={scope}
+                  defaultChecked
+                  form="oauth-approve-form"
+                  className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+                />
+                <span className="text-meta text-fg flex-1 group-hover:text-accent transition-colors">
+                  {item.label}
+                </span>
+                <span className="text-micro uppercase tracking-wider text-accent">
+                  optional
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {!view.subscriptionOk && view.requiredProduct && (
-        <div className="mb-4">
+        <div className="mb-5">
           <Alert tone="warning">
-            active {view.requiredProduct} subscription required to approve.
+            active {view.requiredProduct} subscription required to approve
           </Alert>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 mt-2">
+      <div className="grid grid-cols-2 gap-3 mt-2">
         <form action="/api/oauth/authorize/deny" method="post">
           <HiddenOAuthFields view={view} csrfToken={csrfToken} />
           <Button variant="ghost" type="submit">
@@ -230,20 +241,26 @@ function HiddenOAuthFields({
   );
 }
 
-function Row({
+function DetailRow({
   label,
   value,
   right,
+  mono = false,
 }: {
   label: string;
   value: string;
   right?: React.ReactNode;
+  mono?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 text-[13px]">
-      <span className="text-meta text-muted shrink-0">{label}</span>
-      <span className="text-fg text-right truncate flex-1 flex items-center justify-end gap-2">
-        <span className="truncate">{value}</span>
+    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-rule last:border-b-0">
+      <span className="text-meta uppercase tracking-wider text-muted shrink-0">
+        {label}
+      </span>
+      <span className="text-meta text-right truncate flex-1 flex items-center justify-end gap-2">
+        <span className={`truncate ${mono ? "text-fg" : "text-fg"}`}>
+          {value}
+        </span>
         {right}
       </span>
     </div>

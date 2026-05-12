@@ -4,6 +4,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
+import { Section, Empty } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 import { query } from "@/lib/server/db";
 
@@ -26,7 +28,7 @@ export default async function DeveloperAppsPage() {
      from external_apps
      where owner_user_id = $1
      order by created_at desc`,
-    [current.user.id]
+    [current.user.id],
   );
 
   return (
@@ -38,62 +40,76 @@ export default async function DeveloperAppsPage() {
         }}
       />
       <div className="flex-1 min-w-0 flex flex-col">
-        <TopNav trail="developers / apps" isAdmin={current.user.role === "admin"} />
-        <main className="flex-1 p-6 lg:p-10 max-w-[1040px] mx-auto w-full">
-          <div className="flex items-end justify-between mb-8">
+        <TopNav
+          trail="developers / apps"
+          isAdmin={current.user.role === "admin"}
+        />
+        <main
+          className="flex-1 p-6 lg:p-10 max-w-[1040px] mx-auto w-full"
+          data-mount-stagger
+        >
+          <header
+            className="flex items-end justify-between mb-10"
+            data-mount-row
+          >
             <div>
-              <div className="text-micro uppercase text-faint mb-2">
-                developer portal
+              <div className="flex items-baseline gap-2 mb-2 text-meta">
+                <span className="text-accent">$</span>
+                <span className="uppercase tracking-wider text-muted">
+                  developer.apps
+                </span>
+                <span className="text-faint">·</span>
+                <span className="text-meta text-faint tabular-nums">
+                  {String(apps.length).padStart(2, "0")} app
+                  {apps.length === 1 ? "" : "s"}
+                </span>
               </div>
-              <h1 className="text-[30px] tracking-tightest text-fg leading-none">
-                OAuth Apps
+              <h1 className="text-[32px] tracking-tightest text-fg leading-none">
+                oauth apps
               </h1>
             </div>
-            <Link href="/developers/apps/new" className="inline-flex items-center justify-center h-9 px-4 rounded-sm bg-fg text-bg font-medium text-[13px] hover:bg-fg/90 transition-colors">
-              Create App
+            <Link href="/developers/apps/new">
+              <Button>+ new app</Button>
             </Link>
-          </div>
+          </header>
 
-          <div className="border border-border bg-surface rounded-sm">
-            {apps.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <p className="text-muted text-[13px] mb-4">
-                  You haven't created any applications yet.
-                </p>
-                <Link href="/developers/apps/new" className="inline-flex items-center justify-center h-9 px-4 rounded-sm border border-border text-fg font-medium text-[13px] hover:bg-hover transition-colors">
-                  Create your first app
-                </Link>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {apps.map((app) => (
+          <div data-mount-row>
+            <Section
+              index="1.0"
+              title="registered apps"
+              hint="oauth clients you own"
+            >
+              {apps.length === 0 ? (
+                <Empty>no apps registered yet</Empty>
+              ) : (
+                apps.map(app => (
                   <Link
                     key={app.slug}
                     href={`/developers/apps/${app.slug}`}
-                    className="flex items-center justify-between px-5 py-4 hover:bg-hover transition-colors group"
+                    className="grid grid-cols-[1fr_220px_140px_auto] gap-4 px-1 py-3.5 border-t border-rule first:border-t-0 items-center text-[13px] group hover:text-accent transition-colors"
                   >
-                    <div>
-                      <div className="text-fg font-medium text-[14px] flex items-center gap-2">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className="text-fg group-hover:text-accent transition-colors truncate">
                         {app.name}
-                        {app.status === "disabled" && <Tag tone="danger">disabled</Tag>}
-                      </div>
-                      <div className="text-muted text-[13px] mt-1 flex items-center gap-2">
-                        <span className="font-mono text-[12px] bg-bg px-1.5 py-0.5 rounded border border-border">
-                          {app.public_id}
-                        </span>
-                        <span className="text-faint">•</span>
-                        <span>{app.created_at.slice(0, 10)}</span>
-                      </div>
+                      </span>
+                      {app.status === "disabled" && (
+                        <Tag tone="danger">disabled</Tag>
+                      )}
                     </div>
-                    <div className="text-faint group-hover:text-secondary transition-colors">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6"></polyline>
-                      </svg>
-                    </div>
+                    <span className="text-meta text-muted truncate">
+                      {app.public_id}
+                    </span>
+                    <span className="text-meta text-faint tabular-nums">
+                      {app.created_at.slice(0, 10)}
+                    </span>
+                    <Glyph
+                      kind="prompt"
+                      className="text-faint group-hover:text-accent transition-colors"
+                    />
                   </Link>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </Section>
           </div>
         </main>
       </div>

@@ -102,18 +102,20 @@ export default function LoginPage() {
 
   return (
     <AuthShell tag="auth/sign-in">
-      <h1 className="text-[24px] tracking-tightest text-fg mb-1">sign in</h1>
-      <p className="text-meta text-muted mb-5">
-        access your bottleneck account.
+      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
+        sign in
+      </h1>
+      <p className="text-meta text-muted mb-7">
+        access your bottleneck account
       </p>
 
       {error && (
-        <div className="mb-4">
+        <div className="mb-5">
           <Alert tone="danger">{error}</Alert>
         </div>
       )}
 
-      <form className="space-y-4 mt-4" onSubmit={onSubmit} noValidate>
+      <form className="space-y-5" onSubmit={onSubmit} noValidate>
         <Field
           label="email or username"
           name="identifier"
@@ -127,22 +129,19 @@ export default function LoginPage() {
           name="password"
           type="password"
           autoComplete="current-password"
-          placeholder="password"
+          placeholder="••••••••"
           required
         />
-        <label className="flex items-center justify-between gap-3 border border-border bg-bg rounded-sm px-3 py-2.5 cursor-pointer">
-          <span>
-            <span className="block text-[13px] text-fg">remember me</span>
-            <span className="block text-meta text-muted">
-              keep this browser signed in.
-            </span>
-          </span>
+        <label className="flex items-baseline gap-3 cursor-pointer select-none group">
           <input
             type="checkbox"
             name="remember"
             defaultChecked
-            className="rounded-sm border-border bg-transparent focus:ring-1 focus:ring-border accent-fg"
+            className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
           />
+          <span className="text-meta uppercase tracking-wider text-muted group-hover:text-fg transition-colors">
+            remember this device
+          </span>
         </label>
         <TurnstileField />
         <Button type="submit" loading={loading}>
@@ -150,16 +149,16 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="flex justify-between mt-4 text-meta">
+      <div className="flex justify-between mt-5 text-meta uppercase tracking-wider">
         <Link
           href="/register"
-          className="text-secondary hover:text-fg transition-colors"
+          className="text-secondary hover:text-accent transition-colors"
         >
           create account
         </Link>
         <Link
           href="/forgot"
-          className="text-secondary hover:text-fg transition-colors"
+          className="text-secondary hover:text-accent transition-colors"
         >
           forgot password
         </Link>
@@ -170,7 +169,12 @@ export default function LoginPage() {
       </div>
 
       <div className="space-y-3">
-        <Button variant="secondary" type="button" onClick={onPasskeyLogin} loading={loading}>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={onPasskeyLogin}
+          loading={loading}
+        >
           continue with passkey
         </Button>
         <Button variant="secondary" type="button">

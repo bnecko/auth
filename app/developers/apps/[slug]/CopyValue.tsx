@@ -17,12 +17,12 @@ export function CopyValue({ value, label }: { value: string; label?: string }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className="font-mono">{value}</span>
+    <span className="inline-flex items-baseline gap-2">
+      <span className="text-accent">{value}</span>
       <button
         type="button"
         onClick={copy}
-        className="text-meta text-secondary hover:text-fg transition-colors"
+        className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
         aria-label={`copy ${label || "value"}`}
       >
         {copied ? "copied" : "copy"}

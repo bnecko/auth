@@ -3,6 +3,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { Tag } from "@/components/Tag";
+import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import { mintActivationCsrf } from "@/lib/server/activationCsrf";
 import { getActivationForUser } from "@/lib/server/services/activation";
@@ -43,14 +44,27 @@ export default async function ActivatePage({
     activationId: activation.publicId,
   });
 
+  const sensitiveScopes = activation.scopes.filter(
+    (s) => scopeLabels[s]?.sensitive,
+  );
+  const standardScopes = activation.scopes.filter(
+    (s) => !scopeLabels[s]?.sensitive,
+  );
+
   return (
     <AuthShell tag="auth/authorize">
-      <div className="flex items-start justify-between gap-3 mb-5">
-        <div className="min-w-0">
-          <div className="text-micro uppercase text-faint mb-1">
+      <div className="flex items-start gap-4 mb-7">
+        <div
+          className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
+          aria-hidden
+        >
+          {activation.app.name.slice(0, 2)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-meta uppercase tracking-wider text-muted mb-1">
             authorize app
           </div>
-          <h1 className="text-[24px] tracking-tightest text-fg truncate">
+          <h1 className="text-[26px] tracking-tightest text-fg truncate leading-none">
             {activation.app.name}
           </h1>
           <div className="mt-2 flex items-center gap-2">
@@ -63,90 +77,102 @@ export default async function ActivatePage({
             )}
           </div>
         </div>
-        <div
-          className="h-10 w-10 rounded-sm bg-elevated border border-border flex items-center justify-center text-secondary text-meta shrink-0"
-          aria-hidden
-        >
-          {activation.app.name.slice(0, 2).toUpperCase()}
-        </div>
       </div>
 
-      <div className="space-y-2.5 mb-4">
-        <Row label="signed in" value={`${current.user.username} / ${current.user.email}`} />
-        <Row
+      <div className="border-t border-rule mb-5">
+        <DetailRow label="signed in" value={current.user.username} />
+        <DetailRow label="email" value={current.user.email} />
+        <DetailRow
           label="origin"
-          value={`${activation.userAgent || "unknown device"} / ${activation.ip || "unknown ip"}`}
+          value={`${activation.userAgent || "unknown device"} · ${activation.ip || "unknown ip"}`}
         />
-        <Row
-          label="requires"
-          value={requiredProduct || "none"}
-          right={
-            requiredProduct ? (
+        {requiredProduct && (
+          <DetailRow
+            label="requires"
+            value={requiredProduct}
+            right={
               <Tag tone={blocked ? "warning" : "success"}>
                 {blocked ? "missing" : "active"}
               </Tag>
-            ) : undefined
-          }
-        />
+            }
+          />
+        )}
+        <div className="border-t border-rule" />
       </div>
 
-      <div className="mb-4">
-        <div className="text-micro uppercase text-faint mb-2">
+      <div className="mb-5">
+        <div className="text-meta uppercase tracking-wider text-muted mb-2">
           will share
         </div>
-        <ul className="border border-border rounded-sm divide-y divide-border bg-bg">
-          {activation.scopes.map(scope => {
+        <div className="border-t border-rule">
+          {standardScopes.map((scope) => {
             const item = scopeLabels[scope] || { label: scope };
             return (
-              <li
+              <div
                 key={scope}
-                className="flex items-center justify-between px-3 py-2 text-[13px]"
+                className="flex items-baseline gap-3 py-2.5 border-b border-rule"
               >
-                {item.sensitive ? (
-                  <label className="flex items-center gap-2 cursor-pointer text-fg">
-                    <input 
-                      type="checkbox" 
-                      name="scopes" 
-                      value={scope} 
-                      defaultChecked 
-                      form="approve-form"
-                      className="rounded-sm border-border bg-transparent focus:ring-1 focus:ring-border accent-fg"
-                    />
-                    <span>{item.label}</span>
-                  </label>
-                ) : (
-                  <>
-                    <span className="text-fg">{item.label}</span>
-                    <input type="hidden" name="scopes" value={scope} form="approve-form" />
-                  </>
-                )}
-                {item.sensitive && (
-                  <span className="text-micro uppercase text-warning">
-                    optional
-                  </span>
-                )}
-              </li>
+                <Glyph kind="ok" />
+                <span className="text-meta text-fg flex-1">{item.label}</span>
+                <input
+                  type="hidden"
+                  name="scopes"
+                  value={scope}
+                  form="approve-form"
+                />
+              </div>
             );
           })}
-        </ul>
+          {sensitiveScopes.map((scope) => {
+            const item = scopeLabels[scope] || { label: scope };
+            return (
+              <label
+                key={scope}
+                className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"
+              >
+                <input
+                  type="checkbox"
+                  name="scopes"
+                  value={scope}
+                  defaultChecked
+                  form="approve-form"
+                  className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+                />
+                <span className="text-meta text-fg flex-1 group-hover:text-accent transition-colors">
+                  {item.label}
+                </span>
+                <span className="text-micro uppercase tracking-wider text-accent">
+                  optional
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {blocked && !expired && requiredProduct && (
-        <div className="mb-4">
+        <div className="mb-5">
           <Alert tone="warning">
-            active {requiredProduct} subscription required to approve.
+            active {requiredProduct} subscription required to approve
           </Alert>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 mt-2">
-        <form action={`/api/activations/${activation.publicId}/deny`} method="post">
+      <div className="grid grid-cols-2 gap-3 mt-2">
+        <form
+          action={`/api/activations/${activation.publicId}/deny`}
+          method="post"
+        >
           <input type="hidden" name="csrf_token" value={csrfToken} />
           <Button variant="ghost" type="submit" disabled={expired}>
             deny
           </Button>
         </form>
-        <form id="approve-form" action={`/api/activations/${activation.publicId}/approve`} method="post">
+        <form
+          id="approve-form"
+          action={`/api/activations/${activation.publicId}/approve`}
+          method="post"
+        >
           <input type="hidden" name="csrf_token" value={csrfToken} />
           <Button type="submit" disabled={expired || blocked}>
             approve
@@ -157,7 +183,7 @@ export default async function ActivatePage({
   );
 }
 
-function Row({
+function DetailRow({
   label,
   value,
   right,
@@ -167,10 +193,12 @@ function Row({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 text-[13px]">
-      <span className="text-meta text-muted shrink-0">{label}</span>
-      <span className="text-fg text-right truncate flex-1 flex items-center justify-end gap-2">
-        <span className="truncate">{value}</span>
+    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-rule last:border-b-0">
+      <span className="text-meta uppercase tracking-wider text-muted shrink-0">
+        {label}
+      </span>
+      <span className="text-meta text-right truncate flex-1 flex items-center justify-end gap-2">
+        <span className="truncate text-fg">{value}</span>
         {right}
       </span>
     </div>
