@@ -150,31 +150,44 @@ export async function rejectBearerRequest(
   return row ? mapBearerRequest(row) : null;
 }
 
-// Reveals the plaintext key once for an approved request. Marks
-// revealed_at so the dashboard can show "key was viewed at ...". Does
-// not clear the plaintext — the user clears it explicitly via
-// clearBearerRequestKey when they're done copying.
+// Atomically reveals the plaintext once and clears it in the same
+// statement. After this returns, the plaintext_key column is null and
+// the request transitions to 'cleared'. We never leave a retrievable
+// plaintext sitting in the DB across requests — a leaked replica or
+// stolen snapshot only exposes keys that haven't been read yet.
 export async function readBearerRequestPlaintext(
   publicId: string,
   userId: number,
 ) {
   const row = await queryOne<{ plaintext_key: string | null }>(
-    `update bearer_requests
-        set revealed_at = coalesce(revealed_at, now())
+    `with prior as (
+       select plaintext_key
+         from bearer_requests
+        where public_id = $1
+          and user_id = $2
+          and status = 'approved'
+          and plaintext_key is not null
+        for update
+     )
+     update bearer_requests
+        set plaintext_key = null,
+            revealed_at = coalesce(revealed_at, now()),
+            cleared_at = now(),
+            status = 'cleared'
       where public_id = $1
         and user_id = $2
         and status = 'approved'
         and plaintext_key is not null
-      returning plaintext_key`,
+      returning (select plaintext_key from prior) as plaintext_key`,
     [publicId, userId],
   );
   return row?.plaintext_key || null;
 }
 
-// Permanently clears the plaintext for a bearer request. After this,
-// the key cannot be retrieved again — only the sha256 hash in
-// external_apps survives, which matches the docs' "shown only once"
-// rule once the user dismisses the reveal.
+// Used when the user dismisses a request without ever revealing the
+// key — for example they got the key out-of-band, or they want to
+// abandon the issued credential. The reveal path already clears the
+// plaintext atomically; this is the abandon path.
 export async function clearBearerRequestKey(
   publicId: string,
   userId: number,

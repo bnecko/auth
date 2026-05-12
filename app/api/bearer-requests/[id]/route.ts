@@ -19,7 +19,7 @@ export async function DELETE(
 
   const { id } = await params;
   try {
-    const cleared = await dismissBearerKey(id, auth.session.user);
+    const cleared = await dismissBearerKey(id, auth.session.user, req);
     if (!cleared) {
       return badRequest("nothing to clear");
     }

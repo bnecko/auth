@@ -194,7 +194,15 @@ export async function decideBearerRequest(input: {
   return { request: approved, alreadyDecided: false };
 }
 
-export async function revealBearerKey(publicIdValue: string, user: User) {
+// The repository atomically clears the plaintext as it returns it, so a
+// successful reveal both discloses the key and burns it in a single
+// statement. The security event records IP/UA so a stolen-cookie
+// disclosure leaves a trail in the audit log.
+export async function revealBearerKey(
+  publicIdValue: string,
+  user: User,
+  req: NextRequest,
+) {
   const plaintext = await readBearerRequestPlaintext(publicIdValue, user.id);
   if (!plaintext) {
     return null;
@@ -204,14 +212,18 @@ export async function revealBearerKey(publicIdValue: string, user: User) {
     userId: user.id,
     eventType: "bearer_key_revealed",
     result: "ok",
-    context: { ip: "", userAgent: "", country: "" },
+    context: requestContext(req),
     metadata: { requestId: publicIdValue },
   });
 
   return plaintext;
 }
 
-export async function dismissBearerKey(publicIdValue: string, user: User) {
+export async function dismissBearerKey(
+  publicIdValue: string,
+  user: User,
+  req: NextRequest,
+) {
   const cleared = await clearBearerRequestKey(publicIdValue, user.id);
   if (!cleared) {
     return null;
@@ -221,7 +233,7 @@ export async function dismissBearerKey(publicIdValue: string, user: User) {
     userId: user.id,
     eventType: "bearer_key_cleared",
     result: "ok",
-    context: { ip: "", userAgent: "", country: "" },
+    context: requestContext(req),
     metadata: { requestId: publicIdValue },
   });
 

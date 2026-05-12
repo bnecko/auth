@@ -71,6 +71,10 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
         return;
       }
       setRevealed(data.key);
+      // The reveal endpoint atomically clears the plaintext on the
+      // server, so once we hold the key in memory there is nothing
+      // left to dismiss server-side. The row is now 'cleared'.
+      setHasPlaintext(false);
     } finally {
       setBusy(false);
     }
@@ -87,7 +91,11 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
     }
   }
 
-  async function dismiss() {
+  // Abandon path: user never reveals the key (got it out-of-band or
+  // changed their mind) and wants to clear the row. The reveal path
+  // already destroys the plaintext atomically, so this is only useful
+  // before the first reveal.
+  async function abandon() {
     if (!confirm("clear the saved key? you won't be able to view it again.")) {
       return;
     }
@@ -102,91 +110,103 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
         setError(data.error || "could not clear key");
         return;
       }
-      setRevealed(null);
       setHasPlaintext(false);
     } finally {
       setBusy(false);
     }
   }
 
-  const showReveal = bearer.status === "approved" && hasPlaintext;
-  const masked = revealed
-    ? revealed
-    : "•".repeat(48);
+  const canReveal = bearer.status === "approved" && hasPlaintext;
+  const hasKey = revealed !== null;
+  const masked = revealed ? revealed : "•".repeat(48);
+
+  const inKeyMode = canReveal || hasKey;
 
   return (
-    <Row>
-      <RowLabel>{bearer.appName}</RowLabel>
-      <RowValue>
-        {showReveal ? (
-          <span className="flex items-center gap-2 min-w-0 flex-1">
-            <code
-              className={[
-                "text-[12px] truncate flex-1 px-2 py-1 rounded-sm border border-border bg-bg",
-                revealed ? "text-fg" : "text-faint blur-[3px] select-none",
-              ].join(" ")}
-              title={revealed ? "your bearer key" : "click show to reveal"}
-            >
-              {masked}
-            </code>
-            <Tag tone="success" bracket={false}>
-              {statusLabel(bearer)}
-            </Tag>
+    <>
+      {hasKey && (
+        <Row className="bg-warning/5">
+          <span />
+          <span className="text-meta text-warning col-span-2">
+            this is the only time the key will be shown. copy it now.
           </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            <span className="text-secondary truncate max-w-[260px]">
-              {bearer.reason}
+        </Row>
+      )}
+      <Row>
+        <RowLabel>{bearer.appName}</RowLabel>
+        <RowValue>
+          {inKeyMode ? (
+            <span className="flex items-center gap-2 min-w-0 flex-1">
+              <code
+                className={[
+                  "text-[12px] truncate flex-1 px-2 py-1 rounded-sm border border-border bg-bg",
+                  revealed ? "text-fg" : "text-faint blur-[3px] select-none",
+                ].join(" ")}
+                title={revealed ? "your bearer key" : "click show to reveal"}
+              >
+                {masked}
+              </code>
+              <Tag tone="success" bracket={false}>
+                {statusLabel(bearer)}
+              </Tag>
             </span>
-            <Tag tone={statusTone(bearer.status)} bracket={false}>
-              {statusLabel(bearer)}
-            </Tag>
-            <span className="text-faint">/</span>
-            <span className="text-muted text-meta">
-              {shortDate(bearer.createdAt)}
+          ) : (
+            <span className="flex items-center gap-2">
+              <span className="text-secondary truncate max-w-[260px]">
+                {bearer.reason}
+              </span>
+              <Tag tone={statusTone(bearer.status)} bracket={false}>
+                {statusLabel(bearer)}
+              </Tag>
+              <span className="text-faint">/</span>
+              <span className="text-muted text-meta">
+                {shortDate(bearer.createdAt)}
+              </span>
             </span>
-          </span>
-        )}
-      </RowValue>
-      <span className="flex items-center gap-3 text-meta">
-        {error && <span className="text-danger">{error}</span>}
-        {showReveal && !revealed && (
-          <button
-            type="button"
-            onClick={reveal}
-            disabled={busy}
-            className="text-secondary hover:text-fg transition-colors disabled:text-faint"
-          >
-            show
-          </button>
-        )}
-        {showReveal && revealed && (
-          <>
-            <button
-              type="button"
-              onClick={copy}
-              className="text-secondary hover:text-fg transition-colors"
-            >
-              {copied ? "copied" : "copy"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setRevealed(null)}
-              className="text-secondary hover:text-fg transition-colors"
-            >
-              hide
-            </button>
-            <button
-              type="button"
-              onClick={dismiss}
-              disabled={busy}
-              className="text-danger hover:text-danger/80 transition-colors disabled:text-faint"
-            >
-              i saved it
-            </button>
-          </>
-        )}
-      </span>
-    </Row>
+          )}
+        </RowValue>
+        <span className="flex items-center gap-3 text-meta">
+          {error && <span className="text-danger">{error}</span>}
+          {canReveal && !hasKey && (
+            <>
+              <button
+                type="button"
+                onClick={reveal}
+                disabled={busy}
+                className="text-secondary hover:text-fg transition-colors disabled:text-faint"
+              >
+                show
+              </button>
+              <button
+                type="button"
+                onClick={abandon}
+                disabled={busy}
+                className="text-faint hover:text-danger transition-colors disabled:text-faint"
+              >
+                discard
+              </button>
+            </>
+          )}
+          {hasKey && (
+            <>
+              <button
+                type="button"
+                onClick={copy}
+                className="text-secondary hover:text-fg transition-colors"
+              >
+                {copied ? "copied" : "copy"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRevealed(null)}
+                className="text-secondary hover:text-fg transition-colors"
+              >
+                done
+              </button>
+            </>
+          )}
+        </span>
+      </Row>
+    </>
   );
 }
