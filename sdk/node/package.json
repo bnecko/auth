@@ -1,9 +1,47 @@
 {
   "name": "@bottleneck/auth-sdk",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Server-side SDK for Bottleneck Auth — activation broker and OAuth 2.1 + PKCE helpers.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bottleneck-cc/auth.git",
+    "directory": "sdk/node"
+  },
+  "homepage": "https://auth.bottleneck.cc",
+  "keywords": [
+    "oauth",
+    "oidc",
+    "pkce",
+    "auth",
+    "bottleneck"
+  ],
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0"
   }
 }
