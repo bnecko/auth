@@ -5,31 +5,37 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#070707",
-        surface: "#0d0d0e",
-        elevated: "#141416",
-        hover: "#1a1a1c",
-        border: "#1f1f22",
-        "border-strong": "#2a2a2e",
-        fg: "#f4f4f5",
-        secondary: "#a1a1aa",
-        muted: "#6b6b72",
-        faint: "#3f3f46",
-        accent: "#d4d4d8",
-        danger: "#c25450",
-        success: "#5a9a6a",
-        warning: "#c39348",
-        info: "#6b8eb8",
+        // All palette tokens are driven by CSS variables in
+        // app/globals.css so the same names work for themes if/when
+        // we add a light mode. Anything not listed here is forbidden
+        // — pick one of these or argue for a new token.
+        bg: "var(--bg)",
+        "bg-soft": "var(--bg-soft)",
+        rule: "var(--rule)",
+        "rule-strong": "var(--rule-strong)",
+        fg: "var(--fg)",
+        secondary: "var(--secondary)",
+        muted: "var(--muted)",
+        faint: "var(--faint)",
+        accent: "var(--accent)",
+        "accent-dim": "var(--accent-dim)",
+        danger: "var(--danger)",
+        ok: "var(--ok)",
+
+        // Backward-compatible aliases for surfaces that still
+        // reference the old token names. Most pages use these via
+        // class strings — removing them would mean a rewrite of
+        // every file. Phase out when convenient.
+        surface: "var(--bg-soft)",
+        elevated: "var(--bg-soft)",
+        hover: "var(--bg-soft)",
+        border: "var(--rule)",
+        "border-strong": "var(--rule-strong)",
+        success: "var(--ok)",
+        warning: "var(--accent)",
+        info: "var(--secondary)",
       },
       fontFamily: {
-        sans: [
-          "ui-sans-serif",
-          "system-ui",
-          "-apple-system",
-          "Segoe UI",
-          "Inter",
-          "sans-serif",
-        ],
         mono: [
           "JetBrains Mono",
           "ui-monospace",
@@ -40,11 +46,19 @@ const config: Config = {
         ],
       },
       fontSize: {
-        meta: ["11.5px", { lineHeight: "16px", letterSpacing: "0.01em" }],
-        micro: ["10.5px", { lineHeight: "14px", letterSpacing: "0.06em" }],
+        meta: ["12px", { lineHeight: "16px", letterSpacing: "0.01em" }],
+        micro: ["11px", { lineHeight: "14px", letterSpacing: "0.06em" }],
       },
       letterSpacing: {
         tightest: "-0.02em",
+        wider: "0.08em",
+      },
+      borderRadius: {
+        // Strict: nothing has rounded corners. The token still
+        // exists at sm=0 so legacy `rounded-sm` calls compile to
+        // square; remove the calls when convenient.
+        none: "0",
+        sm: "0",
       },
     },
   },

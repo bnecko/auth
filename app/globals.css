@@ -2,55 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
+/* OPERATOR CONSOLE
+ *
+ * One typeface (JetBrains Mono), one accent (phosphor amber), rule
+ * lines instead of bordered boxes, square corners, no shadows. The
+ * design treats the auth service as a serious systems tool, not a
+ * SaaS site. Everything below is the typographic and chromatic
+ * substrate every component sits on.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0a0a0a;
+  --bg-soft: #111111;
+  --rule: #262626;
+  --rule-strong: #3a3a3a;
+  --fg: #f0f0f0;
+  --secondary: #9a9a9a;
+  --muted: #5e5e5e;
+  --faint: #2f2f2f;
+
+  --accent: #ffb000;
+  --accent-dim: #6e4d00;
+  --danger: #ff5c5c;
+  --ok: #6dca5f;
+}
+
 html,
 body {
-  background-color: #070707;
-  color: #f4f4f5;
+  background-color: var(--bg);
+  color: var(--fg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
-  font-feature-settings: "ss01", "cv01", "calt";
-}
-
-:root {
-  color-scheme: dark;
+  /* JetBrains Mono designed alternates: slashed zero, alt 'g', curly
+     braces with serifs. The face has personality the default glyphs
+     hide. */
+  font-feature-settings: "ss01", "cv01", "cv02", "zero", "calt";
 }
 
 ::selection {
-  background: #2a2a2e;
-  color: #f4f4f5;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #f4f4f5;
-  -webkit-box-shadow: 0 0 0 1000px #0d0d0e inset;
-  caret-color: #f4f4f5;
+  -webkit-text-fill-color: var(--fg);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+  caret-color: var(--accent);
   transition: background-color 9999s ease-in-out 0s;
 }
 
 *:focus-visible {
-  outline: 1px solid #f4f4f5;
+  outline: 1px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1f1f22;
-  border: 2px solid #070707;
-  border-radius: 6px;
+  background: var(--rule);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a2a2e;
+  background: var(--rule-strong);
 }
 
 input[type="number"]::-webkit-outer-spin-button,
@@ -59,20 +82,116 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
-.no-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+/* Cursor blink — step-end keyframes so it's an actual on/off blink,
+   not Tailwind's smooth pulse. Used by the loading button and the
+   typewriter empty-state. */
+@keyframes blink-step {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+.cursor-blink {
+  animation: blink-step 1s step-end infinite;
 }
 
+/* Mount stagger — one bold page-load reveal. Apply
+   `data-mount-stagger` on a container and `data-mount-row` on each
+   child; CSS handles the rest. */
+[data-mount-stagger] > [data-mount-row] {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: mount-row 280ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(1) {
+  animation-delay: 40ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(2) {
+  animation-delay: 100ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(3) {
+  animation-delay: 160ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(4) {
+  animation-delay: 220ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(5) {
+  animation-delay: 280ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(6) {
+  animation-delay: 340ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(7) {
+  animation-delay: 400ms;
+}
+[data-mount-stagger] > [data-mount-row]:nth-child(n + 8) {
+  animation-delay: 460ms;
+}
+
+@keyframes mount-row {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mount-stagger] > [data-mount-row] {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .cursor-blink {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* CRT scanlines — opt-in via `.scanlines` on a container. Applied
+   only on the AuthShell so the dashboard stays clean. 2px stripe at
+   4% opacity reads as texture, not noise. */
+.scanlines {
+  position: relative;
+  isolation: isolate;
+}
+.scanlines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.03) 0,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Rule line vocabulary used across the design system. The horizontal
+   variant is the load-bearing structural element — it replaces the
+   bordered-card pattern everywhere. */
+.rule-x {
+  border-top: 1px solid var(--rule);
+}
+.rule-y {
+  border-left: 1px solid var(--rule);
+}
+
+/* OAuth docs code blocks: leave Prism's defaults alone except for
+   the background, which fights the page palette by default. */
 .oauth-code-block {
   margin: 0;
   border-radius: 0;
   text-shadow: none;
-  background: #070707;
+  background: var(--bg-soft);
 }
 
 .oauth-code {
