@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { queryOne } from "@/lib/server/db";
+import { listWebhookEndpointsForApp } from "@/lib/server/repositories/webhooks";
 import { AppSettingsForm } from "./AppSettingsForm";
+import { CopyValue } from "./CopyValue";
+import { WebhookEndpointsSection } from "./WebhookEndpointsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,8 @@ export default async function AppSettingsPage({
     redirect("/developers/apps");
   }
 
+  const webhookEndpoints = await listWebhookEndpointsForApp(app.id);
+
   return (
     <div className="flex min-h-screen">
       <Sidebar
@@ -58,16 +62,30 @@ export default async function AppSettingsPage({
               </h1>
               {app.status === "disabled" && <Tag tone="danger">Disabled</Tag>}
             </div>
-            <p className="text-muted text-[13px] font-mono">
-              Client ID: {app.public_id}
+            <p className="text-muted text-[13px]">
+              <span className="font-mono">Client ID:</span>{" "}
+              <CopyValue value={app.public_id} label="client id" />
             </p>
           </div>
 
-          <AppSettingsForm
-            appId={app.id}
-            redirectUris={app.allowed_redirect_urls}
-            oauthProfileVersion={app.oauth_profile_version}
-          />
+          <div className="space-y-6">
+            <AppSettingsForm
+              appId={app.id}
+              redirectUris={app.allowed_redirect_urls}
+              oauthProfileVersion={app.oauth_profile_version}
+            />
+
+            <WebhookEndpointsSection
+              appId={app.id}
+              endpoints={webhookEndpoints.map(e => ({
+                publicId: e.publicId,
+                url: e.url,
+                eventTypes: e.eventTypes,
+                status: e.status,
+                createdAt: e.createdAt,
+              }))}
+            />
+          </div>
         </main>
       </div>
     </div>

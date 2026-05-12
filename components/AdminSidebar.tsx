@@ -9,6 +9,7 @@ const navItems = [
   { href: "/admin/oauth-clients", label: "oauth clients" },
   { href: "/admin/keys", label: "signing keys" },
   { href: "/admin/activation-requests", label: "activation requests" },
+  { href: "/admin/webhooks", label: "webhook deliveries" },
   { href: "/admin/bans", label: "bans" },
   { href: "/admin/security", label: "security events" },
 ];

@@ -16,6 +16,34 @@ import { recordSecurityEvent } from "../repositories/securityEvents";
 import { hasActiveSubscription } from "../repositories/subscriptions";
 import type { User } from "../types";
 import { parseScopes } from "../validation";
+import { enqueueWebhookEvent } from "../webhooks";
+
+// Webhook enqueue is best-effort: a downstream side effect must never
+// roll back the activation state transition the user just authorized.
+// Failures are recorded as a security event so an admin can re-fire
+// from the deliveries table.
+async function fireActivationWebhook(input: {
+  appId: number;
+  userId: number;
+  eventType: "activation.approved" | "activation.denied" | "activation.cancelled";
+  payload: Record<string, unknown>;
+}) {
+  try {
+    await enqueueWebhookEvent({
+      appId: input.appId,
+      eventType: input.eventType,
+      payload: input.payload,
+    });
+  } catch (err) {
+    await recordSecurityEvent({
+      userId: input.userId,
+      eventType: "webhook_enqueue_failed",
+      result: err instanceof Error ? err.message : "unknown",
+      context: { ip: "", userAgent: "activation-service", country: "" },
+      metadata: { activationId: input.payload.id, eventType: input.eventType },
+    });
+  }
+}
 
 export async function createExternalActivationRequest(
   apiKey: string,
@@ -137,6 +165,20 @@ export async function approveActivationForUser(
       ? activation.returnUrl
       : "/";
 
+  await fireActivationWebhook({
+    appId: activation.app.id,
+    userId: user.id,
+    eventType: "activation.approved",
+    payload: {
+      id: publicIdValue,
+      status: "approved",
+      approvedUserId: user.publicId,
+      scopes: finalScopes,
+      appId: activation.app.publicId,
+      returnUrl: activation.returnUrl,
+    },
+  });
+
   return {
     activation,
     redirectTo: safeRedirect,
@@ -158,6 +200,19 @@ export async function denyActivationForUser(
     context,
     metadata: { activationId: publicIdValue },
   });
+
+  if (activation) {
+    await fireActivationWebhook({
+      appId: activation.externalAppId,
+      userId: user.id,
+      eventType: "activation.denied",
+      payload: {
+        id: publicIdValue,
+        status: "denied",
+        deniedAt: new Date().toISOString(),
+      },
+    });
+  }
 }
 
 // Validates a returnUrl against an app's allowed list. Comparison is by
@@ -216,5 +271,18 @@ export async function cancelExternalActivationRequest(
     throw new Error("invalid app credentials");
   }
 
-  return cancelActivation(publicIdValue, app.id);
+  const cancelled = await cancelActivation(publicIdValue, app.id);
+  if (cancelled) {
+    await fireActivationWebhook({
+      appId: app.id,
+      userId: cancelled.approvedUserId || 0,
+      eventType: "activation.cancelled",
+      payload: {
+        id: publicIdValue,
+        status: "cancelled",
+        cancelledAt: new Date().toISOString(),
+      },
+    });
+  }
+  return cancelled;
 }

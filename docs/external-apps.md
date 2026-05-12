@@ -18,8 +18,9 @@ Supported result delivery:
 
 - polling `GET /api/activation-requests/:id`
 - user return redirect through `returnUrl`
+- server-to-server webhook delivery to a registered endpoint (see [Webhooks](#webhooks))
 
-Callback URLs are stored on activation requests, but server-to-server callback delivery is not implemented yet.
+Polling and webhooks are not mutually exclusive — for high-volume apps prefer webhooks and use polling only as a fallback if a delivery has not arrived after a few seconds.
 
 ## App Credentials
 
@@ -201,6 +202,97 @@ Common HTTP statuses:
 - Verify final status with the server before granting access.
 - Request the smallest scope set possible.
 - Cancel abandoned requests.
+
+## Webhooks
+
+Bottleneck Auth delivers activation lifecycle events to a registered HTTPS endpoint. Register endpoints from the developer dashboard at `https://auth.bottleneck.cc/developers/apps/<slug>`.
+
+### Event types
+
+- `activation.approved` — user approved the activation request
+- `activation.denied` — user denied the request
+- `activation.cancelled` — your app cancelled a pending request
+
+Each endpoint chooses which events it wants to receive at registration time. Additional event types (`user.created`, `oauth.grant.created`, `token.revoked`, `subscription.changed`) are reserved for future use.
+
+### Endpoint registration
+
+Endpoints are created from the developer dashboard. The signing secret is shown **once** on creation and never again — if you lose it, delete the endpoint and re-register.
+
+Secret format: `whsec_` followed by 43 base64url characters.
+
+### Request format
+
+Each delivery is an HTTPS `POST` with JSON body and these headers:
+
+```http
+Content-Type: application/json
+X-Bottleneck-Timestamp: 1715528400
+X-Bottleneck-Signature: a3f4...64-hex-chars
+X-Bottleneck-Event: activation.approved
+X-Bottleneck-Delivery: whd_abc123
+```
+
+Body shape:
+
+```json
+{
+  "id": "whd_abc123",
+  "type": "activation.approved",
+  "created": 1715528400,
+  "data": {
+    "id": "act_xxx",
+    "status": "approved",
+    "approvedUserId": "usr_xxx",
+    "scopes": ["profile:read", "email:read"],
+    "appId": "app_xxx",
+    "returnUrl": "https://app.example.com/auth/return"
+  }
+}
+```
+
+`data` is the same payload your app would have received from `GET /api/activation-requests/:id`. Field availability matches the same scope rules.
+
+### Signature verification
+
+The signature is the lowercase hex digest of `HMAC-SHA256(secret, "<timestamp>.<body>")` where `<body>` is the exact bytes of the POST body and `<timestamp>` is the `X-Bottleneck-Timestamp` value. Verify in constant time.
+
+The Node SDK ships a helper:
+
+```ts
+import { verifyWebhookSignature } from "@bottleneck/auth-sdk";
+
+const ok = verifyWebhookSignature({
+  secret: process.env.BOTTLENECK_WEBHOOK_SECRET!,
+  timestamp: req.headers["x-bottleneck-timestamp"] as string,
+  body: rawRequestBody,
+  signature: req.headers["x-bottleneck-signature"] as string,
+});
+if (!ok) {
+  return res.status(401).end();
+}
+```
+
+Reject any request older than ~5 minutes by comparing `X-Bottleneck-Timestamp` against your wall clock — this is your replay protection.
+
+### Retries and idempotency
+
+Bottleneck retries failed deliveries with exponential backoff:
+
+| Failed attempts | Next retry after |
+|-----------------|------------------|
+| 1               | 1 minute         |
+| 2               | 5 minutes        |
+| 3               | 15 minutes       |
+| 4               | 1 hour           |
+| 5               | 4 hours          |
+| 6               | 12 hours         |
+| 7               | 24 hours         |
+| 8               | gives up         |
+
+A delivery is considered successful when your endpoint returns HTTP 2xx within 5 seconds. Any other response (including 3xx) is treated as failure. Use the `X-Bottleneck-Delivery` id to deduplicate — the same id may arrive more than once after a transient failure.
+
+Return 2xx as soon as you have persisted the event. Do not run expensive work synchronously inside the handler.
 
 ## Minimal Server Example
 

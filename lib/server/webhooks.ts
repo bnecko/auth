@@ -11,7 +11,12 @@ export const webhookEventTypes = [
   "oauth.grant.created",
   "token.revoked",
   "subscription.changed",
+  "activation.approved",
+  "activation.denied",
+  "activation.cancelled",
 ] as const;
+
+export type WebhookEventType = (typeof webhookEventTypes)[number];
 
 export function createWebhookSecret() {
   return `whsec_${randomToken(32)}`;

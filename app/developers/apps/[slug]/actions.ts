@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { getCurrentSession } from "@/lib/server/session";
-import { query } from "@/lib/server/db";
+import { query, queryOne } from "@/lib/server/db";
 import { randomToken } from "@/lib/server/crypto";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import {
@@ -13,6 +13,16 @@ import {
 } from "@/lib/server/repositories/externalApps";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { supportedOAuthProfileVersion } from "@/lib/server/config";
+import {
+  registerWebhookEndpoint,
+  webhookEventTypes,
+  type WebhookEventType,
+} from "@/lib/server/webhooks";
+import {
+  deleteWebhookEndpoint,
+  disableWebhookEndpoint,
+  findWebhookEndpointByPublicId,
+} from "@/lib/server/repositories/webhooks";
 
 export async function updateAppAction(formData: FormData) {
   const current = await getCurrentSession();
@@ -105,4 +115,101 @@ export async function updateAppAction(formData: FormData) {
 
   revalidatePath(`/developers/apps/${app.slug}`);
   return { ok: true };
+}
+
+async function assertOwnsApp(appId: number) {
+  const current = await getCurrentSession();
+  if (!current) {
+    throw new Error("Unauthorized");
+  }
+  const owned = await queryOne<{ id: string; slug: string }>(
+    `select id, slug from external_apps where id = $1 and owner_user_id = $2`,
+    [appId, current.user.id],
+  );
+  if (!owned) {
+    throw new Error("App not found or unauthorized");
+  }
+  return { userId: current.user.id, slug: owned.slug };
+}
+
+export async function createWebhookEndpointAction(formData: FormData) {
+  const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
+  if (!appId) throw new Error("Invalid app ID");
+  const { userId, slug } = await assertOwnsApp(appId);
+
+  const url = String(formData.get("url") || "").trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("Webhook URL is not a valid URL");
+  }
+  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
+    throw new Error("Webhook URL must be HTTPS unless using localhost.");
+  }
+
+  const requested = formData.getAll("event_types").map(String);
+  const allowed = new Set<string>(webhookEventTypes);
+  const eventTypes = requested.filter(t => allowed.has(t)) as WebhookEventType[];
+  if (eventTypes.length === 0) {
+    throw new Error("Select at least one event type.");
+  }
+
+  const { endpoint, secret } = await registerWebhookEndpoint({
+    appId,
+    url,
+    eventTypes,
+  });
+
+  await recordSecurityEvent({
+    userId,
+    eventType: "webhook_endpoint_registered",
+    result: "ok",
+    context: requestContextFromHeaders(await headers()),
+    metadata: { appId, endpointId: endpoint.publicId, eventTypes },
+  });
+
+  revalidatePath(`/developers/apps/${slug}`);
+  return { endpoint, secret };
+}
+
+export async function disableWebhookEndpointAction(formData: FormData) {
+  const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
+  const endpointPublicId = String(formData.get("endpoint_id") || "");
+  if (!appId || !endpointPublicId) throw new Error("Invalid arguments");
+  const { userId, slug } = await assertOwnsApp(appId);
+
+  const existing = await findWebhookEndpointByPublicId(endpointPublicId);
+  if (!existing || existing.appId !== appId) {
+    throw new Error("Endpoint not found");
+  }
+
+  await disableWebhookEndpoint(endpointPublicId, appId);
+  await recordSecurityEvent({
+    userId,
+    eventType: "webhook_endpoint_disabled",
+    result: "ok",
+    context: requestContextFromHeaders(await headers()),
+    metadata: { appId, endpointId: endpointPublicId },
+  });
+  revalidatePath(`/developers/apps/${slug}`);
+}
+
+export async function deleteWebhookEndpointAction(formData: FormData) {
+  const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
+  const endpointPublicId = String(formData.get("endpoint_id") || "");
+  if (!appId || !endpointPublicId) throw new Error("Invalid arguments");
+  const { userId, slug } = await assertOwnsApp(appId);
+
+  const ok = await deleteWebhookEndpoint(endpointPublicId, appId);
+  if (ok) {
+    await recordSecurityEvent({
+      userId,
+      eventType: "webhook_endpoint_deleted",
+      result: "ok",
+      context: requestContextFromHeaders(await headers()),
+      metadata: { appId, endpointId: endpointPublicId },
+    });
+  }
+  revalidatePath(`/developers/apps/${slug}`);
 }

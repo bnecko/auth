@@ -158,10 +158,13 @@ services:
     restart: unless-stopped
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: postgres://auth:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/auth
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN}
     depends_on:
       redis:
         condition: service_started
+      db:
+        condition: service_healthy
     mem_limit: 128m
     memswap_limit: 128m
     cpus: 0.25
