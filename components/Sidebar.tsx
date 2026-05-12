@@ -123,18 +123,18 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[14vh] px-5 bg-bg/70"
+      className="overlay-mount fixed inset-0 z-50 flex items-start justify-center pt-[18vh] px-5 bg-bg/75 backdrop-blur-md"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="search"
-        className="w-full max-w-[480px] bg-bg border border-rule-strong overflow-hidden"
+        aria-label="search palette"
+        className="palette-mount w-full max-w-[580px] bg-bg border border-rule-strong"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-baseline gap-2 px-3 h-11 border-b border-rule">
-          <span className="text-accent" aria-hidden="true">
+        <div className="flex items-baseline gap-3 px-4 h-12 border-b border-rule">
+          <span className="text-accent text-[15px]" aria-hidden="true">
             $
           </span>
           <input
@@ -142,13 +142,15 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="locate..."
+            placeholder="search pages, settings, docs"
             aria-label="search"
             aria-controls="sidebar-search-results"
             aria-activedescendant={
-              results[selected] ? `sidebar-search-option-${selected}` : undefined
+              results[selected]
+                ? `sidebar-search-option-${selected}`
+                : undefined
             }
-            className="flex-1 bg-transparent text-[14px] text-fg placeholder-faint outline-none"
+            className="flex-1 bg-transparent text-[15px] text-fg placeholder-faint outline-none"
           />
           <Kbd>esc</Kbd>
         </div>
@@ -156,12 +158,20 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
           id="sidebar-search-results"
           role="listbox"
           aria-label="search results"
-          className="max-h-[320px] overflow-y-auto py-1"
+          className="max-h-[360px] overflow-y-auto py-1.5"
         >
           {results.length === 0 ? (
-            <li className="px-3 py-3 text-[13px] text-muted flex items-baseline gap-2">
+            <li className="px-4 py-4 text-meta text-muted flex items-baseline gap-2">
               <Glyph kind="prompt" muted />
-              <span>no results</span>
+              <span>
+                no match
+                {query && (
+                  <>
+                    {" for "}
+                    <span className="text-accent">&quot;{query}&quot;</span>
+                  </>
+                )}
+              </span>
             </li>
           ) : (
             results.map((it, i) => (
@@ -174,35 +184,52 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   onClick={() => navigate(it)}
-                  className={`w-full text-left flex items-baseline gap-3 px-3 h-9 text-[13px] transition-colors ${
+                  onMouseEnter={() => setSelected(i)}
+                  className={`w-full text-left flex items-baseline gap-3 px-4 h-9 text-[13px] transition-colors ${
                     i === selected
-                      ? "text-accent"
-                      : "text-secondary hover:text-fg"
+                      ? "text-accent bg-bg-soft"
+                      : "text-secondary"
                   }`}
                 >
                   <span
                     aria-hidden="true"
-                    className={`w-3 ${i === selected ? "text-accent" : "text-faint"}`}
+                    className={`w-3 ${
+                      i === selected ? "text-accent" : "text-faint"
+                    }`}
                   >
                     {i === selected ? "▸" : ""}
                   </span>
-                  <span className="text-faint text-micro uppercase tracking-wider w-[72px] shrink-0">
+                  <span
+                    className={`text-micro uppercase tracking-wider w-[72px] shrink-0 ${
+                      i === selected ? "text-accent/70" : "text-faint"
+                    }`}
+                  >
                     {it.group}
                   </span>
-                  <span>{it.label}</span>
+                  <span className="flex-1 truncate">{it.label}</span>
+                  {it.newWindow && (
+                    <span className="text-faint text-micro shrink-0">↗</span>
+                  )}
                 </button>
               </li>
             ))
           )}
         </ul>
-        <div className="px-3 h-9 border-t border-rule flex items-center justify-end gap-3 text-meta text-faint">
-          <span className="flex items-center gap-1.5">
-            <Kbd>↑↓</Kbd>
-            <span>nav</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>↵</Kbd>
-            <span>open</span>
+        <div className="px-4 h-9 border-t border-rule flex items-center justify-between text-meta text-faint">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <Kbd>↑↓</Kbd>
+              <span>nav</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Kbd>↵</Kbd>
+              <span>open</span>
+            </span>
+          </div>
+          <span className="tabular-nums">
+            {String(results.length).padStart(2, "0")}
+            <span className="text-faint/60">/</span>
+            {String(allItems.length).padStart(2, "0")}
           </span>
         </div>
       </div>

@@ -140,6 +140,34 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/* Search palette mount — overlay fades in, dialog rises one notch.
+   Short enough to feel like a keystroke, long enough to read as
+   intentional. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.overlay-mount {
+  animation: overlay-in 140ms ease-out forwards;
+}
+.palette-mount {
+  animation: palette-in 180ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-mount-stagger] > [data-mount-row] {
     opacity: 1;
@@ -149,6 +177,12 @@ input[type="number"]::-webkit-inner-spin-button {
   .cursor-blink {
     animation: none;
     opacity: 1;
+  }
+  .overlay-mount,
+  .palette-mount {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 
