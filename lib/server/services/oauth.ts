@@ -529,16 +529,19 @@ function jsonBase64Url(value: unknown) {
 }
 
 // Verifies an RS256 ID token (or any JWT we issued) against the
-// current OIDC key set. Returns the parsed claims on success, null on
-// any failure. Caller is responsible for application-level checks
-// like aud / iss / exp.
+// current OIDC key set and enforces the freshness + issuer claims
+// every caller would otherwise have to duplicate. Returns the parsed
+// claims on success, null on any failure. Callers that need aud
+// validation must still do that — it's call-site-specific.
 export function verifyIdToken(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [encodedHeader, encodedPayload, encodedSig] = parts;
   let header: { alg?: string; kid?: string };
+  let payload: Record<string, unknown>;
   try {
     header = JSON.parse(Buffer.from(encodedHeader, "base64url").toString());
+    payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString());
   } catch {
     return null;
   }
@@ -565,11 +568,21 @@ export function verifyIdToken(token: string): Record<string, unknown> | null {
   });
   if (!matched) return null;
 
-  try {
-    return JSON.parse(Buffer.from(encodedPayload, "base64url").toString());
-  } catch {
+  // Reject stale tokens. Without this an attacker who lifts a
+  // year-old id_token (browser cache, log file, archived debug
+  // snapshot) could still use it to drive RP-initiated logout.
+  const now = Math.floor(Date.now() / 1000);
+  const exp = payload.exp;
+  if (typeof exp !== "number" || exp <= now) return null;
+
+  // Reject tokens issued by a different issuer. Our own signing key
+  // can be confused with itself, but iss anchors the token to this
+  // service even when callers feed it untrusted input.
+  if (typeof payload.iss !== "string" || payload.iss !== authBaseUrl()) {
     return null;
   }
+
+  return payload;
 }
 
 export function oauthJwks() {
