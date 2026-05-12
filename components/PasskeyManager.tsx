@@ -4,6 +4,7 @@ import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Row, RowLabel, RowValue, Empty } from "./Section";
 import { Tag } from "./Tag";
+import { revokePasskeyAction } from "@/app/dashboard-actions";
 
 export function PasskeyManager({ passkeys }: { passkeys: { id: string, name: string, lastUsed: string }[] }) {
   const [loading, setLoading] = useState(false);
@@ -58,13 +59,15 @@ export function PasskeyManager({ passkeys }: { passkeys: { id: string, name: str
               <span className="text-faint">/</span>
               <span className="text-muted">last used {key.lastUsed.slice(0, 10)}</span>
             </RowValue>
-            <button
-              type="button"
-              className="text-meta text-secondary hover:text-danger transition-colors"
-              onClick={() => alert("Revocation not yet implemented")}
-            >
-              revoke
-            </button>
+            <form action={revokePasskeyAction}>
+              <input type="hidden" name="credentialId" value={key.id} />
+              <button
+                type="submit"
+                className="text-meta text-secondary hover:text-danger transition-colors"
+              >
+                revoke
+              </button>
+            </form>
           </Row>
         ))
       )}

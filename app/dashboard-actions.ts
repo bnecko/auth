@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getCurrentSession } from "@/lib/server/session";
+import { requestContextFromHeaders } from "@/lib/server/http";
 import { revokeSessionById } from "@/lib/server/repositories/sessions";
 import { revokeAuthorization } from "@/lib/server/repositories/authorizations";
 import {
@@ -10,6 +12,8 @@ import {
 } from "@/lib/server/repositories/oauth";
 import { findExternalAppBySlug } from "@/lib/server/repositories/externalApps";
 import { cancelSubscription } from "@/lib/server/repositories/subscriptions";
+import { deleteWebauthnCredential } from "@/lib/server/repositories/webauthn";
+import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export async function revokeSessionAction(formData: FormData) {
   const current = await getCurrentSession();
@@ -37,6 +41,26 @@ export async function revokeAppAction(formData: FormData) {
   await revokeAuthorization(current.user.id, app.id);
   await revokeAccessTokensForRefreshGrant({ appId: app.id, userId: current.user.id });
   await revokeRefreshTokensByUserAndApp({ appId: app.id, userId: current.user.id });
+  revalidatePath("/");
+}
+
+export async function revokePasskeyAction(formData: FormData) {
+  const current = await getCurrentSession();
+  if (!current) return;
+
+  const credentialId = formData.get("credentialId");
+  if (typeof credentialId !== "string" || !credentialId) return;
+
+  const deleted = await deleteWebauthnCredential(credentialId, current.user.id);
+  if (deleted) {
+    await recordSecurityEvent({
+      userId: current.user.id,
+      eventType: "passkey_revoked",
+      result: "ok",
+      context: requestContextFromHeaders(await headers()),
+      metadata: { credentialId },
+    });
+  }
   revalidatePath("/");
 }
 

@@ -97,8 +97,11 @@ export async function updateWebauthnCredentialSignCount(credentialId: string, si
 }
 
 export async function deleteWebauthnCredential(credentialId: string, userId: number) {
-  await query(
-    `delete from webauthn_credentials where credential_id = $1 and user_id = $2`,
+  const row = await queryOne<{ id: string }>(
+    `delete from webauthn_credentials
+      where credential_id = $1 and user_id = $2
+      returning id`,
     [credentialId, userId]
   );
+  return row !== null;
 }
