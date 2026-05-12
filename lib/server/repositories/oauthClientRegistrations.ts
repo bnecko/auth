@@ -314,30 +314,29 @@ export async function denyOAuthClientRegistrationRequest(input: {
 }
 
 // Atomically returns the plaintext client_secret once and clears it.
-// PostgreSQL UPDATE ... RETURNING uses post-update values, so the
-// prior value must be captured via a CTE on the same row.
+// PostgreSQL UPDATE ... RETURNING uses post-update values, and a
+// data-modifying CTE on the same target is inlined, so the prior
+// value must be captured in a FROM-clause subquery that locks the
+// row before the UPDATE applies.
 export async function revealOAuthClientRegistrationSecret(input: {
   publicId: string;
   registrationToken: string;
 }) {
   const row = await queryOne<{ plaintext_client_secret: string | null }>(
-    `with prior as (
-       select plaintext_client_secret
-         from oauth_client_registration_requests
-        where public_id = $1
-          and registration_token_hash = $2
-          and status = 'approved'
-          and plaintext_client_secret is not null
-        for update
-     )
-     update oauth_client_registration_requests
+    `update oauth_client_registration_requests r
         set plaintext_client_secret = null,
             client_secret_revealed_at = now()
-      where public_id = $1
-        and registration_token_hash = $2
-        and status = 'approved'
-        and plaintext_client_secret is not null
-      returning (select plaintext_client_secret from prior) as plaintext_client_secret`,
+        from (
+          select id, plaintext_client_secret as prior_secret
+            from oauth_client_registration_requests
+           where public_id = $1
+             and registration_token_hash = $2
+             and status = 'approved'
+             and plaintext_client_secret is not null
+           for update
+        ) prior
+      where r.id = prior.id
+      returning prior.prior_secret as plaintext_client_secret`,
     [input.publicId, hashToken(input.registrationToken)],
   );
   return row?.plaintext_client_secret || null;

@@ -155,30 +155,32 @@ export async function rejectBearerRequest(
 // the request transitions to 'cleared'. We never leave a retrievable
 // plaintext sitting in the DB across requests — a leaked replica or
 // stolen snapshot only exposes keys that haven't been read yet.
+//
+// PostgreSQL UPDATE ... RETURNING uses post-update values, and a
+// data-modifying CTE on the same target is inlined, so the prior
+// value is captured in a FROM-clause subquery that locks the row
+// before the UPDATE applies.
 export async function readBearerRequestPlaintext(
   publicId: string,
   userId: number,
 ) {
   const row = await queryOne<{ plaintext_key: string | null }>(
-    `with prior as (
-       select plaintext_key
-         from bearer_requests
-        where public_id = $1
-          and user_id = $2
-          and status = 'approved'
-          and plaintext_key is not null
-        for update
-     )
-     update bearer_requests
+    `update bearer_requests br
         set plaintext_key = null,
             revealed_at = coalesce(revealed_at, now()),
             cleared_at = now(),
             status = 'cleared'
-      where public_id = $1
-        and user_id = $2
-        and status = 'approved'
-        and plaintext_key is not null
-      returning (select plaintext_key from prior) as plaintext_key`,
+        from (
+          select id, plaintext_key as prior_key
+            from bearer_requests
+           where public_id = $1
+             and user_id = $2
+             and status = 'approved'
+             and plaintext_key is not null
+           for update
+        ) prior
+      where br.id = prior.id
+      returning prior.prior_key as plaintext_key`,
     [publicId, userId],
   );
   return row?.plaintext_key || null;
