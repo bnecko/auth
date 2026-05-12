@@ -133,8 +133,8 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
         className="palette-mount w-full max-w-[580px] bg-bg border border-rule-strong"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-baseline gap-3 px-4 h-12 border-b border-rule">
-          <span className="text-accent text-[15px]" aria-hidden="true">
+        <div className="flex items-center gap-3 p-4 border-b border-rule">
+          <span className="text-accent text-[15px] leading-none" aria-hidden="true">
             $
           </span>
           <input

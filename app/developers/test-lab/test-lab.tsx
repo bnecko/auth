@@ -394,14 +394,14 @@ function LabField({
 }) {
   return (
     <label className="block">
-      <span className="block text-meta uppercase tracking-wider text-muted mb-1">
+      <span className="block text-meta uppercase tracking-wider text-muted mb-1.5">
         {label}
       </span>
       <input
         type={type}
         value={value}
         onChange={event => onChange(event.target.value)}
-        className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+        className="w-full bg-bg-soft border-0 border-b border-rule px-3 h-9 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
       />
     </label>
   );
@@ -418,14 +418,14 @@ function LabText({
 }) {
   return (
     <label className="block">
-      <span className="block text-meta uppercase tracking-wider text-muted mb-1">
+      <span className="block text-meta uppercase tracking-wider text-muted mb-1.5">
         {label}
       </span>
       <textarea
         value={value}
         onChange={event => onChange(event.target.value)}
         rows={4}
-        className="w-full resize-y bg-transparent border-0 border-b border-rule px-1 py-1 text-[12px] leading-5 text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+        className="w-full resize-y bg-bg-soft border-0 border-b border-rule px-3 py-2 text-[12px] leading-5 text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
       />
     </label>
   );
@@ -444,13 +444,13 @@ function LabSelect({
 }) {
   return (
     <label className="block">
-      <span className="block text-meta uppercase tracking-wider text-muted mb-1">
+      <span className="block text-meta uppercase tracking-wider text-muted mb-1.5">
         {label}
       </span>
       <select
         value={value}
         onChange={event => onChange(event.target.value)}
-        className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg focus:outline-none focus:border-accent transition-colors appearance-none cursor-pointer"
+        className="w-full bg-bg-soft border-0 border-b border-rule px-3 h-9 text-[13px] text-fg focus:outline-none focus:border-accent transition-colors appearance-none cursor-pointer"
       >
         {options.map(o => (
           <option key={o.value} value={o.value}>

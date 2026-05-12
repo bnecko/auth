@@ -63,6 +63,24 @@ export default async function OAuthDocsPage() {
                       label: "cURL",
                       code: `curl ${base}/.well-known/openid-configuration`,
                     },
+                    {
+                      label: "Node.js",
+                      code: `const config = await fetch(
+  '${base}/.well-known/openid-configuration'
+).then(r => r.json());
+
+// config.authorization_endpoint, config.token_endpoint, config.jwks_uri, ...`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import requests
+
+config = requests.get(
+  '${base}/.well-known/openid-configuration'
+).json()
+
+# config['authorization_endpoint'], config['token_endpoint'], ...`,
+                    },
                   ]}
                 />
                 <p>
@@ -225,6 +243,45 @@ curl -X POST ${base}/api/oauth/par \\
 # Step 2 - redirect the user
 # ${base}/oauth/authorize?client_id=app_xxx&request_uri=urn%3A...`,
                     },
+                    {
+                      label: "Node.js",
+                      code: `const par = await fetch('${base}/api/oauth/par', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    client_id: 'app_xxx',
+    client_secret: 'sec_xxx',
+    response_type: 'code',
+    redirect_uri: 'https://yourapp.example/callback',
+    scope: 'openid profile email',
+    state: 'random_state',
+    code_challenge: 'YOUR_CHALLENGE',
+    code_challenge_method: 'S256',
+  }),
+}).then(r => r.json());
+
+const url = '${base}/oauth/authorize?client_id=app_xxx&request_uri=' +
+  encodeURIComponent(par.request_uri);
+// redirect the user to url`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import requests
+from urllib.parse import quote
+
+par = requests.post('${base}/api/oauth/par', data={
+  'client_id': 'app_xxx',
+  'client_secret': 'sec_xxx',
+  'response_type': 'code',
+  'redirect_uri': 'https://yourapp.example/callback',
+  'scope': 'openid profile email',
+  'state': 'random_state',
+  'code_challenge': 'YOUR_CHALLENGE',
+  'code_challenge_method': 'S256',
+}).json()
+
+url = f"${base}/oauth/authorize?client_id=app_xxx&request_uri={quote(par['request_uri'])}"`,
+                    },
                   ]}
                 />
               </DocSection>
@@ -311,6 +368,28 @@ const tokens = await new Promise((resolve, reject) => {
   -d "client_id=app_xxx" \\
   -d "client_secret=sec_xxx"`,
                     },
+                    {
+                      label: "Node.js",
+                      code: `const tokens = await fetch('${base}/api/oauth/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: 'app_xxx',
+    client_secret: 'sec_xxx',
+  }),
+}).then(r => r.json());`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import requests
+
+tokens = requests.post('${base}/api/oauth/token', data={
+  'grant_type': 'client_credentials',
+  'client_id': 'app_xxx',
+  'client_secret': 'sec_xxx',
+}).json()`,
+                    },
                   ]}
                 />
               </DocSection>
@@ -393,6 +472,22 @@ tokens = res.json()`,
 # Using an old (rotated) token invalidates the entire grant.`,
                     },
                     {
+                      label: "Node.js",
+                      code: `const tokens = await fetch('${base}/api/oauth/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: 'app_xxx',
+    client_secret: 'sec_xxx',
+    refresh_token: storedRefreshToken,
+  }),
+}).then(r => r.json());
+
+// Persist the NEW refresh token; the old one is now invalid.
+storedRefreshToken = tokens.refresh_token;`,
+                    },
+                    {
                       label: "Python",
                       code: `import requests
 
@@ -421,6 +516,22 @@ tokens = res.json()
                       label: "cURL",
                       code: `curl ${base}/api/oauth/userinfo \\
   -H "Authorization: Bearer ACCESS_TOKEN"`,
+                    },
+                    {
+                      label: "Node.js",
+                      code: `const profile = await fetch('${base}/api/oauth/userinfo', {
+  headers: { Authorization: \`Bearer \${accessToken}\` },
+}).then(r => r.json());
+// profile.sub, profile.email, profile.subscriptions, ...`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import requests
+
+profile = requests.get(
+  '${base}/api/oauth/userinfo',
+  headers={'Authorization': f'Bearer {access_token}'},
+).json()`,
                     },
                     {
                       label: "Response",
@@ -469,6 +580,35 @@ tokens = res.json()
   -d "token=ACCESS_OR_REFRESH_TOKEN"`,
                     },
                     {
+                      label: "Node.js",
+                      code: `const intro = await fetch('${base}/api/oauth/introspect', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    client_id: 'app_xxx',
+    client_secret: 'sec_xxx',
+    token: 'ACCESS_OR_REFRESH_TOKEN',
+  }),
+}).then(r => r.json());
+
+if (intro.active) {
+  // intro.sub, intro.scope, intro.exp, intro.client_id
+}`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import requests
+
+intro = requests.post('${base}/api/oauth/introspect', data={
+  'client_id': 'app_xxx',
+  'client_secret': 'sec_xxx',
+  'token': 'ACCESS_OR_REFRESH_TOKEN',
+}).json()
+
+if intro['active']:
+  # intro['sub'], intro['scope'], intro['exp']`,
+                    },
+                    {
                       label: "Response",
                       code: `// Active token:
 {
@@ -500,6 +640,28 @@ tokens = res.json()
   -d "client_id=app_xxx" \\
   -d "client_secret=sec_xxx" \\
   -d "token=TOKEN_TO_REVOKE"`,
+                    },
+                    {
+                      label: "Node.js",
+                      code: `await fetch('${base}/api/oauth/revoke', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    client_id: 'app_xxx',
+    client_secret: 'sec_xxx',
+    token: 'TOKEN_TO_REVOKE',
+  }),
+});`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import requests
+
+requests.post('${base}/api/oauth/revoke', data={
+  'client_id': 'app_xxx',
+  'client_secret': 'sec_xxx',
+  'token': 'TOKEN_TO_REVOKE',
+})`,
                     },
                   ]}
                 />
@@ -633,6 +795,42 @@ const { id, activationUrl } = await res.json();
 #   "expiresAt": "2026-01-01T00:00:00Z"
 # }`,
                     },
+                    {
+                      label: "Node.js",
+                      code: `const res = await fetch('${base}/api/activation-requests', {
+  method: 'POST',
+  headers: {
+    'Authorization': \`Bearer \${process.env.BOTTLENECK_BEARER_KEY}\`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    scopes: ['profile:read', 'email:read'],
+    requestedSubject: 'your-internal-user-id',
+    returnUrl: 'https://yourapp.example/done',
+    callbackUrl: 'https://yourapp.example/webhook',
+  }),
+}).then(r => r.json());
+
+// redirect the user to res.activationUrl`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import os, requests
+
+res = requests.post('${base}/api/activation-requests',
+  headers={
+    'Authorization': f"Bearer {os.environ['BOTTLENECK_BEARER_KEY']}",
+  },
+  json={
+    'scopes': ['profile:read', 'email:read'],
+    'requestedSubject': 'your-internal-user-id',
+    'returnUrl': 'https://yourapp.example/done',
+    'callbackUrl': 'https://yourapp.example/webhook',
+  },
+).json()
+
+# redirect the user to res['activationUrl']`,
+                    },
                   ]}
                 />
 
@@ -653,6 +851,33 @@ const { id, activationUrl } = await res.json();
                       label: "cURL",
                       code: `curl ${base}/api/activation-requests/ACT_ID \\
   -H "Authorization: Bearer YOUR_BEARER_KEY"`,
+                    },
+                    {
+                      label: "Node.js",
+                      code: `const result = await fetch(
+  \`${base}/api/activation-requests/\${id}\`,
+  {
+    headers: {
+      Authorization: \`Bearer \${process.env.BOTTLENECK_BEARER_KEY}\`,
+    },
+  },
+).then(r => r.json());
+
+if (result.status === 'approved') {
+  // result.approvedUserId, result.profile.email, ...
+}`,
+                    },
+                    {
+                      label: "Python",
+                      code: `import os, requests
+
+result = requests.get(
+  f"${base}/api/activation-requests/{id}",
+  headers={'Authorization': f"Bearer {os.environ['BOTTLENECK_BEARER_KEY']}"},
+).json()
+
+if result['status'] == 'approved':
+  # result['approvedUserId'], result['profile']['email']`,
                     },
                   ]}
                 />

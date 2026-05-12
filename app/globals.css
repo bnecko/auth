@@ -219,13 +219,14 @@ input[type="number"]::-webkit-inner-spin-button {
   border-left: 1px solid var(--rule);
 }
 
-/* OAuth docs code blocks: leave Prism's defaults alone except for
-   the background, which fights the page palette by default. */
+/* OAuth docs code blocks: sit transparent on the page bg so the
+   horizontal-rule pattern carries the structure, not a darker fill
+   that fights the rest of the page. */
 .oauth-code-block {
   margin: 0;
   border-radius: 0;
   text-shadow: none;
-  background: var(--bg-soft);
+  background: transparent;
 }
 
 .oauth-code {
