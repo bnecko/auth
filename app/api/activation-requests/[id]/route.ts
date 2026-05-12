@@ -49,6 +49,6 @@ export async function GET(
     status: activation.status,
     approvedUserId: activation.approvedUserId,
     expiresAt: activation.expiresAt,
-    ...(profile ? { profile } : {}),
+    profile,
   });
 }
