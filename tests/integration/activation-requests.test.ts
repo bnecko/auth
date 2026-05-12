@@ -102,4 +102,30 @@ describeDb('Activation requests: createExternalActivationRequest', () => {
     const result = await cancelExternalActivationRequest(appBKey, created.id);
     expect(result).toBeNull();
   });
+
+  it('GET status returns "expired" once a pending row is past expires_at', async () => {
+    const { apiKey } = await seedApp();
+    const created = await createExternalActivationRequest(
+      apiKey,
+      { scopes: ['profile:read'] },
+      makeRequest(),
+    );
+
+    // Force the row past its expiry without going through a sweep.
+    const { query } = await import('@/lib/server/db');
+    await query(
+      `update activation_requests set expires_at = now() - interval '1 minute' where public_id = $1`,
+      [created.id],
+    );
+
+    const { GET } = await import('@/app/api/activation-requests/[id]/route');
+    const req = new NextRequest('http://localhost/api/activation-requests/x', {
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+    const res = await GET(req, { params: Promise.resolve({ id: created.id }) });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; profile: unknown };
+    expect(body.status).toBe('expired');
+    expect(body.profile).toBeNull();
+  });
 });

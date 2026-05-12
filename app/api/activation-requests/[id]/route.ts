@@ -28,8 +28,18 @@ export async function GET(
     return badRequest("activation not found");
   }
 
+  // A pending row whose expires_at has passed without any user
+  // action is effectively expired. We don't have a sweep that flips
+  // the column yet, so derive the effective status at read time so
+  // polling integrators don't see "pending" forever.
+  const effectiveStatus =
+    activation.status === "pending" &&
+    Date.parse(activation.expiresAt) <= Date.now()
+      ? "expired"
+      : activation.status;
+
   let profile = null;
-  if (activation.status === "approved" && activation.approvedUserId) {
+  if (effectiveStatus === "approved" && activation.approvedUserId) {
     const user = await findUserById(activation.approvedUserId);
     const auth = await findAuthorization(activation.approvedUserId, app.id);
     if (user && auth) {
@@ -46,7 +56,7 @@ export async function GET(
 
   return json({
     id: activation.publicId,
-    status: activation.status,
+    status: effectiveStatus,
     approvedUserId: activation.approvedUserId,
     expiresAt: activation.expiresAt,
     profile,
