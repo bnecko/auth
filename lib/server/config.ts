@@ -110,6 +110,14 @@ export function oauthDynamicRegistrationToken() {
   return env("OAUTH_DYNAMIC_REGISTRATION_TOKEN");
 }
 
+export function oauthCsrfSecret() {
+  // Falls back to the OIDC key when not separately configured so the
+  // CSRF token gets a high-entropy server-side secret in any deploy
+  // that already has signing keys set up. Operators wanting key
+  // separation should set OAUTH_CSRF_SECRET explicitly.
+  return env("OAUTH_CSRF_SECRET") || env("OIDC_PRIVATE_KEY_PEM") || env("SESSION_SECRET") || "";
+}
+
 export function oauthAccessTokenTtlSeconds() {
   return Number(env("OAUTH_ACCESS_TOKEN_TTL_SECONDS") || 15 * 60);
 }

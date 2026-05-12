@@ -41,8 +41,15 @@ export type ExternalApp = {
   ownerUserId: number | null;
   callbackUrl: string | null;
   allowedRedirectUrls: string[];
+  postLogoutRedirectUrls: string[];
   clientType: "public" | "confidential";
-  tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
+  tokenEndpointAuthMethod:
+    | "client_secret_basic"
+    | "client_secret_post"
+    | "private_key_jwt"
+    | "none";
+  jwksUri: string | null;
+  jwks: Record<string, unknown> | null;
   allowedGrantTypes: string[];
   allowedScopes: string[];
   issueRefreshTokens: boolean;

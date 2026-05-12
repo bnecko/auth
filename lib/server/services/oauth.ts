@@ -3,6 +3,7 @@ import {
   createPrivateKey,
   createPublicKey,
   sign as signBytes,
+  verify as verifyBytes,
 } from "crypto";
 import type { NextRequest } from "next/server";
 import {
@@ -29,6 +30,7 @@ import {
   findAccessToken,
   findAuthorizationCode,
   markAuthorizationCodeConsumed,
+  recordClientAssertionJti,
   revokeAccessToken,
   revokeRefreshToken,
   revokeAccessTokensForRefreshGrant,
@@ -39,6 +41,7 @@ import {
   markDeviceCodePolled,
   consumeDeviceCode,
 } from "../repositories/oauth";
+import { resolveClientPublicKey } from "../clientJwks";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import {
   hasActiveSubscription,
@@ -62,6 +65,10 @@ export type OAuthAuthorizeView = {
   existingScopes: string[];
   requiredProduct: string | null;
   subscriptionOk: boolean;
+  // True when the request asks for re-authentication (prompt=login or
+  // max_age exceeded). The caller (route) should redirect to /login
+  // with this authorize URL as `next` and clear the session if needed.
+  requireReauth: boolean;
 };
 
 type AuthorizeParams = {
@@ -73,13 +80,25 @@ type AuthorizeParams = {
   codeChallenge: string;
   codeChallengeMethod: string;
   nonce: string;
+  // Subset of {"none", "login", "consent", "select_account"}.
+  prompt: string[];
+  // Seconds. Null when the parameter was absent. The caller compares
+  // against the session's createdAt and forces re-auth when exceeded.
+  maxAge: number | null;
 };
 
+// OAuthError carries an optional redirect target so OIDC-spec errors
+// like login_required and consent_required can be returned to the
+// client via redirect rather than rendered as a server-side error
+// page. Errors raised BEFORE redirect_uri validation must not set
+// these fields — we never bounce a user to an unvalidated URL.
 export class OAuthError extends Error {
   constructor(
     public code: string,
     message: string,
     public status = 400,
+    public redirectUri?: string,
+    public state?: string,
   ) {
     super(message);
   }
@@ -104,6 +123,8 @@ function paramsFromSearch(searchParams: Record<string, string | string[] | undef
     code_challenge: first("code_challenge"),
     code_challenge_method: first("code_challenge_method"),
     nonce: first("nonce"),
+    prompt: first("prompt"),
+    max_age: first("max_age"),
   });
 }
 
@@ -117,7 +138,33 @@ function paramsFromBody(body: Record<string, unknown>) {
     code_challenge: body.code_challenge,
     code_challenge_method: body.code_challenge_method,
     nonce: body.nonce,
+    prompt: body.prompt,
+    max_age: body.max_age,
   });
+}
+
+const VALID_PROMPT_VALUES = new Set(["none", "login", "consent", "select_account"]);
+
+function parsePrompt(raw: string): string[] {
+  if (!raw) return [];
+  const values = raw.split(/\s+/).filter(Boolean);
+  const unknown = values.find(v => !VALID_PROMPT_VALUES.has(v));
+  if (unknown) {
+    throw new OAuthError("invalid_request", `unsupported prompt value: ${unknown}`);
+  }
+  if (values.includes("none") && values.length > 1) {
+    throw new OAuthError("invalid_request", "prompt=none cannot be combined with other values");
+  }
+  return values;
+}
+
+function parseMaxAge(raw: string): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+    throw new OAuthError("invalid_request", "max_age must be a non-negative integer");
+  }
+  return n;
 }
 
 function readAuthorizeParams(source: Record<string, unknown>): AuthorizeParams {
@@ -130,6 +177,8 @@ function readAuthorizeParams(source: Record<string, unknown>): AuthorizeParams {
     codeChallenge: stringParam(source.code_challenge as string),
     codeChallengeMethod: stringParam(source.code_challenge_method as string),
     nonce: stringParam(source.nonce as string),
+    prompt: parsePrompt(stringParam(source.prompt as string)),
+    maxAge: parseMaxAge(stringParam(source.max_age as string)),
   };
 }
 
@@ -207,27 +256,31 @@ function hasScope(scopes: readonly string[], standard: string, legacy: string) {
   return scopes.includes(standard) || scopes.includes(legacy);
 }
 
+// The profile version is currently a forward-compatibility tag stored
+// per-client. Both 2026-05 and 2026-01 receive identical behaviour
+// today — strict client policy, refresh-token rotation with reuse
+// detection, one-time DCR secret reveal — and the field is reserved
+// for a future divergence (e.g. a 2026-09 profile that mandates DPoP).
+// Do not rely on the legacy tag to opt out of any current security
+// behaviour; it does not.
 export function oauthProfileCompatibility(version: string) {
-  if (version === legacyOAuthProfileVersion) {
-    return {
-      version,
-      accessTokenSubject: "user",
-      clientCredentialsSubject: "client",
-      refreshTokenRotation: true,
-      notes: ["legacy claim aliases are preserved"],
-    };
-  }
-
+  const tag =
+    version === legacyOAuthProfileVersion ? version : currentOAuthProfileVersion;
   return {
-    version: currentOAuthProfileVersion,
+    version: tag,
     accessTokenSubject: "user",
     clientCredentialsSubject: "client",
     refreshTokenRotation: true,
-    notes: ["strict client policy and one-time DCR secret reveal"],
+    differences: [] as const,
+    notes: ["forward-compat tag; current and legacy behave identically"],
   };
 }
 
-async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null) {
+async function resolveAuthorizeView(
+  params: AuthorizeParams,
+  user?: User | null,
+  sessionCreatedAt?: string | null,
+) {
   if (params.responseType !== "code") {
     throw new OAuthError("unsupported_response_type", "response_type must be code");
   }
@@ -262,6 +315,54 @@ async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null)
       ? await hasActiveSubscription(user.id, app.requiredProduct)
       : true;
 
+  // OIDC `prompt` and `max_age` handling. After this point we have a
+  // validated redirect_uri, so silent-failure errors can be returned
+  // to the client via redirect (login_required / consent_required).
+  const promptNone = params.prompt.includes("none");
+  const promptLogin = params.prompt.includes("login");
+  const sessionAgeSeconds = sessionCreatedAt
+    ? Math.floor((Date.now() - Date.parse(sessionCreatedAt)) / 1000)
+    : null;
+  const maxAgeExceeded =
+    params.maxAge !== null &&
+    sessionAgeSeconds !== null &&
+    sessionAgeSeconds > params.maxAge;
+  const missingScopes = user
+    ? scopes.some(s => !(existing?.scopes || []).includes(s))
+    : true;
+
+  if (promptNone) {
+    if (!user) {
+      throw new OAuthError(
+        "login_required",
+        "user is not authenticated and prompt=none",
+        302,
+        redirectUri,
+        params.state,
+      );
+    }
+    if (maxAgeExceeded) {
+      throw new OAuthError(
+        "login_required",
+        "session is older than max_age and prompt=none",
+        302,
+        redirectUri,
+        params.state,
+      );
+    }
+    if (missingScopes) {
+      throw new OAuthError(
+        "consent_required",
+        "previously-granted scopes do not cover request and prompt=none",
+        302,
+        redirectUri,
+        params.state,
+      );
+    }
+  }
+
+  const requireReauth = !promptNone && (promptLogin || maxAgeExceeded);
+
   return {
     app,
     clientId: params.clientId,
@@ -274,21 +375,23 @@ async function resolveAuthorizeView(params: AuthorizeParams, user?: User | null)
     existingScopes: existing?.scopes || [],
     requiredProduct: app.requiredProduct,
     subscriptionOk,
+    requireReauth,
   };
 }
 
 export async function getOAuthAuthorizeView(
   searchParams: Record<string, string | string[] | undefined>,
   user?: User | null,
+  sessionCreatedAt?: string | null,
 ) {
   const requestUri = Array.isArray(searchParams.request_uri) ? searchParams.request_uri[0] : searchParams.request_uri;
-  
+
   if (requestUri) {
     const pushedReq = await findPushedRequest(requestUri);
     if (!pushedReq) {
       throw new OAuthError("invalid_request", "invalid or expired request_uri");
     }
-    
+
     const app = await findExternalAppById(pushedReq.appId);
     if (!app) throw new OAuthError("invalid_client", "client not found");
 
@@ -300,11 +403,13 @@ export async function getOAuthAuthorizeView(
       state: pushedReq.state || "",
       codeChallenge: pushedReq.codeChallenge || "",
       codeChallengeMethod: pushedReq.codeChallengeMethod || "",
-      nonce: pushedReq.nonce || ""
-    }, user);
+      nonce: pushedReq.nonce || "",
+      prompt: [],
+      maxAge: null,
+    }, user, sessionCreatedAt);
   }
 
-  return resolveAuthorizeView(paramsFromSearch(searchParams), user);
+  return resolveAuthorizeView(paramsFromSearch(searchParams), user, sessionCreatedAt);
 }
 
 export function oauthAuthorizeQuery(view: OAuthAuthorizeView) {
@@ -340,8 +445,9 @@ export async function approveOAuthAuthorization(
   body: Record<string, unknown>,
   user: User,
   req: NextRequest,
+  sessionCreatedAt: string,
 ) {
-  const view = await resolveAuthorizeView(paramsFromBody(body), user);
+  const view = await resolveAuthorizeView(paramsFromBody(body), user, sessionCreatedAt);
   const context = requestContext(req);
   const requestedScopes = view.scopes;
   const granted = Array.isArray(body.scopes)
@@ -367,6 +473,7 @@ export async function approveOAuthAuthorization(
     ip: context.ip,
     userAgent: context.userAgent,
     expiresAt: new Date(Date.now() + AUTHORIZATION_CODE_TTL_SECONDS * 1000),
+    authTime: new Date(sessionCreatedAt),
   });
 
   await upsertAuthorization({
@@ -421,6 +528,50 @@ function jsonBase64Url(value: unknown) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }
 
+// Verifies an RS256 ID token (or any JWT we issued) against the
+// current OIDC key set. Returns the parsed claims on success, null on
+// any failure. Caller is responsible for application-level checks
+// like aud / iss / exp.
+export function verifyIdToken(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [encodedHeader, encodedPayload, encodedSig] = parts;
+  let header: { alg?: string; kid?: string };
+  try {
+    header = JSON.parse(Buffer.from(encodedHeader, "base64url").toString());
+  } catch {
+    return null;
+  }
+  if (header.alg !== "RS256") return null;
+
+  // Accept any non-revoked key; retired keys are still valid for
+  // verification while their tokens are still in circulation.
+  const keys = oidcSigningKeys().filter(k => k.status !== "revoked");
+  const candidates = header.kid
+    ? keys.filter(k => k.kid === header.kid)
+    : keys;
+  if (candidates.length === 0) return null;
+
+  const signingInput = Buffer.from(`${encodedHeader}.${encodedPayload}`);
+  const signature = Buffer.from(encodedSig, "base64url");
+
+  const matched = candidates.some(k => {
+    try {
+      const publicKey = createPublicKey(createPrivateKey(k.privateKeyPem));
+      return verifyBytes("RSA-SHA256", signingInput, publicKey, signature);
+    } catch {
+      return false;
+    }
+  });
+  if (!matched) return null;
+
+  try {
+    return JSON.parse(Buffer.from(encodedPayload, "base64url").toString());
+  } catch {
+    return null;
+  }
+}
+
 export function oauthJwks() {
   return {
     keys: oidcSigningKeys()
@@ -463,6 +614,7 @@ function createIdToken(input: {
   user: User;
   scopes: string[];
   nonce: string | null;
+  authTime: string | null;
 }) {
   const now = Math.floor(Date.now() / 1000);
   const accessTokenTtl = oauthAccessTokenTtlSeconds();
@@ -473,6 +625,10 @@ function createIdToken(input: {
     iat: now,
     exp: now + accessTokenTtl,
   };
+
+  if (input.authTime) {
+    claims.auth_time = Math.floor(Date.parse(input.authTime) / 1000);
+  }
 
   if (input.nonce) {
     claims.nonce = input.nonce;
@@ -522,6 +678,16 @@ export async function authenticateClient(req: NextRequest, body: Record<string, 
   const clientId = basic?.clientId || stringParam(body.client_id as string);
   const clientSecret =
     basic?.clientSecret || stringParam(body.client_secret as string);
+  const clientAssertionType = stringParam(body.client_assertion_type as string);
+  const clientAssertion = stringParam(body.client_assertion as string);
+
+  if (clientAssertion || clientAssertionType) {
+    return authenticateClientPrivateKeyJwt({
+      clientIdHint: clientId,
+      clientAssertionType,
+      clientAssertion,
+    });
+  }
 
   if (!clientId) {
     throw new OAuthError("invalid_client", "client_id is required", 401);
@@ -555,11 +721,133 @@ export async function authenticateClient(req: NextRequest, body: Record<string, 
   return app;
 }
 
+const CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+
+// RFC 7521 / RFC 7523: verify a JWT signed by the client's registered
+// private key. The assertion proves possession of the key tied to the
+// client_id and authenticates the client at the token endpoint.
+async function authenticateClientPrivateKeyJwt(input: {
+  clientIdHint: string;
+  clientAssertionType: string;
+  clientAssertion: string;
+}) {
+  if (input.clientAssertionType !== CLIENT_ASSERTION_TYPE) {
+    throw new OAuthError(
+      "invalid_client",
+      "client_assertion_type must be urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      401,
+    );
+  }
+  if (!input.clientAssertion) {
+    throw new OAuthError("invalid_client", "client_assertion is required", 401);
+  }
+
+  const parts = input.clientAssertion.split(".");
+  if (parts.length !== 3) {
+    throw new OAuthError("invalid_client", "client_assertion is malformed", 401);
+  }
+  const [encodedHeader, encodedPayload, encodedSig] = parts;
+
+  let header: { alg?: string; kid?: string };
+  let payload: Record<string, unknown>;
+  try {
+    header = JSON.parse(Buffer.from(encodedHeader, "base64url").toString());
+    payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString());
+  } catch {
+    throw new OAuthError("invalid_client", "client_assertion is not valid JSON", 401);
+  }
+  if (header.alg !== "RS256") {
+    throw new OAuthError("invalid_client", "client_assertion alg must be RS256", 401);
+  }
+
+  const iss = typeof payload.iss === "string" ? payload.iss : "";
+  const sub = typeof payload.sub === "string" ? payload.sub : "";
+  if (!iss || !sub || iss !== sub) {
+    throw new OAuthError("invalid_client", "client_assertion iss and sub must match", 401);
+  }
+  if (input.clientIdHint && input.clientIdHint !== iss) {
+    throw new OAuthError("invalid_client", "client_id mismatch with assertion iss", 401);
+  }
+
+  const app = await findExternalAppByClientId(iss);
+  if (!app || app.status !== "active") {
+    throw new OAuthError("invalid_client", "client authentication failed", 401);
+  }
+  if (app.tokenEndpointAuthMethod !== "private_key_jwt") {
+    throw new OAuthError(
+      "invalid_client",
+      "private_key_jwt is not allowed for this client",
+      401,
+    );
+  }
+
+  const tokenEndpoint = `${authBaseUrl()}/api/oauth/token`;
+  const aud = payload.aud;
+  const audValues = Array.isArray(aud) ? aud.map(String) : [String(aud || "")];
+  if (!audValues.includes(tokenEndpoint)) {
+    throw new OAuthError(
+      "invalid_client",
+      "client_assertion aud must include the token endpoint",
+      401,
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const exp = Number(payload.exp);
+  const nbf = payload.nbf === undefined ? null : Number(payload.nbf);
+  if (!Number.isFinite(exp) || exp <= now) {
+    throw new OAuthError("invalid_client", "client_assertion is expired", 401);
+  }
+  if (exp - now > 5 * 60) {
+    throw new OAuthError("invalid_client", "client_assertion exp is too far in the future", 401);
+  }
+  if (nbf !== null && Number.isFinite(nbf) && nbf > now) {
+    throw new OAuthError("invalid_client", "client_assertion is not yet valid", 401);
+  }
+
+  const jti = typeof payload.jti === "string" ? payload.jti : "";
+  if (!jti) {
+    throw new OAuthError("invalid_client", "client_assertion jti is required", 401);
+  }
+
+  let publicKey;
+  try {
+    publicKey = await resolveClientPublicKey({
+      jwks: app.jwks,
+      jwksUri: app.jwksUri,
+      kid: header.kid,
+    });
+  } catch {
+    throw new OAuthError("invalid_client", "unable to resolve client jwks", 401);
+  }
+
+  const signingInput = Buffer.from(`${encodedHeader}.${encodedPayload}`);
+  const signature = Buffer.from(encodedSig, "base64url");
+  const verified = verifyBytes("RSA-SHA256", signingInput, publicKey, signature);
+  if (!verified) {
+    throw new OAuthError("invalid_client", "client_assertion signature is invalid", 401);
+  }
+
+  // Single-use enforcement: every jti is recorded with its exp. If
+  // the insert collides, the assertion was already used.
+  const fresh = await recordClientAssertionJti({
+    appId: app.id,
+    jti,
+    expiresAt: new Date(exp * 1000),
+  });
+  if (!fresh) {
+    throw new OAuthError("invalid_client", "client_assertion replay detected", 401);
+  }
+
+  return app;
+}
+
 async function issueTokenPair(input: {
   app: ExternalApp;
   user: User;
   scopes: string[];
   nonce: string | null;
+  authTime: string | null;
 }) {
   const now = Math.floor(Date.now() / 1000);
   const accessTokenTtl = oauthAccessTokenTtlSeconds();
@@ -600,6 +888,7 @@ async function issueTokenPair(input: {
       userId: input.user.id,
       scopes: input.scopes,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+      authTime: input.authTime ? new Date(input.authTime) : null,
     });
     response.refresh_token = refreshToken;
   }
@@ -610,6 +899,7 @@ async function issueTokenPair(input: {
       user: input.user,
       scopes: input.scopes,
       nonce: input.nonce,
+      authTime: input.authTime,
     });
   }
 
@@ -665,6 +955,7 @@ export async function exchangeOAuthToken(
       user,
       scopes: authorizationCode.scopes,
       nonce: authorizationCode.nonce,
+      authTime: authorizationCode.authTime,
     });
   }
 
@@ -702,6 +993,7 @@ export async function exchangeOAuthToken(
       userId: previous.userId,
       scopes: previous.scopes,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+      authTime: previous.authTime ? new Date(previous.authTime) : null,
     });
 
     const now = Math.floor(Date.now() / 1000);
@@ -736,11 +1028,15 @@ export async function exchangeOAuthToken(
     };
 
     if (previous.scopes.includes("openid")) {
+      // auth_time carries the original first-factor authentication
+      // moment through every refresh, anchored to the code exchange.
+      // Clients can rely on it to enforce session-age policies.
       response.id_token = createIdToken({
         app,
         user,
         scopes: previous.scopes,
         nonce: null,
+        authTime: previous.authTime,
       });
     }
 
@@ -796,7 +1092,15 @@ export async function exchangeOAuthToken(
     }
 
     const nonce = null;
-    return await issueTokenPair({ app, user, scopes: consumed.scopes, nonce });
+    return await issueTokenPair({
+      app,
+      user,
+      scopes: consumed.scopes,
+      nonce,
+      // Device flow: we'd need to track when the user approved the
+      // device to populate auth_time. Not plumbed yet.
+      authTime: null,
+    });
   }
 
   if (grantType === "client_credentials") {
@@ -959,8 +1263,11 @@ export function oauthServerMetadata() {
     userinfo_endpoint: `${issuer}/api/oauth/userinfo`,
     introspection_endpoint: `${issuer}/api/oauth/introspect`,
     revocation_endpoint: `${issuer}/api/oauth/revoke`,
+    end_session_endpoint: `${issuer}/api/oauth/logout`,
     jwks_uri: `${issuer}/oauth/jwks`,
+    service_documentation: `${issuer}/developers/oauth`,
     response_types_supported: ["code"],
+    response_modes_supported: ["query"],
     device_authorization_endpoint: `${issuer}/api/oauth/device/code`,
     pushed_authorization_request_endpoint: `${issuer}/api/oauth/par`,
     grant_types_supported: [
@@ -972,9 +1279,13 @@ export function oauthServerMetadata() {
     token_endpoint_auth_methods_supported: [
       "client_secret_basic",
       "client_secret_post",
+      "private_key_jwt",
       "none",
     ],
+    token_endpoint_auth_signing_alg_values_supported: ["RS256"],
     code_challenge_methods_supported: ["S256"],
+    prompt_values_supported: ["none", "login", "consent"],
+    acr_values_supported: ["urn:bottleneck:loa:1"],
     oauth_profile_versions_supported: [
       currentOAuthProfileVersion,
       legacyOAuthProfileVersion,
@@ -993,7 +1304,14 @@ export function oauthServerMetadata() {
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["RS256"],
     claims_supported: [
+      "iss",
+      "aud",
+      "exp",
+      "iat",
       "sub",
+      "auth_time",
+      "acr",
+      "nonce",
       "name",
       "preferred_username",
       "email",

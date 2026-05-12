@@ -13,6 +13,7 @@ export type OAuthAuthorizationCode = {
   nonce: string | null;
   expiresAt: string;
   consumedAt: string | null;
+  authTime: string | null;
 };
 
 export type OAuthTokenGrant = {
@@ -42,6 +43,7 @@ type CodeRow = {
   nonce: string | null;
   expires_at: string;
   consumed_at: string | null;
+  auth_time: string | null;
 };
 
 type TokenRow = {
@@ -95,7 +97,8 @@ const codeSelect = `
   scopes,
   nonce,
   expires_at::text,
-  consumed_at::text
+  consumed_at::text,
+  auth_time::text
 `;
 
 function mapCode(row: CodeRow): OAuthAuthorizationCode {
@@ -110,6 +113,7 @@ function mapCode(row: CodeRow): OAuthAuthorizationCode {
     nonce: row.nonce,
     expiresAt: row.expires_at,
     consumedAt: row.consumed_at,
+    authTime: row.auth_time,
   };
 }
 
@@ -137,6 +141,7 @@ export async function createAuthorizationCode(input: {
   ip: string;
   userAgent: string;
   expiresAt: Date;
+  authTime: Date;
 }) {
   const row = await queryOne<CodeRow>(
     `insert into oauth_authorization_codes (
@@ -150,9 +155,10 @@ export async function createAuthorizationCode(input: {
        nonce,
        ip,
        user_agent,
-       expires_at
+       expires_at,
+       auth_time
      )
-     values ($1, $2, $3, $4, $5, 'S256', $6, $7, $8, $9, $10)
+     values ($1, $2, $3, $4, $5, 'S256', $6, $7, $8, $9, $10, $11)
      returning ${codeSelect}`,
     [
       hashToken(input.code),
@@ -165,6 +171,7 @@ export async function createAuthorizationCode(input: {
       input.ip,
       input.userAgent,
       input.expiresAt.toISOString(),
+      input.authTime.toISOString(),
     ],
   );
 
@@ -258,23 +265,26 @@ export async function createRefreshToken(input: {
   userId: number;
   scopes: string[];
   expiresAt: Date;
+  authTime: Date | null;
 }) {
-  const row = await queryOne<TokenRow>(
+  const row = await queryOne<TokenRow & { auth_time: string | null }>(
     `insert into oauth_refresh_tokens (
        token_hash,
        external_app_id,
        user_id,
        scopes,
-       expires_at
+       expires_at,
+       auth_time
      )
-     values ($1, $2, $3, $4, $5)
-     returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text`,
+     values ($1, $2, $3, $4, $5, $6)
+     returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text, auth_time::text`,
     [
       hashToken(input.token),
       input.appId,
       input.userId,
       input.scopes,
       input.expiresAt.toISOString(),
+      input.authTime ? input.authTime.toISOString() : null,
     ],
   );
 
@@ -282,7 +292,7 @@ export async function createRefreshToken(input: {
     throw new Error("failed to create refresh token");
   }
 
-  return mapToken(row);
+  return { ...mapToken(row), authTime: row.auth_time };
 }
 
 export async function rotateRefreshToken(
@@ -290,7 +300,7 @@ export async function rotateRefreshToken(
   replacementToken: string,
   appId: number,
 ) {
-  const row = await queryOne<TokenRow>(
+  const row = await queryOne<TokenRow & { auth_time: string | null }>(
     `update oauth_refresh_tokens
         set revoked_at = now(),
             replaced_by_hash = $2
@@ -298,10 +308,10 @@ export async function rotateRefreshToken(
         and external_app_id = $3
         and revoked_at is null
         and expires_at > $4
-      returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text`,
+      returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text, auth_time::text`,
     [hashToken(refreshToken), hashToken(replacementToken), appId, new Date().toISOString()],
   );
-  return row ? mapToken(row) : null;
+  return row ? { ...mapToken(row), authTime: row.auth_time } : null;
 }
 
 export async function findAccessToken(token: string) {
@@ -428,8 +438,12 @@ export async function revokeRefreshTokensByUserAndApp(input: {
 // previously-rotated token means the grant family is poisoned and every
 // active token for that (app, user) must be revoked.
 export async function findRotatedRefreshTokenContext(token: string) {
-  const row = await queryOne<{ external_app_id: string; user_id: string }>(
-    `select external_app_id, user_id
+  const row = await queryOne<{
+    external_app_id: string;
+    user_id: string;
+    auth_time: string | null;
+  }>(
+    `select external_app_id, user_id, auth_time::text
        from oauth_refresh_tokens
       where token_hash = $1
         and revoked_at is not null
@@ -440,6 +454,7 @@ export async function findRotatedRefreshTokenContext(token: string) {
   return {
     appId: Number(row.external_app_id),
     userId: Number(row.user_id),
+    authTime: row.auth_time,
   };
 }
 
@@ -728,4 +743,22 @@ export async function consumeDeviceCode(id: number) {
         expiresAt: row.expires_at,
       }
     : null;
+}
+
+// Records a client_assertion jti for replay protection. Returns true
+// when the jti is newly recorded (caller may proceed), false when it
+// was already in the table (replay — reject the assertion).
+export async function recordClientAssertionJti(input: {
+  appId: number;
+  jti: string;
+  expiresAt: Date;
+}) {
+  const row = await queryOne<{ id: string }>(
+    `insert into oauth_client_assertion_jtis (external_app_id, jti, expires_at)
+     values ($1, $2, $3)
+     on conflict (external_app_id, jti) do nothing
+     returning id`,
+    [input.appId, input.jti, input.expiresAt.toISOString()],
+  );
+  return row !== null;
 }

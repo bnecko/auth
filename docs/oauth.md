@@ -30,17 +30,48 @@ PKCE S256 is required for all authorization-code exchanges.
 Client policy is enforced per app: grant types, scopes, token endpoint auth
 method, and refresh-token issuance are configured on the `external_apps` row.
 
+## Client authentication methods
+
+The token endpoint accepts four `token_endpoint_auth_method` values per client:
+
+- `client_secret_post` (default) — `client_id` + `client_secret` in the form body
+- `client_secret_basic` — HTTP Basic header
+- `private_key_jwt` — RFC 7523 client assertion signed with the client's
+  private key. The matching public key is registered as either an inline
+  `jwks` object on the client or a fetchable `jwks_uri`. Send
+  `client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer`
+  and `client_assertion=<JWT>` in the form body. The assertion must:
+  - sign with RS256
+  - set `iss` and `sub` to the `client_id`
+  - include the token endpoint URL in `aud`
+  - have an `exp` no more than 5 minutes in the future
+  - include a unique `jti` (replays are rejected with `invalid_client`)
+- `none` — public clients only; no secret. PKCE remains mandatory.
+
+Choose the method at client creation time (DCR `token_endpoint_auth_method`
+or admin assignment). Once set it does not change without operator action.
+
 ## OAuth Profile Versions
 
-Current profile:
+The profile version is a forward-compatibility tag stored per client. It does
+not change behaviour today — every client receives the same security policy
+regardless of which version is set:
 
-- `bn-oauth-2026-05`: strict client policy, one-time DCR secret reveal,
-  short-lived JWT access tokens, refresh-token reuse detection.
+- strict client policy (PKCE S256 required, exact redirect_uri match)
+- short-lived RS256 JWT access tokens
+- refresh-token rotation with reuse detection (presenting a rotated token
+  revokes all tokens issued for that client + user)
+- one-time DCR secret reveal
 
-Legacy profile:
+Supported tags:
 
-- `bn-oauth-2026-01`: compatibility profile for clients that need a downgrade
-  while they migrate. Use it per client from the developer app settings page.
+- `bn-oauth-2026-05` — current default
+- `bn-oauth-2026-01` — legacy tag, same behaviour as current
+
+The field is reserved for a future divergence (e.g. a `bn-oauth-2026-09`
+profile that mandates DPoP). New clients should stay on `bn-oauth-2026-05`.
+Do not rely on the legacy tag to opt out of any current security behaviour;
+the code does not branch on it.
 
 ## Dynamic Client Registration
 
@@ -58,6 +89,16 @@ Accepted requests are queued for admin review. The response is `202` with
 registration access token. Once an admin approves the request, the response
 returns the client metadata and reveals `client_secret` once for confidential
 clients.
+
+Supported request fields:
+
+- `client_name` — required
+- `redirect_uris` — required, HTTPS (or localhost in development)
+- `post_logout_redirect_uris` — optional, used by the RP-Initiated Logout
+  endpoint to validate the post-logout target
+- `grant_types`, `scope`, `token_endpoint_auth_method`, `oauth_profile_version`
+- `jwks_uri` or `jwks` — required when `token_endpoint_auth_method` is
+  `private_key_jwt`
 
 OIDC requires:
 
@@ -135,7 +176,11 @@ represent the app owner or any other user, and they are not accepted at
 
 ## Refresh
 
-Refresh tokens are rotated.
+Refresh tokens are rotated. The replacement carries the original `auth_time`
+forward, so ID tokens issued from a refresh report the moment of the original
+first-factor authentication, not the moment of the rotation. Refresh-token
+reuse — presenting a rotated token — revokes all tokens issued to the
+(client, user) pair.
 
 ```http
 POST /api/oauth/token

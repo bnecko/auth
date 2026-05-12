@@ -44,13 +44,16 @@ create table external_apps (
   oauth_client_secret_hash text,
   callback_url text,
   allowed_redirect_urls text[] not null default '{}',
+  post_logout_redirect_urls text[] not null default '{}',
   client_type text not null default 'confidential' check (client_type in ('public', 'confidential')),
   token_endpoint_auth_method text not null default 'client_secret_post'
-    check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'none')),
+    check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none')),
   allowed_grant_types text[] not null default array['authorization_code', 'refresh_token'],
   allowed_scopes text[] not null default array['openid', 'profile', 'email', 'profile:read', 'email:read'],
   issue_refresh_tokens boolean not null default true,
   oauth_profile_version text not null default 'bn-oauth-2026-05',
+  jwks_uri text,
+  jwks jsonb,
   required_product text,
   status text not null default 'active' check (status in ('active', 'disabled')),
   created_at timestamptz not null default now(),
@@ -213,7 +216,8 @@ create table oauth_authorization_codes (
   user_agent text,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
-  consumed_at timestamptz
+  consumed_at timestamptz,
+  auth_time timestamptz
 );
 
 create index oauth_authorization_codes_app_idx on oauth_authorization_codes(external_app_id);
@@ -246,8 +250,23 @@ create table oauth_refresh_tokens (
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
   revoked_at timestamptz,
-  replaced_by_hash text
+  replaced_by_hash text,
+  auth_time timestamptz
 );
+
+create table oauth_client_assertion_jtis (
+  id bigserial primary key,
+  external_app_id bigint not null references external_apps(id) on delete cascade,
+  jti text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create unique index oauth_client_assertion_jtis_app_jti_idx
+  on oauth_client_assertion_jtis(external_app_id, jti);
+
+create index oauth_client_assertion_jtis_expires_at_idx
+  on oauth_client_assertion_jtis(expires_at);
 
 create index oauth_refresh_tokens_app_idx on oauth_refresh_tokens(external_app_id);
 create index oauth_refresh_tokens_user_idx on oauth_refresh_tokens(user_id);
@@ -329,9 +348,12 @@ create table oauth_client_registration_requests (
   grant_types text[] not null default '{}',
   scopes text[] not null default '{}',
   token_endpoint_auth_method text not null
-    check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'none')),
+    check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none')),
   client_type text not null check (client_type in ('public', 'confidential')),
   oauth_profile_version text not null default 'bn-oauth-2026-05',
+  jwks_uri text,
+  jwks jsonb,
+  post_logout_redirect_uris text[] not null default '{}',
   status text not null default 'pending' check (status in ('pending', 'approved', 'denied', 'expired')),
   requester_ip text,
   requester_user_agent text,
@@ -357,7 +379,7 @@ create table webhook_endpoints (
   external_app_id bigint not null references external_apps(id) on delete cascade,
   url text not null,
   event_types text[] not null default '{}',
-  secret_hash text not null,
+  secret text not null,
   status text not null default 'active' check (status in ('active', 'disabled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

@@ -106,7 +106,7 @@ export function AppSettingsForm({
               <option value="bn-oauth-2026-01">Bottleneck OAuth 2026.01</option>
             </select>
             <p className="text-faint text-[12px] mt-1.5">
-              Downgrade only for client compatibility. New apps should stay on 2026.05.
+              Forward-compat tag. Both versions behave identically today; new apps should stay on 2026.05.
             </p>
           </div>
 

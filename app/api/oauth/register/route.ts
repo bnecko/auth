@@ -27,6 +27,7 @@ const supportedGrants = new Set([
 const supportedAuthMethods = [
   "client_secret_basic",
   "client_secret_post",
+  "private_key_jwt",
   "none",
 ] as const;
 
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
 
     const clientName = typeof body.client_name === "string" ? body.client_name.trim() : null;
     const redirectUris = requestedStringArray(body.redirect_uris);
+    const postLogoutRedirectUris = requestedStringArray(body.post_logout_redirect_uris);
     const grantTypes = requestedStringArray(body.grant_types);
     const allowedGrantTypes = grantTypes.length > 0 ? grantTypes : ["authorization_code", "refresh_token"];
     const unknownGrant = allowedGrantTypes.find(grant => !supportedGrants.has(grant));
@@ -72,6 +74,11 @@ export async function POST(req: NextRequest) {
       typeof body.oauth_profile_version === "string"
         ? body.oauth_profile_version
         : currentOAuthProfileVersion;
+    const jwksUri = typeof body.jwks_uri === "string" ? body.jwks_uri.trim() : null;
+    const jwks =
+      body.jwks && typeof body.jwks === "object" && !Array.isArray(body.jwks)
+        ? (body.jwks as Record<string, unknown>)
+        : null;
 
     if (!clientName) {
       return NextResponse.json({ error: "invalid_client_metadata", error_description: "client_name is required" }, { status: 400 });
@@ -112,6 +119,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    for (const uri of postLogoutRedirectUris) {
+      try {
+        const parsed = new URL(uri);
+        if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
+          return NextResponse.json({ error: "invalid_client_metadata", error_description: "post_logout_redirect_uris must be https unless localhost" }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: "invalid_client_metadata", error_description: "invalid post_logout_redirect_uri format" }, { status: 400 });
+      }
+    }
+
+    if (supportedTokenEndpointAuthMethod === "private_key_jwt" && !jwksUri && !jwks) {
+      return NextResponse.json({ error: "invalid_client_metadata", error_description: "private_key_jwt requires jwks_uri or jwks" }, { status: 400 });
+    }
+    if (jwksUri) {
+      try {
+        const parsedJwks = new URL(jwksUri);
+        if (parsedJwks.protocol !== "https:") {
+          return NextResponse.json({ error: "invalid_client_metadata", error_description: "jwks_uri must be https" }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: "invalid_client_metadata", error_description: "invalid jwks_uri format" }, { status: 400 });
+      }
+    }
+    if (jwks && (!Array.isArray((jwks as { keys?: unknown }).keys))) {
+      return NextResponse.json({ error: "invalid_client_metadata", error_description: "jwks must be an object with a keys array" }, { status: 400 });
+    }
+
     const clientId = generateClientId();
     const registrationAccessToken = `reg_${randomToken(32)}`;
     const request = await createOAuthClientRegistrationRequest({
@@ -119,11 +154,14 @@ export async function POST(req: NextRequest) {
       registrationToken: registrationAccessToken,
       clientName,
       redirectUris,
+      postLogoutRedirectUris,
       grantTypes: allowedGrantTypes,
       scopes,
       tokenEndpointAuthMethod: supportedTokenEndpointAuthMethod,
       clientType,
       oauthProfileVersion,
+      jwksUri,
+      jwks,
       requesterIp: context.ip,
       requesterUserAgent: context.userAgent,
       requesterCountry: context.country,
@@ -154,11 +192,14 @@ export async function POST(req: NextRequest) {
       client_id_issued_at: Math.floor(Date.now() / 1000),
       client_name: clientName,
       redirect_uris: redirectUris,
+      post_logout_redirect_uris: postLogoutRedirectUris,
       grant_types: allowedGrantTypes,
       response_types: ["code"],
       token_endpoint_auth_method: supportedTokenEndpointAuthMethod,
       oauth_profile_version: oauthProfileVersion,
       scope: scopes.join(" "),
+      ...(jwksUri ? { jwks_uri: jwksUri } : {}),
+      ...(jwks ? { jwks } : {}),
       registration_client_uri: `${req.nextUrl.origin}/api/oauth/register/${clientId}`,
       registration_access_token: registrationAccessToken,
       registration_status: "pending_review",

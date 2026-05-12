@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
 import { badRequest } from "@/lib/server/http";
+import { verifyAuthorizeCsrf } from "@/lib/server/oauthCsrf";
 import {
   approveOAuthAuthorization,
   OAuthError,
@@ -18,7 +19,28 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const body: Record<string, unknown> = Object.fromEntries(form.entries());
     body.scopes = form.getAll("scopes").map(String);
-    const target = await approveOAuthAuthorization(body, auth.session.user, req);
+
+    const csrfToken = String(body.csrf_token || "");
+    const clientId = String(body.client_id || "");
+    const state = String(body.state || "");
+    if (
+      !csrfToken ||
+      !verifyAuthorizeCsrf({
+        token: csrfToken,
+        sessionId: auth.session.session.id,
+        clientId,
+        state,
+      })
+    ) {
+      return badRequest("invalid_request: csrf token is invalid or expired");
+    }
+
+    const target = await approveOAuthAuthorization(
+      body,
+      auth.session.user,
+      req,
+      auth.session.session.createdAt,
+    );
     return NextResponse.redirect(target);
   } catch (err) {
     if (err instanceof OAuthError) {

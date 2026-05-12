@@ -4,10 +4,12 @@ import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
+import { mintAuthorizeCsrf } from "@/lib/server/oauthCsrf";
 import {
   getOAuthAuthorizeView,
   OAuthError,
   oauthAuthorizeQuery,
+  oauthRedirectError,
 } from "@/lib/server/services/oauth";
 
 export const dynamic = "force-dynamic";
@@ -33,11 +35,28 @@ export default async function OAuthAuthorizePage({
 
   let view;
   try {
-    view = await getOAuthAuthorizeView(params, current?.user || null);
+    view = await getOAuthAuthorizeView(
+      params,
+      current?.user || null,
+      current?.session.createdAt || null,
+    );
   } catch (err) {
+    // OIDC silent-failure errors (login_required, consent_required)
+    // arrive here with a validated redirect_uri attached. Redirect the
+    // user-agent back to the client with the OAuth error params rather
+    // than rendering a server-side error page — per RFC 6749 §4.1.2.1.
+    if (err instanceof OAuthError && err.redirectUri) {
+      const target = oauthRedirectError(
+        err.redirectUri,
+        err.code,
+        err.message,
+        err.state,
+      );
+      redirect(target.toString());
+    }
     return (
       <AuthShell tag="oauth/error">
-        <h1 className="text-[22px] tracking-tightest text-fg mb-4">
+        <h1 className="text-[24px] tracking-tightest text-fg mb-4">
           authorization failed
         </h1>
         <Alert tone="danger">
@@ -51,6 +70,18 @@ export default async function OAuthAuthorizePage({
   if (!current) {
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
+  if (view.requireReauth) {
+    // prompt=login or max_age exceeded — bounce through /api/oauth/reauth
+    // so the existing session cookie + DB row are cleared before /login
+    // runs. The fresh login is then the only valid session.
+    redirect(`/api/oauth/reauth?next=${encodeURIComponent(next)}`);
+  }
+
+  const csrfToken = mintAuthorizeCsrf({
+    sessionId: current.session.id,
+    clientId: view.clientId,
+    state: view.state,
+  });
 
   return (
     <AuthShell tag="oauth/authorize">
@@ -59,7 +90,7 @@ export default async function OAuthAuthorizePage({
           <div className="text-micro uppercase text-faint mb-1">
             authorize app
           </div>
-          <h1 className="text-[22px] tracking-tightest text-fg truncate">
+          <h1 className="text-[24px] tracking-tightest text-fg truncate">
             {view.app.name}
           </h1>
           <div className="mt-2 flex items-center gap-2">
@@ -157,7 +188,7 @@ export default async function OAuthAuthorizePage({
 
       <div className="grid grid-cols-2 gap-2 mt-2">
         <form action="/api/oauth/authorize/deny" method="post">
-          <HiddenOAuthFields view={view} />
+          <HiddenOAuthFields view={view} csrfToken={csrfToken} />
           <Button variant="ghost" type="submit">
             deny
           </Button>
@@ -167,7 +198,7 @@ export default async function OAuthAuthorizePage({
           action="/api/oauth/authorize/approve"
           method="post"
         >
-          <HiddenOAuthFields view={view} />
+          <HiddenOAuthFields view={view} csrfToken={csrfToken} />
           <Button type="submit" disabled={!view.subscriptionOk}>
             approve
           </Button>
@@ -179,8 +210,10 @@ export default async function OAuthAuthorizePage({
 
 function HiddenOAuthFields({
   view,
+  csrfToken,
 }: {
   view: Awaited<ReturnType<typeof getOAuthAuthorizeView>>;
+  csrfToken: string;
 }) {
   return (
     <>
@@ -192,6 +225,7 @@ function HiddenOAuthFields({
       <input type="hidden" name="code_challenge" value={view.codeChallenge} />
       <input type="hidden" name="code_challenge_method" value="S256" />
       <input type="hidden" name="nonce" value={view.nonce} />
+      <input type="hidden" name="csrf_token" value={csrfToken} />
     </>
   );
 }

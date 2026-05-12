@@ -10,12 +10,15 @@ type ExternalAppRow = {
   owner_user_id: string | null;
   callback_url: string | null;
   allowed_redirect_urls: string[];
+  post_logout_redirect_urls: string[];
   client_type: ExternalApp["clientType"];
   token_endpoint_auth_method: ExternalApp["tokenEndpointAuthMethod"];
   allowed_grant_types: string[];
   allowed_scopes: string[];
   issue_refresh_tokens: boolean;
   oauth_profile_version: string;
+  jwks_uri: string | null;
+  jwks: Record<string, unknown> | null;
   required_product: string | null;
   status: "active" | "disabled";
 };
@@ -29,12 +32,15 @@ function mapExternalApp(row: ExternalAppRow): ExternalApp {
     ownerUserId: row.owner_user_id ? Number(row.owner_user_id) : null,
     callbackUrl: row.callback_url,
     allowedRedirectUrls: row.allowed_redirect_urls || [],
+    postLogoutRedirectUrls: row.post_logout_redirect_urls || [],
     clientType: row.client_type,
     tokenEndpointAuthMethod: row.token_endpoint_auth_method,
     allowedGrantTypes: row.allowed_grant_types || [],
     allowedScopes: row.allowed_scopes || [],
     issueRefreshTokens: row.issue_refresh_tokens,
     oauthProfileVersion: row.oauth_profile_version,
+    jwksUri: row.jwks_uri,
+    jwks: row.jwks,
     requiredProduct: row.required_product,
     status: row.status,
   };
@@ -48,12 +54,15 @@ const externalAppSelect = `
   owner_user_id,
   callback_url,
   allowed_redirect_urls,
+  post_logout_redirect_urls,
   client_type,
   token_endpoint_auth_method,
   allowed_grant_types,
   allowed_scopes,
   issue_refresh_tokens,
   oauth_profile_version,
+  jwks_uri,
+  jwks,
   required_product,
   status
 `;

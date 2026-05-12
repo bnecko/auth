@@ -25,12 +25,15 @@ type ActivationWithAppRow = ActivationRow & {
   app_owner_user_id: string | null;
   app_callback_url: string | null;
   app_allowed_redirect_urls: string[];
+  app_post_logout_redirect_urls: string[];
   app_client_type: ExternalApp["clientType"];
   app_token_endpoint_auth_method: ExternalApp["tokenEndpointAuthMethod"];
   app_allowed_grant_types: string[];
   app_allowed_scopes: string[];
   app_issue_refresh_tokens: boolean;
   app_oauth_profile_version: string;
+  app_jwks_uri: string | null;
+  app_jwks: Record<string, unknown> | null;
   app_required_product: string | null;
   app_status: ExternalApp["status"];
 };
@@ -64,12 +67,15 @@ function mapActivationWithApp(row: ActivationWithAppRow): ActivationWithApp {
       ownerUserId: row.app_owner_user_id ? Number(row.app_owner_user_id) : null,
       callbackUrl: row.app_callback_url,
       allowedRedirectUrls: row.app_allowed_redirect_urls || [],
+      postLogoutRedirectUrls: row.app_post_logout_redirect_urls || [],
       clientType: row.app_client_type,
       tokenEndpointAuthMethod: row.app_token_endpoint_auth_method,
       allowedGrantTypes: row.app_allowed_grant_types || [],
       allowedScopes: row.app_allowed_scopes || [],
       issueRefreshTokens: row.app_issue_refresh_tokens,
       oauthProfileVersion: row.app_oauth_profile_version,
+      jwksUri: row.app_jwks_uri,
+      jwks: row.app_jwks,
       requiredProduct: row.app_required_product,
       status: row.app_status,
     },
@@ -166,6 +172,9 @@ export async function findActivationByToken(token: string) {
       ea.owner_user_id as app_owner_user_id,
       ea.callback_url as app_callback_url,
       ea.allowed_redirect_urls as app_allowed_redirect_urls,
+      ea.post_logout_redirect_urls as app_post_logout_redirect_urls,
+      ea.jwks_uri as app_jwks_uri,
+      ea.jwks as app_jwks,
       ea.client_type as app_client_type,
       ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
       ea.allowed_grant_types as app_allowed_grant_types,
@@ -192,6 +201,9 @@ export async function findActivationByPublicId(publicId: string) {
       ea.owner_user_id as app_owner_user_id,
       ea.callback_url as app_callback_url,
       ea.allowed_redirect_urls as app_allowed_redirect_urls,
+      ea.post_logout_redirect_urls as app_post_logout_redirect_urls,
+      ea.jwks_uri as app_jwks_uri,
+      ea.jwks as app_jwks,
       ea.client_type as app_client_type,
       ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
       ea.allowed_grant_types as app_allowed_grant_types,
@@ -260,6 +272,9 @@ export async function listRecentActivationsForUser(userId: number, limit = 20) {
       ea.owner_user_id as app_owner_user_id,
       ea.callback_url as app_callback_url,
       ea.allowed_redirect_urls as app_allowed_redirect_urls,
+      ea.post_logout_redirect_urls as app_post_logout_redirect_urls,
+      ea.jwks_uri as app_jwks_uri,
+      ea.jwks as app_jwks,
       ea.client_type as app_client_type,
       ea.token_endpoint_auth_method as app_token_endpoint_auth_method,
       ea.allowed_grant_types as app_allowed_grant_types,

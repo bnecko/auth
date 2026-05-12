@@ -12,11 +12,18 @@ export type OAuthClientRegistrationRequest = {
   publicId: string;
   clientName: string;
   redirectUris: string[];
+  postLogoutRedirectUris: string[];
   grantTypes: string[];
   scopes: string[];
-  tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
+  tokenEndpointAuthMethod:
+    | "client_secret_basic"
+    | "client_secret_post"
+    | "private_key_jwt"
+    | "none";
   clientType: "public" | "confidential";
   oauthProfileVersion: string;
+  jwksUri: string | null;
+  jwks: Record<string, unknown> | null;
   status: OAuthClientRegistrationStatus;
   requesterIp: string | null;
   requesterUserAgent: string | null;
@@ -35,11 +42,14 @@ type RegistrationRow = {
   public_id: string;
   client_name: string;
   redirect_uris: string[];
+  post_logout_redirect_uris: string[];
   grant_types: string[];
   scopes: string[];
   token_endpoint_auth_method: OAuthClientRegistrationRequest["tokenEndpointAuthMethod"];
   client_type: OAuthClientRegistrationRequest["clientType"];
   oauth_profile_version: string;
+  jwks_uri: string | null;
+  jwks: Record<string, unknown> | null;
   status: OAuthClientRegistrationStatus;
   requester_ip: string | null;
   requester_user_agent: string | null;
@@ -58,11 +68,14 @@ const registrationSelect = `
   public_id,
   client_name,
   redirect_uris,
+  post_logout_redirect_uris,
   grant_types,
   scopes,
   token_endpoint_auth_method,
   client_type,
   oauth_profile_version,
+  jwks_uri,
+  jwks,
   status,
   requester_ip,
   requester_user_agent,
@@ -82,11 +95,14 @@ function mapRegistration(row: RegistrationRow): OAuthClientRegistrationRequest {
     publicId: row.public_id,
     clientName: row.client_name,
     redirectUris: row.redirect_uris || [],
+    postLogoutRedirectUris: row.post_logout_redirect_uris || [],
     grantTypes: row.grant_types || [],
     scopes: row.scopes || [],
     tokenEndpointAuthMethod: row.token_endpoint_auth_method,
     clientType: row.client_type,
     oauthProfileVersion: row.oauth_profile_version,
+    jwksUri: row.jwks_uri,
+    jwks: row.jwks,
     status: row.status,
     requesterIp: row.requester_ip,
     requesterUserAgent: row.requester_user_agent,
@@ -106,11 +122,14 @@ export async function createOAuthClientRegistrationRequest(input: {
   registrationToken: string;
   clientName: string;
   redirectUris: string[];
+  postLogoutRedirectUris: string[];
   grantTypes: string[];
   scopes: string[];
   tokenEndpointAuthMethod: OAuthClientRegistrationRequest["tokenEndpointAuthMethod"];
   clientType: OAuthClientRegistrationRequest["clientType"];
   oauthProfileVersion: string;
+  jwksUri: string | null;
+  jwks: Record<string, unknown> | null;
   requesterIp: string;
   requesterUserAgent: string;
   requesterCountry: string;
@@ -122,28 +141,34 @@ export async function createOAuthClientRegistrationRequest(input: {
        registration_token_hash,
        client_name,
        redirect_uris,
+       post_logout_redirect_uris,
        grant_types,
        scopes,
        token_endpoint_auth_method,
        client_type,
        oauth_profile_version,
+       jwks_uri,
+       jwks,
        requester_ip,
        requester_user_agent,
        requester_country,
        expires_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16)
      returning ${registrationSelect}`,
     [
       input.publicId,
       hashToken(input.registrationToken),
       input.clientName,
       input.redirectUris,
+      input.postLogoutRedirectUris,
       input.grantTypes,
       input.scopes,
       input.tokenEndpointAuthMethod,
       input.clientType,
       input.oauthProfileVersion,
+      input.jwksUri,
+      input.jwks ? JSON.stringify(input.jwks) : null,
       input.requesterIp,
       input.requesterUserAgent,
       input.requesterCountry,
@@ -219,12 +244,15 @@ export async function approveOAuthClientRegistrationRequest(input: {
          api_key_hash,
          oauth_client_secret_hash,
          allowed_redirect_urls,
+         post_logout_redirect_urls,
          client_type,
          token_endpoint_auth_method,
          allowed_grant_types,
          allowed_scopes,
          issue_refresh_tokens,
          oauth_profile_version,
+         jwks_uri,
+         jwks,
          status
        )
        select
@@ -234,12 +262,15 @@ export async function approveOAuthClientRegistrationRequest(input: {
          $4,
          $5,
          redirect_uris,
+         post_logout_redirect_uris,
          client_type,
          token_endpoint_auth_method,
          grant_types,
          scopes,
          'refresh_token' = any(grant_types),
          oauth_profile_version,
+         jwks_uri,
+         jwks,
          'active'
        from req
        returning id
