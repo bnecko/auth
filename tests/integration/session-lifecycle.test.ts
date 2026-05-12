@@ -19,8 +19,8 @@ async function seedUser(prefix = 'sess'): Promise<User> {
   const token = randomToken(6);
   const username = `${prefix}_${token}`;
   const row = await queryOne<{ id: string; public_id: string }>(
-    `insert into users (public_id, first_name, username, email, password_hash, status)
-     values ($1, 'SessTest', $2, $3, 'testhash', 'active')
+    `insert into users (public_id, first_name, username, username_normalized, email, email_normalized, password_hash, status)
+     values ($1, 'SessTest', $2, lower($2), $3, lower($3), 'testhash', 'active')
      returning id, public_id`,
     [publicId('usr'), username, `${username}@example.com`],
   );

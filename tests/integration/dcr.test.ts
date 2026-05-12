@@ -14,8 +14,8 @@ const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 async function seedAdmin() {
   const username = `dcr_admin_${randomToken(6)}`;
   const row = await queryOne<{ id: string }>(
-    `insert into users (public_id, first_name, username, email, password_hash, status, role)
-     values ($1, 'Admin', $2, $3, 'testhash', 'active', 'admin')
+    `insert into users (public_id, first_name, username, username_normalized, email, email_normalized, password_hash, status, role)
+     values ($1, 'Admin', $2, lower($2), $3, lower($3), 'testhash', 'active', 'admin')
      returning id`,
     [publicId('usr'), username, `${username}@example.com`],
   );

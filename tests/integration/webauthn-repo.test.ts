@@ -14,8 +14,8 @@ const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 async function seedUser() {
   const username = `wa_${randomToken(6)}`;
   const row = await queryOne<{ id: string }>(
-    `insert into users (public_id, first_name, username, email, password_hash, status)
-     values ($1, 'WaTest', $2, $3, 'testhash', 'active')
+    `insert into users (public_id, first_name, username, username_normalized, email, email_normalized, password_hash, status)
+     values ($1, 'WaTest', $2, lower($2), $3, lower($3), 'testhash', 'active')
      returning id`,
     [publicId('usr'), username, `${username}@example.com`],
   );

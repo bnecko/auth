@@ -30,8 +30,8 @@ async function seedClient() {
   const username = `oauthtest_${token}`;
   const email = `${username}@example.com`;
   const user = await queryOne<{ id: string }>(
-    `insert into users (public_id, first_name, username, email, password_hash, status)
-     values ($1, 'OAuthTest', $2, $3, 'testhash', 'active')
+    `insert into users (public_id, first_name, username, username_normalized, email, email_normalized, password_hash, status)
+     values ($1, 'OAuthTest', $2, lower($2), $3, lower($3), 'testhash', 'active')
      returning id`,
     [publicId('usr'), username, email],
   );

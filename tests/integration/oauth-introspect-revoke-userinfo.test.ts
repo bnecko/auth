@@ -29,8 +29,8 @@ async function seedClient(scopes: string[] = ['profile:read', 'email:read', 'ope
   const token = randomToken(8);
   const username = `iru_${token}`;
   const user = await queryOne<{ id: string }>(
-    `insert into users (public_id, first_name, username, email, password_hash, status)
-     values ($1, 'IruTest', $2, $3, 'testhash', 'active')
+    `insert into users (public_id, first_name, username, username_normalized, email, email_normalized, password_hash, status)
+     values ($1, 'IruTest', $2, lower($2), $3, lower($3), 'testhash', 'active')
      returning id`,
     [publicId('usr'), username, `${username}@example.com`],
   );
