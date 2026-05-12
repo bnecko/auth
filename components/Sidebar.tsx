@@ -150,7 +150,7 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                 ? `sidebar-search-option-${selected}`
                 : undefined
             }
-            className="flex-1 bg-transparent text-[15px] text-fg placeholder-faint outline-none"
+            className="flex-1 bg-transparent text-[15px] text-fg placeholder-faint outline-none focus:outline-none focus-visible:outline-none"
           />
           <Kbd>esc</Kbd>
         </div>

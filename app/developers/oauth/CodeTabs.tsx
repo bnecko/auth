@@ -32,22 +32,24 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
 
   return (
     <div className="border-t border-b border-rule bg-bg-soft">
-      <div className="flex border-b border-rule overflow-x-auto overflow-y-hidden no-scrollbar">
-        {tabs.map((tab, idx) => (
-          <button
-            key={tab.label}
-            onClick={() => setActive(idx)}
-            className={`px-3 h-8 text-meta uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-none ${
-              active === idx
-                ? "text-accent"
-                : "text-secondary hover:text-fg"
-            }`}
-          >
-            {active === idx && <span className="text-accent mr-1.5">▸</span>}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {tabs.length > 1 && (
+        <div className="flex border-b border-rule overflow-x-auto overflow-y-hidden no-scrollbar">
+          {tabs.map((tab, idx) => (
+            <button
+              key={tab.label}
+              onClick={() => setActive(idx)}
+              className={`px-4 h-8 text-meta uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-none ${
+                active === idx
+                  ? "text-accent"
+                  : "text-secondary hover:text-fg"
+              }`}
+            >
+              {active === idx && <span className="text-accent mr-1.5">▸</span>}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
       <pre className="oauth-code-block overflow-x-auto px-4 py-3 text-[12.5px] leading-6">
         <code
           className={`oauth-code language-${lang}`}

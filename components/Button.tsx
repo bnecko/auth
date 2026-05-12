@@ -39,7 +39,7 @@ export function Button({
   return (
     <button
       className={[
-        "w-full h-10 text-[13px] uppercase tracking-wider",
+        "w-full h-10 px-4 text-[13px] uppercase tracking-wider",
         "transition-colors disabled:cursor-not-allowed",
         "inline-flex items-center justify-center gap-2",
         styles[variant],

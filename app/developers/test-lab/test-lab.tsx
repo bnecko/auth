@@ -320,7 +320,15 @@ export function TestLab() {
       </div>
 
       <aside className="space-y-6 xl:sticky xl:top-16">
-        <Section index="5.0" title="metadata" hint="discovery">
+        <div className="flex items-baseline gap-2 text-meta uppercase tracking-wider text-faint mb-3">
+          <span className="text-faint">[</span>
+          <span className="text-accent">aux</span>
+          <span className="text-faint">·</span>
+          <span className="text-muted">side panels</span>
+          <span className="text-faint">]</span>
+        </div>
+
+        <Section title="metadata" hint="discovery">
           <div className="grid gap-2 py-4 px-1">
             <Button
               variant="secondary"
@@ -355,9 +363,6 @@ export function TestLab() {
 
         <div>
           <div className="flex items-baseline gap-3 mb-3">
-            <span className="text-meta text-faint tabular-nums shrink-0">
-              6.0
-            </span>
             <h2 className="text-[15px] uppercase tracking-wider text-fg">
               response
             </h2>
