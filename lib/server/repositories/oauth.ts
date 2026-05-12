@@ -745,6 +745,18 @@ export async function consumeDeviceCode(id: number) {
     : null;
 }
 
+// Deletes client_assertion jti rows whose exp has passed by at least
+// the safety grace window. Keep a small grace so a client whose
+// clock is slightly skewed still has its replays detected. Designed
+// to be called by the worker on a slow timer.
+export async function purgeExpiredClientAssertionJtis(graceMinutes = 60) {
+  await query(
+    `delete from oauth_client_assertion_jtis
+      where expires_at < now() - ($1 || ' minutes')::interval`,
+    [String(graceMinutes)],
+  );
+}
+
 // Records a client_assertion jti for replay protection. Returns true
 // when the jti is newly recorded (caller may proceed), false when it
 // was already in the table (replay — reject the assertion).

@@ -163,25 +163,34 @@ async function deliverOne(row) {
 }
 
 async function processWebhookBatch() {
-  // Single-worker model: no FOR UPDATE / SKIP LOCKED. Holding a
-  // transaction across the HTTP call would deadlock with the inner
-  // UPDATE (separate connection) and starve the pool. If we ever run
-  // multiple worker replicas, replace this with an atomic claim:
-  // UPDATE ... SET next_attempt_at = now() + '5 minutes'
-  //  WHERE id = $1 AND attempt_count = $expected_attempt_count
-  // returning ... and skip rows where rowCount = 0.
+  // Atomic claim: a single UPDATE reserves up to 10 pending rows by
+  // pushing next_attempt_at five minutes into the future, then
+  // returns the payload + endpoint metadata needed to deliver. Two
+  // concurrent ticks (we run setInterval at 1s; a slow batch can
+  // overlap with the next tick) cannot reserve the same row because
+  // SKIP LOCKED gives each one a disjoint set. If a worker crashes
+  // mid-delivery the row's next_attempt_at unblocks naturally five
+  // minutes later — which is far longer than any HTTP attempt's
+  // 5-second AbortController timeout.
   try {
     const { rows } = await pool.query(
-      `select d.id, d.public_id, d.event_type, d.payload, d.attempt_count,
-              e.url, e.secret
-         from webhook_deliveries d
-         join webhook_endpoints e on e.id = d.webhook_endpoint_id
-        where d.status = 'pending'
-          and d.next_attempt_at is not null
-          and d.next_attempt_at <= now()
+      `update webhook_deliveries d
+          set next_attempt_at = now() + interval '5 minutes'
+         from webhook_endpoints e
+        where d.id in (
+                select id
+                  from webhook_deliveries
+                 where status = 'pending'
+                   and next_attempt_at is not null
+                   and next_attempt_at <= now()
+                 order by next_attempt_at
+                 limit 10
+                 for update skip locked
+              )
+          and e.id = d.webhook_endpoint_id
           and e.status = 'active'
-        order by d.next_attempt_at
-        limit 10`,
+        returning d.id, d.public_id, d.event_type, d.payload, d.attempt_count,
+                  e.url, e.secret`,
     );
 
     for (const row of rows) {
@@ -197,10 +206,50 @@ async function processWebhookBatch() {
 }
 
 // Poll roughly once a second. A crashed worker leaves pending rows in
-// the DB; they are picked up on next start. The SKIP LOCKED on the
-// SELECT lets multiple worker replicas run safely.
+// the DB; they are picked up on next start.
 setInterval(() => {
   processWebhookBatch().catch(err => console.error("Webhook loop error:", err));
 }, 1000);
 
 console.log("Webhook delivery loop started.");
+
+// Hourly DB hygiene sweep. These tables grow without bound otherwise:
+//   - oauth_client_assertion_jtis: every private_key_jwt exchange inserts one
+//   - registration_requests: holds password hashes for incomplete signups
+//   - webhook_deliveries: failed and delivered rows accumulate forever
+// The deletes are scoped so an in-flight retry / fresh signup / recent
+// delivery is never affected.
+async function sweepHygiene() {
+  try {
+    await pool.query(
+      `delete from oauth_client_assertion_jtis
+        where expires_at < now() - interval '1 hour'`,
+    );
+    await pool.query(
+      `delete from registration_requests
+        where (
+                status in ('pending', 'expired', 'cancelled')
+                and expires_at < now() - interval '1 day'
+              )
+           or (
+                status in ('verified', 'completed')
+                and expires_at < now() - interval '30 days'
+              )`,
+    );
+    await pool.query(
+      `delete from webhook_deliveries
+        where status in ('delivered', 'failed', 'cancelled')
+          and created_at < now() - interval '30 days'`,
+    );
+  } catch (err) {
+    console.error("Hygiene sweep error:", err);
+  }
+}
+
+setInterval(() => {
+  sweepHygiene().catch(err => console.error("Hygiene loop error:", err));
+}, 60 * 60 * 1000);
+// Run once at startup so the first sweep doesn't wait an hour.
+sweepHygiene().catch(err => console.error("Initial hygiene sweep error:", err));
+
+console.log("DB hygiene sweep started.");
