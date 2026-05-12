@@ -36,3 +36,22 @@ test("oauth consent rejects malformed authorize requests without redirecting awa
   await expect(page.getByRole("heading", { name: "authorization failed" })).toBeVisible();
   await expect(page.getByText("client_id is required")).toBeVisible();
 });
+
+test("security headers are set on every response", async ({ request }) => {
+  const res = await request.get("/login");
+  expect(res.status()).toBe(200);
+  const headers = res.headers();
+
+  const csp = headers["content-security-policy"];
+  expect(csp, "missing Content-Security-Policy").toBeTruthy();
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("object-src 'none'");
+  expect(csp).toContain("default-src 'self'");
+  // In production builds the nonce is enforced; in dev it falls back
+  // to unsafe-inline. Either way the directive must be present.
+  expect(/'nonce-|'unsafe-inline'/.test(csp)).toBe(true);
+
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+});

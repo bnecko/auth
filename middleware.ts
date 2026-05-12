@@ -11,13 +11,13 @@ import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server
 //   from app/layout.tsx. If/when fonts are self-hosted these can drop to
 //   'self'.
 // - HSTS is only emitted in production to avoid breaking local http dev.
-function nonce() {
+export function nonce() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return btoa(String.fromCharCode(...bytes));
 }
 
-function contentSecurityPolicy(scriptNonce: string) {
+export function contentSecurityPolicy(scriptNonce: string) {
   const scriptSources = [
     "'self'",
     "https://challenges.cloudflare.com",
