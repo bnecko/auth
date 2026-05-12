@@ -194,4 +194,62 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
   it('userinfo returns null for an unknown token', async () => {
     expect(await oauthUserInfo('not-a-real-token')).toBeNull();
   });
+
+  it('admin ban revokes both access and refresh tokens, not just the session', async () => {
+    const fixture = await seedClient(['profile:read']);
+    const tokens = await issueAccessToken({ ...fixture, scopes: ['profile:read'] });
+    expect(tokens.refresh_token).toBeTruthy();
+
+    // Tokens active pre-ban.
+    const beforeBan = await introspectOAuthToken(
+      {
+        token: tokens.access_token,
+        client_id: fixture.clientId,
+        client_secret: fixture.clientSecret,
+      },
+      makeRequest(),
+    );
+    expect(beforeBan.active).toBe(true);
+
+    const { setAccountStatus } = await import('@/lib/server/services/admin');
+    const adminUsername = `iru_admin_${Date.now().toString(36)}`;
+    const admin = await queryOne<{ id: string; public_id: string }>(
+      `insert into users (public_id, first_name, username, username_normalized, email, email_normalized, password_hash, status, role)
+       values ($1, 'Admin', $2, lower($2), $3, lower($3), 'h', 'active', 'admin')
+       returning id, public_id`,
+      [`usr_admin_${Date.now()}`, adminUsername, `${adminUsername}@example.com`],
+    );
+
+    await setAccountStatus(
+      fixture.userId,
+      'banned',
+      {
+        id: Number(admin!.id),
+        publicId: admin!.public_id,
+        firstName: 'Admin',
+        username: adminUsername,
+        bio: null,
+        email: `${adminUsername}@example.com`,
+        emailVerifiedAt: null,
+        dob: null,
+        telegramId: null,
+        telegramUsername: null,
+        telegramVerifiedAt: null,
+        role: 'admin',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      },
+      { ip: '127.0.0.1', userAgent: 'test', country: '' },
+    );
+
+    const afterBan = await introspectOAuthToken(
+      {
+        token: tokens.access_token,
+        client_id: fixture.clientId,
+        client_secret: fixture.clientSecret,
+      },
+      makeRequest(),
+    );
+    expect(afterBan.active).toBe(false);
+  });
 });

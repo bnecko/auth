@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { requestContext, requestContextFromHeaders, type RequestContext } from "../http";
+import { revokeAllOAuthTokensForUser } from "../repositories/oauth";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { revokeSessionsForUser } from "../repositories/sessions";
 import { setUserStatus } from "../repositories/users";
@@ -21,7 +22,13 @@ export async function setAccountStatus(
 
   await setUserStatus(targetUserId, status);
   if (status === "banned") {
+    // Killing the session cookie alone leaves any active OAuth
+    // tokens (access + refresh) usable until natural expiry. The
+    // user can keep hitting /api/oauth/userinfo, refresh into a new
+    // access token, and continue calling protected endpoints. Revoke
+    // both layers so a ban actually bans.
     await revokeSessionsForUser(targetUserId);
+    await revokeAllOAuthTokensForUser(targetUserId);
   }
 
   await recordSecurityEvent({
