@@ -43,7 +43,7 @@ export default async function ExpiredPage({
 
   return (
     <AuthShell tag={tag}>
-      <h1 className="text-[22px] tracking-tightest text-fg mb-2">{title}</h1>
+      <h1 className="text-[24px] tracking-tightest text-fg mb-2">{title}</h1>
       <p className="text-[13px] text-secondary mb-6">{body}</p>
       <Link href="/">
         <Button variant="secondary" type="button">

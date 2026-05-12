@@ -66,7 +66,7 @@ export default function RegisterPage() {
 
   return (
     <AuthShell tag="auth/register">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
         create account
       </h1>
       <p className="text-meta text-muted mb-5">

@@ -71,7 +71,7 @@ export function RowValue({
 export function Empty({ children }: { children: React.ReactNode }) {
   return (
     <div className="px-4 py-8 text-meta text-faint text-center">
-      <span className="text-faint">&gt;</span> {children}
+      {children}
     </div>
   );
 }

@@ -102,7 +102,7 @@ export default function LoginPage() {
 
   return (
     <AuthShell tag="auth/sign-in">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">sign in</h1>
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">sign in</h1>
       <p className="text-meta text-muted mb-5">
         access your bottleneck account.
       </p>

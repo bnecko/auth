@@ -53,7 +53,7 @@ export default async function DevicePage({
     return (
       <AuthShell tag="auth/device">
         <div className="text-center py-6">
-          <div className="text-[22px] tracking-tightest text-fg mb-2">
+          <div className="text-[24px] tracking-tightest text-fg mb-2">
             Device Connected
           </div>
           <p className="text-muted text-[14px]">
@@ -85,7 +85,7 @@ export default async function DevicePage({
           <div className="text-micro uppercase text-faint mb-1">
             Connect Device
           </div>
-          <h1 className="text-[22px] tracking-tightest text-fg">
+          <h1 className="text-[24px] tracking-tightest text-fg">
             {deviceCode.appName}
           </h1>
           <p className="mt-2 text-muted text-[13px]">
@@ -125,7 +125,7 @@ export default async function DevicePage({
         <div className="text-micro uppercase text-faint mb-1">
           Connect Device
         </div>
-        <h1 className="text-[22px] tracking-tightest text-fg">
+        <h1 className="text-[24px] tracking-tightest text-fg">
           Enter Code
         </h1>
         <p className="mt-2 text-muted text-[13px]">

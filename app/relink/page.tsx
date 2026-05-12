@@ -101,7 +101,7 @@ export default function RelinkPage() {
 
   return (
     <AuthShell tag="account/relink">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
         relink telegram
       </h1>
       <p className="text-meta text-muted mb-5">

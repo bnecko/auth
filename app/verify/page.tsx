@@ -76,7 +76,7 @@ export default function VerifyPage() {
 
   return (
     <AuthShell tag="auth/verify">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
         verify with telegram
       </h1>
       <p className="text-meta text-muted mb-5">

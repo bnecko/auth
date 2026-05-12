@@ -94,27 +94,43 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="search"
         className="w-full max-w-[420px] bg-surface border border-border rounded-sm shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-3 h-10 border-b border-border">
-          <span className="text-faint text-meta">/</span>
+          <span className="text-faint text-meta" aria-hidden="true">/</span>
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="search..."
+            aria-label="search"
+            aria-controls="sidebar-search-results"
+            aria-activedescendant={results[selected] ? `sidebar-search-option-${selected}` : undefined}
             className="flex-1 bg-transparent text-[13px] text-fg placeholder-faint outline-none"
           />
-          <span className="text-[10px] text-faint border border-border rounded-sm px-1">esc</span>
+          <span className="text-[10px] text-faint border border-border rounded-sm px-1" aria-hidden="true">esc</span>
         </div>
-        <ul className="max-h-[280px] overflow-y-auto py-1">
+        <ul
+          id="sidebar-search-results"
+          role="listbox"
+          aria-label="search results"
+          className="max-h-[280px] overflow-y-auto py-1"
+        >
           {results.length === 0 ? (
             <li className="px-3 py-2 text-[13px] text-muted">no results</li>
           ) : (
             results.map((it, i) => (
-              <li key={it.href}>
+              <li
+                key={it.href}
+                id={`sidebar-search-option-${i}`}
+                role="option"
+                aria-selected={i === selected}
+              >
                 <button
                   type="button"
                   onClick={() => navigate(it)}

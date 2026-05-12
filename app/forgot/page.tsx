@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell tag="auth/recovery">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
         recover access
       </h1>
       <p className="text-meta text-muted mb-5">

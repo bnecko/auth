@@ -78,7 +78,7 @@ export default function TelegramLoginPage() {
 
   return (
     <AuthShell tag="auth/2fa">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
         verify login
       </h1>
       <p className="text-meta text-muted mb-5">

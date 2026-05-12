@@ -45,7 +45,7 @@ export default async function ActivatePage({
           <div className="text-micro uppercase text-faint mb-1">
             authorize app
           </div>
-          <h1 className="text-[22px] tracking-tightest text-fg truncate">
+          <h1 className="text-[24px] tracking-tightest text-fg truncate">
             {activation.app.name}
           </h1>
           <div className="mt-2 flex items-center gap-2">

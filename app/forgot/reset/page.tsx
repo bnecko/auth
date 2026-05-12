@@ -33,7 +33,7 @@ function ResetPasswordForm() {
 
   return (
     <AuthShell tag="auth/reset">
-      <h1 className="text-[22px] tracking-tightest text-fg mb-1">
+      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
         set new password
       </h1>
       <p className="text-meta text-muted mb-5">
