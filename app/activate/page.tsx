@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
+import { mintActivationCsrf } from "@/lib/server/activationCsrf";
 import { getActivationForUser } from "@/lib/server/services/activation";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,10 @@ export default async function ActivatePage({
 
   const { activation, expired, requiredProduct, subscriptionOk } = view;
   const blocked = !subscriptionOk;
+  const csrfToken = mintActivationCsrf({
+    sessionId: current.session.id,
+    activationId: activation.publicId,
+  });
 
   return (
     <AuthShell tag="auth/authorize">
@@ -136,11 +141,13 @@ export default async function ActivatePage({
 
       <div className="grid grid-cols-2 gap-2 mt-2">
         <form action={`/api/activations/${activation.publicId}/deny`} method="post">
+          <input type="hidden" name="csrf_token" value={csrfToken} />
           <Button variant="ghost" type="submit" disabled={expired}>
             deny
           </Button>
         </form>
         <form id="approve-form" action={`/api/activations/${activation.publicId}/approve`} method="post">
+          <input type="hidden" name="csrf_token" value={csrfToken} />
           <Button type="submit" disabled={expired || blocked}>
             approve
           </Button>
