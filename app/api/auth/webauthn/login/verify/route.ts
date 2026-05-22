@@ -3,7 +3,7 @@ import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { findWebauthnCredentialById, updateWebauthnCredentialSignCount } from "@/lib/server/repositories/webauthn";
 import { getRpID, getOrigin } from "@/lib/server/webauthn";
 import redis from "@/lib/server/redis";
-import { json, requestBody } from "@/lib/server/http";
+import { json, requestBody, requestContext } from "@/lib/server/http";
 import { createUserSession } from "@/lib/server/session";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { findUserById } from "@/lib/server/repositories/users";
@@ -57,12 +57,11 @@ export async function POST(req: NextRequest) {
       await updateWebauthnCredentialSignCount(credential.credentialId, verification.authenticationInfo.newCounter);
       await redis.del(`webauthn:auth_challenge:${challengeId}`);
 
-      const ip = req.headers.get("x-forwarded-for") || "unknown";
       await recordSecurityEvent({
         userId: credential.userId,
         eventType: "webauthn_login",
         result: "ok",
-        context: { ip, userAgent: req.headers.get("user-agent") || "unknown", country: "" },
+        context: requestContext(req),
         metadata: { credentialId: credential.credentialId },
       });
 

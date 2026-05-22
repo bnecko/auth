@@ -4,7 +4,7 @@ import { getSessionFromRequest } from "@/lib/server/session";
 import { createWebauthnCredential } from "@/lib/server/repositories/webauthn";
 import { getRpID, getOrigin } from "@/lib/server/webauthn";
 import redis from "@/lib/server/redis";
-import { json, requestBody } from "@/lib/server/http";
+import { json, requestBody, requestContext } from "@/lib/server/http";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export const runtime = "nodejs";
@@ -44,12 +44,11 @@ export async function POST(req: NextRequest) {
 
       await redis.del(`webauthn:challenge:${session.user.id}`);
 
-      const ip = req.headers.get("x-forwarded-for") || "unknown";
       await recordSecurityEvent({
         userId: session.user.id,
         eventType: "webauthn_registered",
         result: "ok",
-        context: { ip, userAgent: req.headers.get("user-agent") || "unknown", country: "" },
+        context: requestContext(req),
         metadata: { credentialId: credential.id },
       });
 
