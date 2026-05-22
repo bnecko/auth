@@ -2,6 +2,79 @@ const { Worker } = require("bullmq");
 const Redis = require("ioredis");
 const { createHmac } = require("crypto");
 const { Pool } = require("pg");
+const { lookup } = require("dns/promises");
+const { isIP } = require("net");
+
+// SSRF guard. Webhook URLs are user-supplied; refuse anything pointing at
+// localhost, RFC1918, link-local, cloud metadata, etc. Resolve-then-fetch
+// leaves a small DNS-rebinding window which we accept for now because the
+// outbound traffic is bounded by a 5-second connection timeout.
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost",
+  "metadata.google.internal",
+  "metadata",
+  "ip6-localhost",
+  "ip6-loopback",
+]);
+
+function isBlockedIpv4(ip) {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some(p => !Number.isInteger(p) || p < 0 || p > 255)) {
+    return true;
+  }
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a >= 224) return true;
+  return false;
+}
+
+function isBlockedIpv6(ip) {
+  const lower = ip.toLowerCase();
+  if (lower === "::" || lower === "::1") return true;
+  if (lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd")) return true;
+  if (lower.startsWith("::ffff:")) {
+    return isBlockedIpv4(lower.slice("::ffff:".length));
+  }
+  return false;
+}
+
+async function assertWebhookUrlIsSafe(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error("webhook url is invalid");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("webhook url protocol is not supported");
+  }
+  const hostname = url.hostname.toLowerCase();
+  if (BLOCKED_HOSTNAMES.has(hostname)) {
+    throw new Error("webhook hostname is not allowed");
+  }
+  const ipVersion = isIP(hostname);
+  if (ipVersion === 4) {
+    if (isBlockedIpv4(hostname)) throw new Error("webhook ip is not allowed");
+    return;
+  }
+  if (ipVersion === 6) {
+    if (isBlockedIpv6(hostname)) throw new Error("webhook ip is not allowed");
+    return;
+  }
+  const records = await lookup(hostname, { all: true });
+  for (const record of records) {
+    const blocked = record.family === 6 ? isBlockedIpv6(record.address) : isBlockedIpv4(record.address);
+    if (blocked) {
+      throw new Error("webhook url resolves to a blocked address");
+    }
+  }
+}
 
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 const databaseUrl = process.env.DATABASE_URL;
@@ -90,6 +163,7 @@ async function deliverOne(row) {
   let lastError = null;
 
   try {
+    await assertWebhookUrlIsSafe(row.url);
     const response = await fetch(row.url, {
       method: "POST",
       headers: {
@@ -101,12 +175,18 @@ async function deliverOne(row) {
       },
       body,
       signal: controller.signal,
+      redirect: "manual",
     });
     responseStatus = response.status;
-    const text = await response.text();
-    responseBody = text.slice(0, RESPONSE_BODY_LIMIT);
-    if (!response.ok) {
-      lastError = `HTTP ${response.status}`;
+    if (response.status >= 300 && response.status < 400) {
+      lastError = `unexpected redirect: ${response.status}`;
+      responseBody = "";
+    } else {
+      const text = await response.text();
+      responseBody = text.slice(0, RESPONSE_BODY_LIMIT);
+      if (!response.ok) {
+        lastError = `HTTP ${response.status}`;
+      }
     }
   } catch (err) {
     lastError = err instanceof Error ? err.message : String(err);
