@@ -5,7 +5,9 @@ import {
   authenticateClient,
   enforceClientGrant,
   enforceClientScopes,
+  normalizeRedirectUri,
   parseOAuthScopes,
+  redirectUriAllowed,
 } from "@/lib/server/services/oauth";
 import { createPushedRequest } from "@/lib/server/repositories/oauth";
 
@@ -37,7 +39,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_request", error_description: "redirect_uri is required" }, { status: 400 });
     }
 
-    if (!app.allowedRedirectUrls.includes(redirectUri)) {
+    const normalizedRedirectUri = normalizeRedirectUri(redirectUri);
+    if (!redirectUriAllowed(normalizedRedirectUri, app.allowedRedirectUrls)) {
       return NextResponse.json({ error: "invalid_request", error_description: "redirect_uri not allowed" }, { status: 400 });
     }
 
@@ -53,7 +56,7 @@ export async function POST(req: NextRequest) {
       requestUri,
       appId: app.id,
       scopes,
-      redirectUri,
+      redirectUri: normalizedRedirectUri,
       state,
       codeChallenge,
       codeChallengeMethod,
