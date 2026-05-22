@@ -14,7 +14,14 @@ import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server
 export function nonce() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes));
+  // String.fromCharCode(...bytes) round-trips through UTF-16 and can produce
+  // invalid surrogate pairs for arbitrary byte sequences. Build the binary
+  // string char-by-char then base64-encode it.
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 export function contentSecurityPolicy(scriptNonce: string) {
