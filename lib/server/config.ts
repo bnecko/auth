@@ -111,11 +111,20 @@ export function oauthDynamicRegistrationToken() {
 }
 
 export function oauthCsrfSecret() {
-  // Falls back to the OIDC key when not separately configured so the
-  // CSRF token gets a high-entropy server-side secret in any deploy
-  // that already has signing keys set up. Operators wanting key
-  // separation should set OAUTH_CSRF_SECRET explicitly.
-  return env("OAUTH_CSRF_SECRET") || env("OIDC_PRIVATE_KEY_PEM") || env("SESSION_SECRET") || "";
+  // Prefer an explicit dedicated secret. Falls back to the OIDC signing
+  // key only as a convenience for dev: in production, OAUTH_CSRF_SECRET
+  // must be set so the CSRF MAC key is cryptographically separated from
+  // the token signing key (NIST SP 800-57 key-separation guidance).
+  const explicit = env("OAUTH_CSRF_SECRET");
+  if (explicit) return explicit;
+  if (isProduction()) {
+    throw new Error("OAUTH_CSRF_SECRET is required in production");
+  }
+  const fallback = env("OIDC_PRIVATE_KEY_PEM") || env("SESSION_SECRET");
+  if (!fallback) {
+    throw new Error("OAUTH_CSRF_SECRET is required (no fallback secret available)");
+  }
+  return fallback;
 }
 
 export function oauthAccessTokenTtlSeconds() {
