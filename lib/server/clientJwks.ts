@@ -1,4 +1,5 @@
 import { createPublicKey, type KeyObject } from "crypto";
+import { safeFetch } from "./safeFetch";
 
 // JWKS fetch + cache + key selection for private_key_jwt client
 // authentication. Clients self-host their public JWKS either inline
@@ -14,6 +15,7 @@ type CacheEntry = { fetchedAt: number; jwks: Jwks };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 5000;
+const JWKS_MAX_BYTES = 64 * 1024;
 const cache = new Map<string, CacheEntry>();
 
 async function fetchJwks(uri: string): Promise<Jwks> {
@@ -22,24 +24,24 @@ async function fetchJwks(uri: string): Promise<Jwks> {
     throw new Error("jwks_uri must use https");
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(uri, {
-      headers: { accept: "application/json" },
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(`jwks_uri fetch failed: ${response.status}`);
-    }
-    const body = (await response.json()) as Jwks;
-    if (!body || !Array.isArray(body.keys)) {
-      throw new Error("jwks_uri did not return a JWKS object");
-    }
-    return body;
-  } finally {
-    clearTimeout(timer);
+  const result = await safeFetch(uri, {
+    headers: { accept: "application/json" },
+    timeoutMs: FETCH_TIMEOUT_MS,
+    maxResponseBytes: JWKS_MAX_BYTES,
+  });
+  if (!result.ok) {
+    throw new Error(`jwks_uri fetch failed: ${result.status}`);
   }
+  let body: Jwks;
+  try {
+    body = JSON.parse(result.bodyText) as Jwks;
+  } catch {
+    throw new Error("jwks_uri did not return JSON");
+  }
+  if (!body || !Array.isArray(body.keys)) {
+    throw new Error("jwks_uri did not return a JWKS object");
+  }
+  return body;
 }
 
 async function loadJwks(input: { jwks: unknown; jwksUri: string | null }): Promise<Jwks> {
