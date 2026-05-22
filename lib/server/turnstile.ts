@@ -36,6 +36,5 @@ export async function verifyTurnstile(token: string | undefined, ip: string) {
   }
 
   const result = (await response.json()) as { success?: boolean; 'error-codes'?: string[] };
-  console.log("Turnstile verify result:", result);
   return result.success === true;
 }
