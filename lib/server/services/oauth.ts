@@ -182,7 +182,7 @@ function readAuthorizeParams(source: Record<string, unknown>): AuthorizeParams {
   };
 }
 
-function normalizeRedirectUri(value: string) {
+export function normalizeRedirectUri(value: string) {
   let url: URL;
   try {
     url = new URL(value);
@@ -201,7 +201,7 @@ function normalizeRedirectUri(value: string) {
   return url.href;
 }
 
-function redirectUriAllowed(redirectUri: string, allowed: readonly string[]) {
+export function redirectUriAllowed(redirectUri: string, allowed: readonly string[]) {
   return allowed.some(entry => {
     try {
       const url = new URL(entry);
