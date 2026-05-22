@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { badRequest, json, requestBody } from "@/lib/server/http";
+import { badRequest, json, requestBody, requestContext } from "@/lib/server/http";
 import {
   createTelegramLoginChallenge,
   loginUser,
@@ -20,8 +20,10 @@ export async function POST(req: NextRequest) {
     return json({ errors }, 400);
   }
 
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
-  const rl = await rateLimit(`rl:login:ip:${ip}`, 5, 15 * 60 * 1000); // 5 requests per 15 min
+  // requestContext honors TRUSTED_PROXY; reading x-forwarded-for raw
+  // lets any caller spoof the header and bypass per-IP rate limiting.
+  const ip = requestContext(req).ip || "unknown";
+  const rl = await rateLimit(`rl:login:ip:${ip}`, 5, 15 * 60 * 1000);
   if (!rl.success) {
     return json({ errors: { form: "Too many login attempts. Please try again later." } }, 429);
   }
