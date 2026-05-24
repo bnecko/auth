@@ -110,7 +110,7 @@ country: ${country}`;
   }).catch(err => console.error("Analytics error:", err.message));
 }
 
-export function middleware(req: NextRequest, event: NextFetchEvent) {
+export function proxy(req: NextRequest, event: NextFetchEvent) {
   const scriptNonce = nonce();
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", scriptNonce);
