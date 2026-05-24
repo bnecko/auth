@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { contentSecurityPolicy, nonce } from '../../middleware';
+import { contentSecurityPolicy, nonce } from '../../proxy';
 
 describe('nonce()', () => {
   it('returns a base64 string with non-trivial entropy', () => {
