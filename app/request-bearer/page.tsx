@@ -118,7 +118,7 @@ export default function RequestBearerPage() {
                   maxLength={600}
                   required
                   rows={8}
-                  className="w-full bg-transparent border-0 border-b border-rule px-1 py-2 text-[13.5px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors resize-y leading-relaxed"
+                  className="w-full bg-transparent border-0 border-b border-rule px-1 py-2 text-[13.5px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors resize-y leading-relaxed"
                 />
               </div>
 

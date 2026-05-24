@@ -150,7 +150,7 @@ export default async function DevicePage({
             placeholder="ABCD-EFGH"
             required
             autoFocus
-            className="w-full bg-transparent border-0 px-1 py-2 text-fg focus:outline-none text-center uppercase tracking-[0.3em] text-[24px] tabular-nums placeholder:text-faint"
+            className="w-full bg-transparent border-0 px-1 py-2 text-fg focus:outline-hidden text-center uppercase tracking-[0.3em] text-[24px] tabular-nums placeholder:text-faint"
           />
         </div>
         <Button type="submit" className="w-full">
