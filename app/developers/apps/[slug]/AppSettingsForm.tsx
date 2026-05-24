@@ -75,7 +75,7 @@ export function AppSettingsForm({
               name="redirect_uris"
               rows={4}
               defaultValue={redirectUris.join("\n")}
-              className="w-full bg-transparent border-0 border-b border-rule px-1 py-2 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors resize-y leading-relaxed"
+              className="w-full bg-transparent border-0 border-b border-rule px-1 py-2 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors resize-y leading-relaxed"
             />
             <p className="text-meta text-muted mt-2">
               one per line. strict https required (except localhost).
@@ -106,7 +106,7 @@ export function AppSettingsForm({
               <select
                 name="oauth_profile_version"
                 defaultValue={oauthProfileVersion}
-                className="w-full bg-transparent border-0 px-1 py-2 text-[14px] text-fg focus:outline-none focus:text-accent transition-colors appearance-none cursor-pointer"
+                className="w-full bg-transparent border-0 px-1 py-2 text-[14px] text-fg focus:outline-hidden focus:text-accent transition-colors appearance-none cursor-pointer"
                 style={{
                   backgroundImage:
                     "linear-gradient(45deg, transparent 50%, var(--fg) 50%), linear-gradient(135deg, var(--fg) 50%, transparent 50%)",

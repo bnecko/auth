@@ -46,7 +46,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
           "w-full bg-transparent px-0 h-9 text-[14px] text-fg",
           "placeholder:text-faint border-0 border-b",
           error ? "border-danger" : "border-rule",
-          "focus:outline-none focus:border-accent",
+          "focus:outline-hidden focus:border-accent",
           "transition-colors",
           className,
         ].join(" ")}

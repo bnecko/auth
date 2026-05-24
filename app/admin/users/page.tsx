@@ -90,7 +90,7 @@ export default async function AdminUsersPage({
             name="q"
             defaultValue={search}
             placeholder="grep username|email"
-            className="flex-1 bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+            className="flex-1 bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
           />
         </form>
       </header>

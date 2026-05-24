@@ -401,7 +401,7 @@ function LabField({
         type={type}
         value={value}
         onChange={event => onChange(event.target.value)}
-        className="w-full bg-bg-soft border-0 border-b border-rule px-3 h-9 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+        className="w-full bg-bg-soft border-0 border-b border-rule px-3 h-9 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
       />
     </label>
   );
@@ -425,7 +425,7 @@ function LabText({
         value={value}
         onChange={event => onChange(event.target.value)}
         rows={4}
-        className="w-full resize-y bg-bg-soft border-0 border-b border-rule px-3 py-2 text-[12px] leading-5 text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+        className="w-full resize-y bg-bg-soft border-0 border-b border-rule px-3 py-2 text-[12px] leading-5 text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
       />
     </label>
   );
@@ -450,7 +450,7 @@ function LabSelect({
       <select
         value={value}
         onChange={event => onChange(event.target.value)}
-        className="w-full bg-bg-soft border-0 border-b border-rule px-3 h-9 text-[13px] text-fg focus:outline-none focus:border-accent transition-colors appearance-none cursor-pointer"
+        className="w-full bg-bg-soft border-0 border-b border-rule px-3 h-9 text-[13px] text-fg focus:outline-hidden focus:border-accent transition-colors appearance-none cursor-pointer"
       >
         {options.map(o => (
           <option key={o.value} value={o.value}>

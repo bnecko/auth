@@ -1,6 +1,61 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-fg: var(--fg);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-surface: var(--bg-soft);
+  --color-elevated: var(--bg-soft);
+  --color-hover: var(--bg-soft);
+  --color-border: var(--rule);
+  --color-border-strong: var(--rule-strong);
+  --color-success: var(--ok);
+  --color-warning: var(--accent);
+  --color-info: var(--secondary);
+
+  --font-mono:
+    JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+  --text-meta--letter-spacing: 0.01em;
+  --text-micro: 11px;
+  --text-micro--line-height: 14px;
+  --text-micro--letter-spacing: 0.06em;
+
+  --tracking-tightest: -0.02em;
+  --tracking-wider: 0.08em;
+
+  --radius-none: 0;
+  --radius-sm: 0;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* OPERATOR CONSOLE
  *

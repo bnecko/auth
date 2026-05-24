@@ -101,11 +101,11 @@ export default async function AdminSecurityPage({
                   name === "event" ? "eventType" : (name as keyof typeof filters)
                 ] || "",
               )}
-              className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
             />
           </label>
         ))}
-        <Button type="submit" className="self-end !h-8 !px-3">
+        <Button type="submit" className="self-end h-8! px-3!">
           filter
         </Button>
       </form>

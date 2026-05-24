@@ -37,7 +37,7 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
           <button
             key={tab.label}
             onClick={() => setActive(idx)}
-            className={`px-3 h-8 text-meta uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-none ${
+            className={`px-3 h-8 text-meta uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-hidden ${
               active === idx
                 ? "text-accent"
                 : "text-secondary hover:text-fg"
