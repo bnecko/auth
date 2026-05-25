@@ -48,34 +48,50 @@ def teardown_db():
     print(f"Wiping test database container '{CONTAINER_NAME}'...")
     run_cmd(["docker", "rm", "-f", CONTAINER_NAME], check=False, capture_output=True)
 
-def run_tests():
-    print(f"Running tests, output will be saved to {LOG_FILE}...")
+def run_npm(script, log, env):
+    """Run an npm script against the test DB, streaming output to stdout + log."""
+    process = subprocess.Popen(
+        ["npm", "run", script],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    for line in process.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        log.write(line)
+        log.flush()
+
+    process.wait()
+    return process.returncode
+
+def run_checks():
+    print(f"Running pre-push checks, output will be saved to {LOG_FILE}...")
     env = os.environ.copy()
     env["DATABASE_URL"] = f"postgres://{DB_USER}:{DB_PASS}@localhost:{DB_PORT}/{DB_NAME}"
     env["REDIS_URL"] = "redis://localhost:6379"
 
     with open(LOG_FILE, "w") as log:
-        process = subprocess.Popen(
-            ["npm", "run", "test:run"],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
+        # Exercise the migration chain on a fresh DB AND on a
+        # schema.sql-seeded DB. This is the same path CI runs and the
+        # only reliable way to catch migrations that diverge from
+        # schema.sql or break on empty databases.
+        print("\n--- Migration smoke (fresh + schema-seeded paths) ---")
+        log.write("\n--- Migration smoke ---\n")
+        code = run_npm("migrate:smoke", log, env)
+        if code != 0:
+            return code
 
-        for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-            log.write(line)
-            log.flush()
-
-        process.wait()
-        return process.returncode
+        print("\n--- Unit + integration tests ---")
+        log.write("\n--- Tests ---\n")
+        return run_npm("test:run", log, env)
 
 def main():
     try:
         setup_db()
-        exit_code = run_tests()
+        exit_code = run_checks()
     except Exception as e:
         print(f"An error occurred: {e}")
         exit_code = 1
