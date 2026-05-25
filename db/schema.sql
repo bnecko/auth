@@ -348,6 +348,7 @@ create table oauth_client_registration_requests (
   grant_types text[] not null default '{}',
   scopes text[] not null default '{}',
   token_endpoint_auth_method text not null
+    constraint dcr_requests_token_auth_method_check
     check (token_endpoint_auth_method in ('client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none')),
   client_type text not null check (client_type in ('public', 'confidential')),
   oauth_profile_version text not null default 'bn-oauth-2026-05',
