@@ -6,7 +6,7 @@ test("login keeps remember-me visible and enabled", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "sign in" })).toBeVisible();
   await expect(page.getByLabel("email or username")).toBeVisible();
   await expect(page.getByLabel("password")).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /remember me/i })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /remember/i })).toBeChecked();
 });
 
 test("telegram 2fa waiting screen preserves bot handoff", async ({ page }) => {
