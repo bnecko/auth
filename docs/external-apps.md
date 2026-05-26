@@ -5,7 +5,7 @@ This document describes how an external app integrates with Bottleneck Auth.
 Base URL:
 
 ```text
-https://auth.bottleneck.cc
+https://auth.bneck.com
 ```
 
 ## Model
@@ -93,7 +93,7 @@ Response:
 {
   "id": "act_xxx",
   "token": "opaque-token",
-  "activationUrl": "https://auth.bottleneck.cc/activate?token=opaque-token",
+  "activationUrl": "https://auth.bneck.com/activate?token=opaque-token",
   "expiresAt": "2026-05-07 19:15:00+00"
 }
 ```
@@ -105,7 +105,7 @@ Store `id` in your app. Do not store or reuse the activation token after redirec
 Redirect the user to:
 
 ```text
-https://auth.bottleneck.cc/activate?token=<opaque-token>
+https://auth.bneck.com/activate?token=<opaque-token>
 ```
 
 The user may need to sign in, register, or verify with Telegram before approving.
@@ -205,7 +205,7 @@ Common HTTP statuses:
 
 ## Webhooks
 
-Bottleneck Auth delivers activation lifecycle events to a registered HTTPS endpoint. Register endpoints from the developer dashboard at `https://auth.bottleneck.cc/developers/apps/<slug>`.
+Bottleneck Auth delivers activation lifecycle events to a registered HTTPS endpoint. Register endpoints from the developer dashboard at `https://auth.bneck.com/developers/apps/<slug>`.
 
 ### Event types
 
@@ -297,7 +297,7 @@ Return 2xx as soon as you have persisted the event. Do not run expensive work sy
 ## Minimal Server Example
 
 ```ts
-const authBaseUrl = "https://auth.bottleneck.cc";
+const authBaseUrl = "https://auth.bneck.com";
 const apiKey = process.env.BOTTLENECK_AUTH_API_KEY!;
 
 export async function startBottleneckAuth(localUserId: string) {

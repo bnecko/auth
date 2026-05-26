@@ -16,7 +16,7 @@ Use when your app wants Bottleneck to authenticate a user once and return a shor
 import { BottleneckAuthClient } from "@bottleneck/auth-sdk";
 
 const auth = new BottleneckAuthClient({
-  issuer: "https://auth.bottleneck.cc",
+  issuer: "https://auth.bneck.com",
 });
 const apiKey = process.env.BOTTLENECK_AUTH_API_KEY!;
 
@@ -50,7 +50,7 @@ Use when you want a standard OAuth Authorization Code + PKCE flow with access an
 import { BottleneckAuthClient, generatePkcePair } from "@bottleneck/auth-sdk";
 
 const auth = new BottleneckAuthClient({
-  issuer: "https://auth.bottleneck.cc",
+  issuer: "https://auth.bneck.com",
   clientId: process.env.BOTTLENECK_CLIENT_ID!,
   clientSecret: process.env.BOTTLENECK_CLIENT_SECRET!,
 });

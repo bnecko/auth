@@ -8,7 +8,7 @@ strings stored by SHA-256 hash. ID tokens are RS256 JWTs.
 Base URL:
 
 ```text
-https://auth.bottleneck.cc
+https://auth.bneck.com
 ```
 
 Discovery:

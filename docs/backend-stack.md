@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`auth.bottleneck.cc` is an identity and activation service for Bottleneck-owned apps and external integrations.
+`auth.bneck.com` is an identity and activation service for Bottleneck-owned apps and external integrations.
 
 It handles:
 
@@ -32,7 +32,7 @@ For a prototype, SQLite can work. For anything public, start with Postgres.
 
 ## Domains
 
-- `auth.bottleneck.cc`: auth service
+- `auth.bneck.com`: auth service
 - `bottleneck.cc`: public profile/site
 - `static.bottleneck.cc`: static fallback/assets if still useful
 
