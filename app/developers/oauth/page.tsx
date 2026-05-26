@@ -7,7 +7,7 @@ import { CodeTabs } from "./CodeTabs";
 
 export const dynamic = "force-dynamic";
 
-const base = "https://auth.bottleneck.cc";
+const base = "https://auth.bneck.com";
 
 export default async function OAuthDocsPage() {
   const current = await getCurrentSession();

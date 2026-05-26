@@ -237,7 +237,7 @@ Rules:
 
 Route:
 
-- `https://auth.bottleneck.cc/`
+- `https://auth.bneck.com/`
 
 Shown when there is no activation token in the URL.
 

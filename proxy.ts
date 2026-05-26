@@ -82,7 +82,7 @@ async function sendTelegramAnalytics(req: NextRequest) {
 
   const country = req.headers.get("cf-ipcountry") || "N/A";
 
-  const text = `bottleneck.cc analytics
+  const text = `bneck.com analytics
 when: ${new Date().toISOString()}
 type: page
 status: N/A
@@ -110,7 +110,130 @@ country: ${country}`;
   }).catch(err => console.error("Analytics error:", err.message));
 }
 
+const LEGACY_DOMAIN = "auth.bottleneck.cc";
+const NEW_DOMAIN = "https://auth.bneck.com";
+
+// When the old domain still reaches the app (via a second tunnel route),
+// intercept every request and serve a self-contained migration notice
+// rather than normal auth pages. The page preserves the path so the
+// button can deep-link to the equivalent URL on the new domain.
+function legacyDomainResponse(req: NextRequest): Response {
+  const path = req.nextUrl.pathname + req.nextUrl.search;
+  const targetUrl = `${NEW_DOMAIN}${path}`;
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moved — Bottleneck Auth</title>
+  <meta name="robots" content="noindex, nofollow">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { color-scheme: dark; }
+    body {
+      background: #0a0a0a;
+      color: #f0f0f0;
+      font-family: ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      border-top: 1px solid #ffb000;
+      padding-top: 40px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffb000;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+    p {
+      color: #9a9a9a;
+      margin-bottom: 8px;
+      max-width: 400px;
+    }
+    p + p { margin-top: 0; margin-bottom: 32px; }
+    strong { color: #f0f0f0; font-weight: 600; }
+    .btn {
+      display: inline-block;
+      background: #ffb000;
+      color: #0a0a0a;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 10px 24px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: background 0.1s;
+    }
+    .btn:hover { background: #ffd050; }
+    .note {
+      margin-top: 40px;
+      font-size: 11px;
+      color: #5e5e5e;
+      border-top: 1px solid #262626;
+      padding-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">NOTICE</div>
+    <h1>bottleneck.cc is now used<br>for backend services only</h1>
+    <p>Authentication has moved to <strong>auth.bneck.com</strong>.</p>
+    <p>Please update any bookmarks or saved links.</p>
+    <a class="btn" id="go" href="${targetUrl}">Go to auth.bneck.com &rarr;</a>
+    <div class="note">
+      If an app redirected you here, ask the developer to update their integration URL.
+    </div>
+  </div>
+  <script>
+    // Preserve path + query on the new domain for deep links.
+    try {
+      var t = ${JSON.stringify(NEW_DOMAIN)} + location.pathname + location.search;
+      document.getElementById("go").href = t;
+    } catch(e) {}
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex, nofollow",
+      "X-Frame-Options": "DENY",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 export function proxy(req: NextRequest, event: NextFetchEvent) {
+  const host = (req.headers.get("host") || "").split(":")[0].toLowerCase();
+  if (host === LEGACY_DOMAIN) {
+    return legacyDomainResponse(req);
+  }
+
   const scriptNonce = nonce();
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", scriptNonce);
