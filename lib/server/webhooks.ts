@@ -14,6 +14,7 @@ export const webhookEventTypes = [
   "activation.approved",
   "activation.denied",
   "activation.cancelled",
+  "activation.expired",
 ] as const;
 
 export type WebhookEventType = (typeof webhookEventTypes)[number];
