@@ -296,6 +296,59 @@ async function sweepHygiene() {
   }
 }
 
+// Transition pending activations past their expiry to 'expired' and
+// enqueue an activation.expired webhook for every active endpoint
+// subscribed to it. One statement so the state change and the delivery
+// enqueue commit together; gen_random_uuid keeps the delivery public_id
+// in the same shape the app's enqueue path produces. Apps that rely on
+// webhooks instead of polling otherwise never learn an activation lapsed.
+async function sweepExpiredActivations() {
+  try {
+    const { rows } = await pool.query(
+      `with expired as (
+         update activation_requests
+            set status = 'expired'
+          where status = 'pending' and expires_at <= now()
+         returning public_id, external_app_id, scopes
+       ),
+       app_info as (
+         select x.public_id, x.external_app_id, x.scopes, a.public_id as app_public_id
+           from expired x
+           join external_apps a on a.id = x.external_app_id
+       ),
+       enqueued as (
+         insert into webhook_deliveries (public_id, webhook_endpoint_id, event_type, payload, next_attempt_at)
+         select 'whd_' || replace(gen_random_uuid()::text, '-', ''),
+                ep.id,
+                'activation.expired',
+                jsonb_build_object(
+                  'id', ai.public_id,
+                  'status', 'expired',
+                  'appId', ai.app_public_id,
+                  'scopes', to_jsonb(ai.scopes),
+                  'expiredAt', now()
+                ),
+                now()
+           from app_info ai
+           join webhook_endpoints ep
+             on ep.external_app_id = ai.external_app_id
+            and ep.status = 'active'
+            and 'activation.expired' = any(ep.event_types)
+         returning id
+       )
+       select (select count(*) from expired)::int as expired_count,
+              (select count(*) from enqueued)::int as enqueued_count`,
+    );
+    const expiredCount = rows[0] ? rows[0].expired_count : 0;
+    const enqueuedCount = rows[0] ? rows[0].enqueued_count : 0;
+    if (expiredCount > 0) {
+      console.log(`Expired ${expiredCount} activation(s), enqueued ${enqueuedCount} webhook(s).`);
+    }
+  } catch (err) {
+    console.error("Activation expiry sweep error:", err);
+  }
+}
+
 // Wires up the Redis-backed telegram worker and the DB poll loops. Kept
 // behind a require.main guard so the delivery functions can be imported
 // by tests without opening a Redis connection or starting the timers.
@@ -347,10 +400,25 @@ function startWorker() {
   // Run once at startup so the first sweep doesn't wait an hour.
   sweepHygiene().catch(err => console.error("Initial hygiene sweep error:", err));
   console.log("DB hygiene sweep started.");
+
+  // Activations carry a short TTL (minutes), so sweep every minute to
+  // fire activation.expired close to the actual lapse.
+  setInterval(() => {
+    sweepExpiredActivations().catch(err => console.error("Activation sweep loop error:", err));
+  }, 60 * 1000);
+  sweepExpiredActivations().catch(err => console.error("Initial activation sweep error:", err));
+  console.log("Activation expiry sweep started.");
 }
 
 if (require.main === module) {
   startWorker();
 }
 
-module.exports = { deliverOne, processWebhookBatch, signPayload, RETRY_DELAYS_SECONDS, MAX_ATTEMPTS };
+module.exports = {
+  deliverOne,
+  processWebhookBatch,
+  sweepExpiredActivations,
+  signPayload,
+  RETRY_DELAYS_SECONDS,
+  MAX_ATTEMPTS,
+};

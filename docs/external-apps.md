@@ -212,6 +212,7 @@ Bottleneck Auth delivers activation lifecycle events to a registered HTTPS endpo
 - `activation.approved` — user approved the activation request
 - `activation.denied` — user denied the request
 - `activation.cancelled` — your app cancelled a pending request
+- `activation.expired` — a pending request lapsed before the user acted
 
 Each endpoint chooses which events it wants to receive at registration time. Additional event types (`user.created`, `oauth.grant.created`, `token.revoked`, `subscription.changed`) are reserved for future use.
 
