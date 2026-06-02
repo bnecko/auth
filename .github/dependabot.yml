@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Batch routine patch/minor bumps into one PR. Majors still arrive
+      # individually so they can be read, timed, and tested deliberately.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # @types/node tracks the Node 22 runtime (Dockerfile + .nvmrc), not
+      # the latest types release.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # ioredis is pinned to bullmq's exact transitive pin to keep a single
+      # client copy; bump it together with bullmq, not on its own.
+      - dependency-name: "ioredis"
+
+  - package-ecosystem: npm
+    directory: "/sdk/node"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
