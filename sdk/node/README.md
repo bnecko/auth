@@ -126,5 +126,5 @@ try {
 
 ## References
 
-- Activation broker: [`docs/external-apps.md`](https://github.com/bottleneck-cc/auth/blob/master/docs/external-apps.md)
-- OAuth profile and discovery: [`docs/oauth.md`](https://github.com/bottleneck-cc/auth/blob/master/docs/oauth.md)
+- Activation broker: [`docs/external-apps.md`](https://github.com/SynapLink/auth/blob/master/docs/external-apps.md)
+- OAuth profile and discovery: [`docs/oauth.md`](https://github.com/SynapLink/auth/blob/master/docs/oauth.md)
