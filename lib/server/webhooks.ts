@@ -4,6 +4,7 @@ import {
   createWebhookDelivery,
   createWebhookEndpoint,
   listActiveWebhookEndpointsForApp,
+  updateWebhookEndpointSecret,
 } from "./repositories/webhooks";
 
 export const webhookEventTypes = [
@@ -46,6 +47,19 @@ export async function registerWebhookEndpoint(input: {
     eventTypes: input.eventTypes,
     secret,
   });
+  return { endpoint, secret };
+}
+
+// Issue a fresh signing secret for an existing endpoint, preserving its
+// id, subscriptions, and delivery history. Outgoing deliveries sign with
+// the new secret immediately, so the receiver must update in lockstep;
+// there is no dual-signing grace window.
+export async function rotateWebhookEndpointSecret(endpointPublicId: string, appId: number) {
+  const secret = createWebhookSecret();
+  const endpoint = await updateWebhookEndpointSecret(endpointPublicId, appId, secret);
+  if (!endpoint) {
+    return null;
+  }
   return { endpoint, secret };
 }
 

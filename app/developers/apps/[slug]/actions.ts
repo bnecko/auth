@@ -15,6 +15,7 @@ import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { supportedOAuthProfileVersion } from "@/lib/server/config";
 import {
   registerWebhookEndpoint,
+  rotateWebhookEndpointSecret,
   webhookEventTypes,
   type WebhookEventType,
 } from "@/lib/server/webhooks";
@@ -193,6 +194,28 @@ export async function disableWebhookEndpointAction(formData: FormData) {
     metadata: { appId, endpointId: endpointPublicId },
   });
   revalidatePath(`/developers/apps/${slug}`);
+}
+
+export async function rotateWebhookSecretAction(formData: FormData) {
+  const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
+  const endpointPublicId = String(formData.get("endpoint_id") || "");
+  if (!appId || !endpointPublicId) throw new Error("Invalid arguments");
+  const { userId, slug } = await assertOwnsApp(appId);
+
+  const result = await rotateWebhookEndpointSecret(endpointPublicId, appId);
+  if (!result) {
+    throw new Error("Endpoint not found");
+  }
+
+  await recordSecurityEvent({
+    userId,
+    eventType: "webhook_secret_rotated",
+    result: "ok",
+    context: requestContextFromHeaders(await headers()),
+    metadata: { appId, endpointId: endpointPublicId },
+  });
+  revalidatePath(`/developers/apps/${slug}`);
+  return { secret: result.secret };
 }
 
 export async function deleteWebhookEndpointAction(formData: FormData) {

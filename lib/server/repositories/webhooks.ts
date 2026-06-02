@@ -177,6 +177,19 @@ export async function disableWebhookEndpoint(publicId: string, appId: number) {
   return row ? mapEndpoint(row) : null;
 }
 
+export async function updateWebhookEndpointSecret(publicId: string, appId: number, secret: string) {
+  const row = await queryOne<EndpointRow>(
+    `update webhook_endpoints
+        set secret = $3,
+            updated_at = now()
+      where public_id = $1
+        and external_app_id = $2
+      returning ${endpointSelect}`,
+    [publicId, appId, secret],
+  );
+  return row ? mapEndpoint(row) : null;
+}
+
 export async function deleteWebhookEndpoint(publicId: string, appId: number) {
   const row = await queryOne<{ id: string }>(
     `delete from webhook_endpoints
