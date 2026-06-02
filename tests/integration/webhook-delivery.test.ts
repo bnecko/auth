@@ -12,6 +12,7 @@ type WorkerDeliveryRow = {
   event_type: string;
   payload: Record<string, unknown>;
   attempt_count: number;
+  webhook_endpoint_id: number;
   url: string;
   secret: string;
 };
@@ -26,6 +27,7 @@ const worker = requireCjs('../../worker.js') as {
   processWebhookBatch: () => Promise<void>;
   RETRY_DELAYS_SECONDS: number[];
   MAX_ATTEMPTS: number;
+  AUTO_DISABLE_THRESHOLD: number;
 };
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
@@ -71,20 +73,37 @@ async function seedApp() {
   return Number(row.id);
 }
 
-async function seedPendingDelivery(path: string) {
+async function seedEndpoint(path: string) {
   const appId = await seedApp();
   const { endpoint, secret } = await registerWebhookEndpoint({
     appId,
     url: `${baseUrl}${path}`,
     eventTypes: ['activation.approved'],
   });
+  return { appId, endpointId: endpoint.id, secret, url: `${baseUrl}${path}` };
+}
+
+async function enqueueOne(appId: number, endpointId: number) {
   await enqueueWebhookEvent({ appId, eventType: 'activation.approved', payload: { id: 'act_test' } });
   const delivery = await queryOne<{ id: string; public_id: string }>(
     `select id, public_id from webhook_deliveries where webhook_endpoint_id = $1 order by created_at desc limit 1`,
-    [endpoint.id],
+    [endpointId],
   );
   if (!delivery) throw new Error('enqueue created no delivery');
-  return { deliveryId: Number(delivery.id), deliveryPublicId: delivery.public_id, secret, url: `${baseUrl}${path}` };
+  return { deliveryId: Number(delivery.id), deliveryPublicId: delivery.public_id };
+}
+
+async function seedPendingDelivery(path: string) {
+  const { appId, endpointId, secret, url } = await seedEndpoint(path);
+  const { deliveryId, deliveryPublicId } = await enqueueOne(appId, endpointId);
+  return { deliveryId, deliveryPublicId, endpointId, secret, url };
+}
+
+async function endpointState(endpointId: number) {
+  return queryOne<{ status: string; consecutive_failures: number }>(
+    `select status, consecutive_failures from webhook_endpoints where id = $1`,
+    [endpointId],
+  );
 }
 
 async function readDelivery(id: number) {
@@ -135,7 +154,7 @@ describeDb('webhook delivery loop', () => {
 
   it('reschedules a failed delivery with the first backoff step', async () => {
     responseStatus = 500;
-    const { deliveryId, deliveryPublicId, secret, url } = await seedPendingDelivery('/fail');
+    const { deliveryId, deliveryPublicId, endpointId, secret, url } = await seedPendingDelivery('/fail');
 
     await worker.deliverOne({
       id: deliveryId,
@@ -143,6 +162,7 @@ describeDb('webhook delivery loop', () => {
       event_type: 'activation.approved',
       payload: { id: 'act_test' },
       attempt_count: 0,
+      webhook_endpoint_id: endpointId,
       url,
       secret,
     });
@@ -160,7 +180,7 @@ describeDb('webhook delivery loop', () => {
 
   it('marks a delivery failed after the maximum number of attempts', async () => {
     responseStatus = 500;
-    const { deliveryId, deliveryPublicId, secret, url } = await seedPendingDelivery('/exhaust');
+    const { deliveryId, deliveryPublicId, endpointId, secret, url } = await seedPendingDelivery('/exhaust');
 
     for (let attempt = 0; attempt < worker.MAX_ATTEMPTS; attempt++) {
       const before = await readDelivery(deliveryId);
@@ -170,6 +190,7 @@ describeDb('webhook delivery loop', () => {
         event_type: 'activation.approved',
         payload: { id: 'act_test' },
         attempt_count: before?.attempt_count ?? 0,
+        webhook_endpoint_id: endpointId,
         url,
         secret,
       });
@@ -179,5 +200,74 @@ describeDb('webhook delivery loop', () => {
     expect(row?.status).toBe('failed');
     expect(row?.attempt_count).toBe(worker.MAX_ATTEMPTS);
     expect(row?.seconds_until_next).toBeNull();
+  });
+});
+
+describeDb('webhook endpoint auto-disable', () => {
+  // Push a fresh delivery straight to its terminal failure so one call
+  // exercises the endpoint failure counter.
+  async function failOneDelivery(endpoint: {
+    appId: number;
+    endpointId: number;
+    secret: string;
+    url: string;
+  }) {
+    const { deliveryId, deliveryPublicId } = await enqueueOne(endpoint.appId, endpoint.endpointId);
+    await worker.deliverOne({
+      id: deliveryId,
+      public_id: deliveryPublicId,
+      event_type: 'activation.approved',
+      payload: { id: 'act_test' },
+      attempt_count: worker.MAX_ATTEMPTS - 1,
+      webhook_endpoint_id: endpoint.endpointId,
+      url: endpoint.url,
+      secret: endpoint.secret,
+    });
+  }
+
+  it('disables an endpoint after the threshold of consecutive failed deliveries', async () => {
+    responseStatus = 500;
+    const endpoint = await seedEndpoint('/autodisable');
+
+    for (let i = 0; i < worker.AUTO_DISABLE_THRESHOLD; i++) {
+      await failOneDelivery(endpoint);
+    }
+
+    const state = await endpointState(endpoint.endpointId);
+    expect(state?.status).toBe('disabled');
+    expect(state?.consecutive_failures).toBe(worker.AUTO_DISABLE_THRESHOLD);
+
+    const event = await queryOne<{ count: number }>(
+      `select count(*)::int as count from security_events
+        where event_type = 'webhook_endpoint_auto_disabled'
+          and metadata->>'webhookEndpointId' = $1`,
+      [String(endpoint.endpointId)],
+    );
+    expect(event?.count).toBe(1);
+  });
+
+  it('resets the failure counter after a successful delivery', async () => {
+    const endpoint = await seedEndpoint('/reset');
+
+    responseStatus = 500;
+    await failOneDelivery(endpoint);
+    expect((await endpointState(endpoint.endpointId))?.consecutive_failures).toBe(1);
+
+    responseStatus = 200;
+    const { deliveryId, deliveryPublicId } = await enqueueOne(endpoint.appId, endpoint.endpointId);
+    await worker.deliverOne({
+      id: deliveryId,
+      public_id: deliveryPublicId,
+      event_type: 'activation.approved',
+      payload: { id: 'act_test' },
+      attempt_count: 0,
+      webhook_endpoint_id: endpoint.endpointId,
+      url: endpoint.url,
+      secret: endpoint.secret,
+    });
+
+    const state = await endpointState(endpoint.endpointId);
+    expect(state?.consecutive_failures).toBe(0);
+    expect(state?.status).toBe('active');
   });
 });

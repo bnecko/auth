@@ -116,6 +116,9 @@ const RETRY_DELAYS_SECONDS = [
 const MAX_ATTEMPTS = RETRY_DELAYS_SECONDS.length - 1;
 const DELIVERY_TIMEOUT_MS = 5000;
 const RESPONSE_BODY_LIMIT = 4096;
+// Disable an endpoint after this many deliveries fail in a row (a
+// success resets the count), so a dead receiver stops accruing retries.
+const AUTO_DISABLE_THRESHOLD = 5;
 
 function signPayload(secret, timestamp, body) {
   return createHmac("sha256", secret)
@@ -188,6 +191,10 @@ async function deliverOne(row) {
         where id = $1`,
       [row.id, nextAttempt, responseStatus, responseBody],
     );
+    await pool.query(
+      `update webhook_endpoints set consecutive_failures = 0 where id = $1`,
+      [row.webhook_endpoint_id],
+    );
     return;
   }
 
@@ -203,6 +210,7 @@ async function deliverOne(row) {
         where id = $1`,
       [row.id, nextAttempt, responseStatus, responseBody, lastError],
     );
+    await disableEndpointIfFailing(row);
     return;
   }
 
@@ -218,6 +226,40 @@ async function deliverOne(row) {
       where id = $1`,
     [row.id, nextAttempt, responseStatus, responseBody, lastError, String(delaySeconds)],
   );
+}
+
+// A delivery just exhausted its retries. Count it against the endpoint
+// and, once enough have failed back-to-back, disable the endpoint so a
+// dead receiver stops generating retry load. The update is scoped to
+// active endpoints so the transition (and its security event) fire
+// exactly once.
+async function disableEndpointIfFailing(row) {
+  const { rows } = await pool.query(
+    `update webhook_endpoints
+        set consecutive_failures = consecutive_failures + 1,
+            status = case when consecutive_failures + 1 >= $2 then 'disabled' else status end,
+            disabled_at = case when consecutive_failures + 1 >= $2 then now() else disabled_at end
+      where id = $1 and status = 'active'
+      returning status, consecutive_failures`,
+    [row.webhook_endpoint_id, AUTO_DISABLE_THRESHOLD],
+  );
+  const endpoint = rows[0];
+  if (endpoint && endpoint.status === "disabled") {
+    await pool.query(
+      `insert into security_events (event_type, result, metadata)
+       values ('webhook_endpoint_auto_disabled', 'disabled', $1::jsonb)`,
+      [
+        JSON.stringify({
+          webhookEndpointId: row.webhook_endpoint_id,
+          deliveryPublicId: row.public_id,
+          consecutiveFailures: endpoint.consecutive_failures,
+        }),
+      ],
+    );
+    console.warn(
+      `Webhook endpoint ${row.webhook_endpoint_id} auto-disabled after ${endpoint.consecutive_failures} consecutive failures.`,
+    );
+  }
 }
 
 async function processWebhookBatch() {
@@ -248,7 +290,7 @@ async function processWebhookBatch() {
           and e.id = d.webhook_endpoint_id
           and e.status = 'active'
         returning d.id, d.public_id, d.event_type, d.payload, d.attempt_count,
-                  e.url, e.secret`,
+                  d.webhook_endpoint_id, e.url, e.secret`,
     );
 
     for (const row of rows) {
@@ -421,4 +463,5 @@ module.exports = {
   signPayload,
   RETRY_DELAYS_SECONDS,
   MAX_ATTEMPTS,
+  AUTO_DISABLE_THRESHOLD,
 };

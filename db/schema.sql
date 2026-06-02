@@ -382,6 +382,7 @@ create table webhook_endpoints (
   event_types text[] not null default '{}',
   secret text not null,
   status text not null default 'active' check (status in ('active', 'disabled')),
+  consecutive_failures integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   disabled_at timestamptz
