@@ -65,7 +65,21 @@ Detailed documentation is available in the `docs/` directory:
 
 ## Testing
 
-You can test the external app activation API flow locally or against production using the provided `test.py` script.
+`npm run test:run` runs the unit and integration suites. The integration
+suites are gated on `DATABASE_URL` and skip loudly without it. To run them
+locally, point them at a throwaway Postgres:
+
+```sh
+docker run -d --name auth-test-db -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine
+export DATABASE_URL="postgres://postgres:postgres@localhost:5433/postgres"
+export OIDC_PRIVATE_KEY_PEM="$(openssl genrsa 2048 2>/dev/null)" OIDC_KEY_ID=test
+npm run migrate && npm run test:run
+```
+
+CI runs the full suite (including integration and Playwright DB scenarios)
+against a Postgres service, so these gates are exercised on every push.
+
+You can also test the external app activation API flow locally or against production using the provided `test.py` script.
 
 Make sure you have your external app bearer token set in your `.env` file:
 ```env
