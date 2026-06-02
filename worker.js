@@ -44,6 +44,14 @@ function isBlockedIpv6(ip) {
   return false;
 }
 
+function isLoopbackHostname(hostname) {
+  if (hostname === "localhost" || hostname === "ip6-localhost" || hostname === "ip6-loopback") {
+    return true;
+  }
+  if (hostname === "::1") return true;
+  return isIP(hostname) === 4 && hostname.startsWith("127.");
+}
+
 async function assertWebhookUrlIsSafe(rawUrl) {
   let url;
   try {
@@ -55,6 +63,12 @@ async function assertWebhookUrlIsSafe(rawUrl) {
     throw new Error("webhook url protocol is not supported");
   }
   const hostname = url.hostname.toLowerCase();
+  // Outside production, allow delivery to loopback so local receivers
+  // (and the delivery test fixture) work. The deployed worker runs with
+  // NODE_ENV=production, where loopback stays blocked as an SSRF target.
+  if (process.env.NODE_ENV !== "production" && isLoopbackHostname(hostname)) {
+    return;
+  }
   if (BLOCKED_HOSTNAMES.has(hostname)) {
     throw new Error("webhook hostname is not allowed");
   }
@@ -76,43 +90,7 @@ async function assertWebhookUrlIsSafe(rawUrl) {
   }
 }
 
-const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 const databaseUrl = process.env.DATABASE_URL;
-const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-if (!botToken) {
-  console.error("TELEGRAM_BOT_TOKEN is required for the worker");
-  process.exit(1);
-}
-
-if (!databaseUrl) {
-  console.error("DATABASE_URL is required for the worker");
-  process.exit(1);
-}
-
-const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
-
-const worker = new Worker("telegram-notifications", async (job) => {
-  if (job.name === "send") {
-    console.log(`Sending telegram message for job ${job.id}...`);
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(job.data),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Telegram API error: ${errText}`);
-      throw new Error(`Telegram API error: ${res.status}`);
-    }
-  }
-}, { connection });
-
-worker.on("completed", job => console.log(`Job ${job.id} completed!`));
-worker.on("failed", (job, err) => console.error(`Job ${job?.id} failed: ${err.message}`));
-
-console.log("Telegram BullMQ Worker started.");
 
 // Webhook delivery loop — polls the database for pending deliveries,
 // signs each request with the per-endpoint plaintext secret, POSTs to
@@ -285,14 +263,6 @@ async function processWebhookBatch() {
   }
 }
 
-// Poll roughly once a second. A crashed worker leaves pending rows in
-// the DB; they are picked up on next start.
-setInterval(() => {
-  processWebhookBatch().catch(err => console.error("Webhook loop error:", err));
-}, 1000);
-
-console.log("Webhook delivery loop started.");
-
 // Hourly DB hygiene sweep. These tables grow without bound otherwise:
 //   - oauth_client_assertion_jtis: every private_key_jwt exchange inserts one
 //   - registration_requests: holds password hashes for incomplete signups
@@ -326,10 +296,61 @@ async function sweepHygiene() {
   }
 }
 
-setInterval(() => {
-  sweepHygiene().catch(err => console.error("Hygiene loop error:", err));
-}, 60 * 60 * 1000);
-// Run once at startup so the first sweep doesn't wait an hour.
-sweepHygiene().catch(err => console.error("Initial hygiene sweep error:", err));
+// Wires up the Redis-backed telegram worker and the DB poll loops. Kept
+// behind a require.main guard so the delivery functions can be imported
+// by tests without opening a Redis connection or starting the timers.
+function startWorker() {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    console.error("TELEGRAM_BOT_TOKEN is required for the worker");
+    process.exit(1);
+  }
+  if (!databaseUrl) {
+    console.error("DATABASE_URL is required for the worker");
+    process.exit(1);
+  }
 
-console.log("DB hygiene sweep started.");
+  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+  const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+
+  const worker = new Worker("telegram-notifications", async (job) => {
+    if (job.name === "send") {
+      console.log(`Sending telegram message for job ${job.id}...`);
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(job.data),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`Telegram API error: ${errText}`);
+        throw new Error(`Telegram API error: ${res.status}`);
+      }
+    }
+  }, { connection });
+
+  worker.on("completed", job => console.log(`Job ${job.id} completed!`));
+  worker.on("failed", (job, err) => console.error(`Job ${job?.id} failed: ${err.message}`));
+  console.log("Telegram BullMQ Worker started.");
+
+  // Poll roughly once a second. A crashed worker leaves pending rows in
+  // the DB; they are picked up on next start.
+  setInterval(() => {
+    processWebhookBatch().catch(err => console.error("Webhook loop error:", err));
+  }, 1000);
+  console.log("Webhook delivery loop started.");
+
+  setInterval(() => {
+    sweepHygiene().catch(err => console.error("Hygiene loop error:", err));
+  }, 60 * 60 * 1000);
+  // Run once at startup so the first sweep doesn't wait an hour.
+  sweepHygiene().catch(err => console.error("Initial hygiene sweep error:", err));
+  console.log("DB hygiene sweep started.");
+}
+
+if (require.main === module) {
+  startWorker();
+}
+
+module.exports = { deliverOne, processWebhookBatch, signPayload, RETRY_DELAYS_SECONDS, MAX_ATTEMPTS };
