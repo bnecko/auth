@@ -11,6 +11,7 @@ import {
   createWebhookEndpointAction,
   deleteWebhookEndpointAction,
   disableWebhookEndpointAction,
+  rotateWebhookSecretAction,
 } from "./actions";
 
 type Endpoint = {
@@ -25,6 +26,7 @@ const EVENT_OPTIONS = [
   { value: "activation.approved", label: "activation approved" },
   { value: "activation.denied", label: "activation denied" },
   { value: "activation.cancelled", label: "activation cancelled" },
+  { value: "activation.expired", label: "activation expired" },
 ];
 
 export function WebhookEndpointsSection({
@@ -53,6 +55,19 @@ export function WebhookEndpointsSection({
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function rotate(formData: FormData) {
+    setError("");
+    setRevealedSecret(null);
+    try {
+      const result = await rotateWebhookSecretAction(formData);
+      if (result?.secret) {
+        setRevealedSecret(result.secret);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to rotate secret");
     }
   }
 
@@ -98,6 +113,18 @@ export function WebhookEndpointsSection({
                 </span>
               </RowValue>
               <div className="flex items-baseline gap-3 text-meta uppercase tracking-wider">
+                {ep.status === "active" && (
+                  <form action={rotate}>
+                    <input type="hidden" name="app_id" value={appId} />
+                    <input type="hidden" name="endpoint_id" value={ep.publicId} />
+                    <button
+                      type="submit"
+                      className="text-secondary hover:text-accent transition-colors"
+                    >
+                      rotate secret
+                    </button>
+                  </form>
+                )}
                 {ep.status === "active" && (
                   <form action={disableWebhookEndpointAction}>
                     <input type="hidden" name="app_id" value={appId} />

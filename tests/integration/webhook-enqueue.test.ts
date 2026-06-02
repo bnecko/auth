@@ -4,6 +4,7 @@ import { hashToken, publicId, randomToken } from '@/lib/server/crypto';
 import {
   enqueueWebhookEvent,
   registerWebhookEndpoint,
+  rotateWebhookEndpointSecret,
 } from '@/lib/server/webhooks';
 import {
   listActiveWebhookEndpointsForApp,
@@ -55,6 +56,40 @@ describeDb('Webhook endpoint registration', () => {
       [endpoint.id],
     );
     expect(stored?.secret).toBe(secret);
+  });
+});
+
+describeDb('rotateWebhookEndpointSecret', () => {
+  it('issues a new secret on the same endpoint and persists it', async () => {
+    const { appId } = await seedApp();
+    const { endpoint, secret } = await registerWebhookEndpoint({
+      appId,
+      url: 'https://example.com/rotate',
+      eventTypes: ['activation.approved'],
+    });
+
+    const rotated = await rotateWebhookEndpointSecret(endpoint.publicId, appId);
+    expect(rotated).not.toBeNull();
+    expect(rotated?.secret).toMatch(/^whsec_/);
+    expect(rotated?.secret).not.toBe(secret);
+    expect(rotated?.endpoint.publicId).toBe(endpoint.publicId);
+
+    const stored = await queryOne<{ secret: string }>(
+      `select secret from webhook_endpoints where id = $1`,
+      [endpoint.id],
+    );
+    expect(stored?.secret).toBe(rotated?.secret);
+  });
+
+  it('refuses to rotate an endpoint owned by another app', async () => {
+    const { appId } = await seedApp();
+    const other = await seedApp();
+    const { endpoint } = await registerWebhookEndpoint({
+      appId,
+      url: 'https://example.com/rotate-other',
+      eventTypes: ['activation.approved'],
+    });
+    expect(await rotateWebhookEndpointSecret(endpoint.publicId, other.appId)).toBeNull();
   });
 });
 
