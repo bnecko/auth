@@ -19,7 +19,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
     "bullmq": "^5.76.6",
-    "ioredis": "^5.10.1",
+    "ioredis": "5.10.1",
     "next": "^16.2.6",
     "pg": "^8.20.0",
     "prismjs": "^1.30.0",
