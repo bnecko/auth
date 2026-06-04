@@ -27,7 +27,7 @@ jobs:
       OIDC_KEY_ID: ci
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -50,3 +50,19 @@ jobs:
       - run: docker build --target worker .
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/node
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: sdk/node/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
