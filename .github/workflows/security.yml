@@ -26,7 +26,7 @@ jobs:
       AUTH_BASE_URL: http://localhost:3000
       OIDC_KEY_ID: ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
