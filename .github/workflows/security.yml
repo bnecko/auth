@@ -27,7 +27,7 @@ jobs:
       OIDC_KEY_ID: ci
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
