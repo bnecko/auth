@@ -30,6 +30,7 @@ playwright-report/
 sdk/*/dist/
 
 docs/prompts/
+handoffs/
 
 # Python
 venv/
