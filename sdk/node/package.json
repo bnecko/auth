@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SynapLink/auth.git",
+    "url": "https://github.com/bnecko/auth.git",
     "directory": "sdk/node"
   },
   "homepage": "https://auth.bneck.com",
