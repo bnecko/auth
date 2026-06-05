@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
@@ -20,9 +21,9 @@ const scopeLabels: Record<string, { label: string; sensitive?: boolean }> = {
 export default async function ActivatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; error?: string }>;
 }) {
-  const { token } = await searchParams;
+  const { token, error } = await searchParams;
   if (!token) {
     redirect("/");
   }
@@ -38,6 +39,54 @@ export default async function ActivatePage({
   }
 
   const { activation, expired, requiredProduct, subscriptionOk } = view;
+
+  // A request is only actionable while pending. Once it has been decided,
+  // show the outcome instead of the approve/deny form, so a revisit (or a
+  // post-approval redirect back here) shows the result rather than letting
+  // the user submit a second time and hit a raw "not pending" error.
+  if (activation.status === "approved") {
+    return (
+      <AuthShell tag="auth/authorized">
+        <div className="flex items-start gap-4 mb-7">
+          <div
+            className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
+            aria-hidden
+          >
+            {activation.app.name.slice(0, 2)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-meta uppercase tracking-wider text-muted mb-1">
+              authorized
+            </div>
+            <h1 className="text-[26px] tracking-tightest text-fg truncate leading-none">
+              {activation.app.name}
+            </h1>
+          </div>
+        </div>
+        <div className="mb-6">
+          <Alert tone="success">
+            {activation.app.name} is authorized. You can return to the app to
+            continue.
+          </Alert>
+        </div>
+        <Link href="/">
+          <Button variant="secondary" type="button">
+            return to dashboard
+          </Button>
+        </Link>
+      </AuthShell>
+    );
+  }
+  if (activation.status === "denied") {
+    redirect("/expired?reason=denied");
+  }
+  if (activation.status === "expired") {
+    redirect("/expired?reason=expired");
+  }
+  if (activation.status === "cancelled") {
+    redirect("/expired?reason=invalid");
+  }
+
   const blocked = !subscriptionOk;
   const csrfToken = mintActivationCsrf({
     sessionId: current.session.id,
@@ -158,12 +207,21 @@ export default async function ActivatePage({
         </div>
       )}
 
+      {error === "csrf" && (
+        <div className="mb-5">
+          <Alert tone="warning">
+            your confirmation expired. review and approve again.
+          </Alert>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 mt-2">
         <form
           action={`/api/activations/${activation.publicId}/deny`}
           method="post"
         >
           <input type="hidden" name="csrf_token" value={csrfToken} />
+          <input type="hidden" name="token" value={token} />
           <Button variant="ghost" type="submit" disabled={expired}>
             deny
           </Button>
@@ -174,6 +232,7 @@ export default async function ActivatePage({
           method="post"
         >
           <input type="hidden" name="csrf_token" value={csrfToken} />
+          <input type="hidden" name="token" value={token} />
           <Button type="submit" disabled={expired || blocked}>
             approve
           </Button>

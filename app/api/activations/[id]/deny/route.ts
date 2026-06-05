@@ -1,10 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
-import { badRequest } from "@/lib/server/http";
 import { verifyActivationCsrf } from "@/lib/server/activationCsrf";
 import { denyActivationForUser } from "@/lib/server/services/activation";
 
 export const runtime = "nodejs";
+
+// Native HTML POST: every branch must redirect to a rendered page rather
+// than return JSON, or the browser shows a raw error body.
+function redirectTo(req: NextRequest, path: string) {
+  return NextResponse.redirect(new URL(path, req.url));
+}
 
 export async function POST(
   req: NextRequest,
@@ -15,31 +20,35 @@ export async function POST(
     return auth.response;
   }
 
+  const { id } = await params;
+
+  let csrfToken = "";
+  let token = "";
   try {
-    const { id } = await params;
+    const formData = await req.formData();
+    csrfToken = String(formData.get("csrf_token") || "");
+    token = String(formData.get("token") || "");
+  } catch {
+    // Ignore body parsing errors; the csrf check below fails closed.
+  }
 
-    let csrfToken = "";
-    try {
-      const formData = await req.formData();
-      csrfToken = String(formData.get("csrf_token") || "");
-    } catch {
-      // Ignore body parsing errors if no formData was sent
-    }
+  if (
+    !csrfToken ||
+    !verifyActivationCsrf({
+      token: csrfToken,
+      sessionId: auth.session.session.id,
+      activationId: id,
+    })
+  ) {
+    return token
+      ? redirectTo(req, `/activate?token=${encodeURIComponent(token)}&error=csrf`)
+      : redirectTo(req, "/expired?reason=invalid");
+  }
 
-    if (
-      !csrfToken ||
-      !verifyActivationCsrf({
-        token: csrfToken,
-        sessionId: auth.session.session.id,
-        activationId: id,
-      })
-    ) {
-      return badRequest("invalid_request: csrf token is invalid or expired");
-    }
-
+  try {
     await denyActivationForUser(id, auth.session.user, req);
-    return NextResponse.redirect(new URL("/", req.url));
-  } catch (err) {
-    return badRequest(err instanceof Error ? err.message : "activation failed");
+    return redirectTo(req, "/expired?reason=denied");
+  } catch {
+    return redirectTo(req, "/expired?reason=invalid");
   }
 }

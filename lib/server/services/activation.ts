@@ -156,14 +156,15 @@ export async function approveActivationForUser(
   });
 
   // Re-validate the stored return URL against the app's current allowlist
-  // before redirecting. The list may have been tightened since creation,
+  // before handing it back. The list may have been tightened since creation,
   // and the validator hardening means previously-stored values that only
-  // passed the old startsWith check should no longer be honoured.
-  const safeRedirect =
+  // passed the old startsWith check should no longer be honoured. Null means
+  // the caller has no app URL to bounce to and should show success in-app.
+  const safeReturnUrl =
     activation.returnUrl &&
     isAllowedReturnUrl(activation.returnUrl, activation.app.allowedRedirectUrls)
       ? activation.returnUrl
-      : "/";
+      : null;
 
   await fireActivationWebhook({
     appId: activation.app.id,
@@ -181,7 +182,7 @@ export async function approveActivationForUser(
 
   return {
     activation,
-    redirectTo: safeRedirect,
+    returnUrl: safeReturnUrl,
   };
 }
 
