@@ -113,6 +113,32 @@ country: ${country}`;
 const LEGACY_DOMAIN = "auth.bottleneck.cc";
 const NEW_DOMAIN = "https://auth.bneck.com";
 
+// API clients on the old origin must get a machine-readable error, not the
+// HTML notice: an HTML 200 passes their `response.ok` check and then throws
+// on `response.json()`, surfacing as a generic failure with no signal. Return
+// 410 Gone with the new location and RFC 8594 deprecation headers so the
+// integrator can detect the move in code.
+function legacyApiResponse(req: NextRequest): Response {
+  const path = req.nextUrl.pathname + req.nextUrl.search;
+  return new Response(
+    JSON.stringify({
+      error: "this api moved to auth.bneck.com",
+      code: "origin_moved",
+      location: `${NEW_DOMAIN}${path}`,
+    }),
+    {
+      status: 410,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        Deprecation: "true",
+        Sunset: "Wed, 31 Dec 2025 23:59:59 GMT",
+        Link: `<${NEW_DOMAIN}${path}>; rel="successor-version"`,
+      },
+    },
+  );
+}
+
 // When the old domain still reaches the app (via a second tunnel route),
 // intercept every request and serve a self-contained migration notice
 // rather than normal auth pages. The page preserves the path so the
@@ -231,7 +257,9 @@ function legacyDomainResponse(req: NextRequest): Response {
 export function proxy(req: NextRequest, event: NextFetchEvent) {
   const host = (req.headers.get("host") || "").split(":")[0].toLowerCase();
   if (host === LEGACY_DOMAIN) {
-    return legacyDomainResponse(req);
+    return req.nextUrl.pathname.startsWith("/api/")
+      ? legacyApiResponse(req)
+      : legacyDomainResponse(req);
   }
 
   const scriptNonce = nonce();
