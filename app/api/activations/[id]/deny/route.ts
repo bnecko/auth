@@ -6,11 +6,11 @@ import { denyActivationForUser } from "@/lib/server/services/activation";
 export const runtime = "nodejs";
 
 // Native HTML POST: every branch must redirect to a rendered page rather
-// than return JSON, or the browser shows a raw error body.
-function redirectTo(req: NextRequest, path: string) {
-  // 303 See Other: this runs on a form POST, so the browser must GET the
-  // target. The default 307 would preserve the method and re-POST to a page.
-  return NextResponse.redirect(new URL(path, req.url), 303);
+// than return JSON, or the browser shows a raw error body. 303 turns the POST
+// into a GET; the relative Location resolves against the public origin rather
+// than the app's internal bind address behind the tunnel.
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 303, headers: { Location: path } });
 }
 
 export async function POST(
@@ -43,14 +43,14 @@ export async function POST(
     })
   ) {
     return token
-      ? redirectTo(req, `/activate?token=${encodeURIComponent(token)}&error=csrf`)
-      : redirectTo(req, "/expired?reason=invalid");
+      ? redirectTo(`/activate?token=${encodeURIComponent(token)}&error=csrf`)
+      : redirectTo("/expired?reason=invalid");
   }
 
   try {
     await denyActivationForUser(id, auth.session.user, req);
-    return redirectTo(req, "/expired?reason=denied");
+    return redirectTo("/expired?reason=denied");
   } catch {
-    return redirectTo(req, "/expired?reason=invalid");
+    return redirectTo("/expired?reason=invalid");
   }
 }

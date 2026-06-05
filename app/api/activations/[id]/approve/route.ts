@@ -11,22 +11,24 @@ export const runtime = "nodejs";
 // JSON body. The activation page re-derives the request's real state from
 // its status, so on any failure we send the user back there (or to /expired
 // when we have no token to rebuild the link).
-function redirectTo(req: NextRequest, path: string) {
-  // 303 See Other: this handler runs on a form POST, so the browser must GET
-  // the target. NextResponse.redirect defaults to 307, which preserves the
-  // method and would re-POST to the GET-only activation page.
-  return NextResponse.redirect(new URL(path, req.url), 303);
+// 303 See Other with a relative Location. 303 turns the form POST into a GET
+// of the target (the default 307 would re-POST to the GET-only page). The
+// Location is left relative so the browser resolves it against the public
+// origin it used, not the app's internal bind address (0.0.0.0:3000) behind
+// the Cloudflare tunnel, which new URL(path, req.url) would otherwise bake in.
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 303, headers: { Location: path } });
 }
 
-function backToActivate(req: NextRequest, token: string, error?: string) {
+function backToActivate(token: string, error?: string) {
   if (!token) {
-    return redirectTo(req, "/expired?reason=invalid");
+    return redirectTo("/expired?reason=invalid");
   }
   const query = new URLSearchParams({ token });
   if (error) {
     query.set("error", error);
   }
-  return redirectTo(req, `/activate?${query.toString()}`);
+  return redirectTo(`/activate?${query.toString()}`);
 }
 
 export async function POST(
@@ -62,7 +64,7 @@ export async function POST(
       activationId: id,
     })
   ) {
-    return backToActivate(req, token, "csrf");
+    return backToActivate(token, "csrf");
   }
 
   try {
@@ -71,16 +73,16 @@ export async function POST(
     // one, show the success state on the activation page itself rather than
     // dumping them on the dashboard with no confirmation.
     if (result.returnUrl) {
-      return redirectTo(req, result.returnUrl);
+      return redirectTo(result.returnUrl);
     }
-    return token ? backToActivate(req, token) : redirectTo(req, "/");
+    return token ? backToActivate(token) : redirectTo("/");
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "activation expired") {
-      return redirectTo(req, "/expired?reason=expired");
+      return redirectTo("/expired?reason=expired");
     }
     // "activation is not pending" (double submit) and "subscription required"
     // both render correctly on the activation page from the request's status.
-    return backToActivate(req, token, "failed");
+    return backToActivate(token, "failed");
   }
 }
