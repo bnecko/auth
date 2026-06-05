@@ -22,6 +22,14 @@ Supported result delivery:
 
 Polling and webhooks are not mutually exclusive — for high-volume apps prefer webhooks and use polling only as a fallback if a delivery has not arrived after a few seconds.
 
+This activation broker is deliberately not OAuth: there is no `access_token`,
+`refresh_token`, or `/userinfo`. It is the simplest way to get a one-time,
+user-approved profile read. If you need standing tokens, JWKS, token
+introspection, or RP-initiated logout, use the full OAuth 2.0 / OIDC support
+instead. See [`oauth.md`](oauth.md) and [`conformance.md`](conformance.md).
+
+All timestamps in this API are RFC 3339 / ISO 8601 (`2026-06-05T19:52:40.384Z`).
+
 ## App Credentials
 
 Each external app needs:
@@ -80,12 +88,23 @@ Request body:
 
 Fields:
 
-- `requestedSubject`: optional app-local identifier, useful for matching pending requests
+- `requestedSubject`: optional app-local identifier, useful for matching pending requests. It is stored verbatim and never verified. It is your label, not an identity claim. See [Security Rules](#security-rules).
 - `scopes`: optional list of requested scopes, defaults to `profile:read`
 - `returnUrl`: optional URL to send the browser after approval
-- `callbackUrl`: accepted and stored, but callback delivery is not active yet
+- `callbackUrl`: optional per-request override of the app's default webhook URL. Delivery happens through registered [webhook endpoints](#webhooks); registering an endpoint is what turns delivery on.
 
-`returnUrl` must match the app's configured `allowed_redirect_urls` prefix list when that list is non-empty.
+`returnUrl` must match the app's configured `allowed_redirect_urls` prefix list when that list is non-empty. Fetch `GET /api/apps/me` to read that list before sending users, rather than discovering a misconfiguration when every click 400s.
+
+To make create idempotent across network retries, send an `Idempotency-Key`
+header (8-255 chars). A replay with the same key returns the original response
+(same token) instead of minting a duplicate request, for the lifetime of the
+request:
+
+```http
+POST /api/activation-requests
+Authorization: Bearer <app-api-key>
+Idempotency-Key: 0f9c2b8a-…
+```
 
 Response:
 
@@ -94,7 +113,7 @@ Response:
   "id": "act_xxx",
   "token": "opaque-token",
   "activationUrl": "https://auth.bneck.com/activate?token=opaque-token",
-  "expiresAt": "2026-05-07 19:15:00+00"
+  "expiresAt": "2026-06-05T19:52:40.384Z"
 }
 ```
 
@@ -124,7 +143,9 @@ Response:
   "id": "act_xxx",
   "status": "approved",
   "approvedUserId": 123,
-  "expiresAt": "2026-05-07 19:15:00+00",
+  "revoked": false,
+  "deniedReason": null,
+  "expiresAt": "2026-06-05T19:52:40.384Z",
   "profile": {
     "id": "usr_abc123",
     "firstName": "Matthew",
@@ -136,7 +157,11 @@ Response:
 }
 ```
 
-If the user unchecked `email:read` or `dob:read` during the approval flow, those respective fields in the `profile` object will be `null`.
+Response fields:
+
+- `profile`: present only while `status` is `approved` and the grant is not revoked; `null` otherwise. If the user unchecked `email:read` or `dob:read` during approval, those fields are `null`.
+- `revoked`: `true` once the app has revoked the grant (see [Revoke](#revoke-an-authorization)). The status stays `approved` but `profile` becomes `null`.
+- `deniedReason`: a machine-readable reason when `status` is `denied` (today: `user_declined`), otherwise `null`.
 
 Statuses:
 
@@ -146,7 +171,7 @@ Statuses:
 - `expired`: request is no longer valid
 - `cancelled`: your app cancelled the request
 
-Poll every 2-5 seconds while the user is in the activation flow. Stop polling when the status is no longer `pending` or when `expiresAt` passes.
+Poll every 2-5 seconds while the user is in the activation flow. Stop polling when the status is no longer `pending` or when `expiresAt` passes. The endpoint is rate limited (see [Rate limits](#rate-limits)); honor `Retry-After` on a `429`.
 
 ## Cancel Activation Request
 
@@ -163,7 +188,88 @@ Response:
 }
 ```
 
-Use this when the user abandons the local flow or your app no longer needs the request.
+Use this when the user abandons the local flow or your app no longer needs the request. Cancel only works while a request is still `pending`; a `404` means it was already decided or never existed.
+
+## App Config
+
+```http
+GET /api/apps/me
+Authorization: Bearer <app-api-key>
+```
+
+Returns the calling app's own configuration so you can validate before sending users:
+
+```json
+{
+  "id": "app_xxx",
+  "name": "Example App",
+  "slug": "example-app",
+  "status": "active",
+  "callbackUrl": "https://app.example.com/webhooks/bottleneck",
+  "allowedRedirectUrls": ["https://app.example.com/auth/return"],
+  "allowedScopes": ["profile:read", "email:read"],
+  "requiredProduct": null
+}
+```
+
+## List Activation Requests
+
+```http
+GET /api/activation-requests?subject=<id>&status=<status>
+Authorization: Bearer <app-api-key>
+```
+
+Lists your app's own requests, newest first, optionally filtered by
+`requestedSubject` and `status`. Use this to recover a request id you lost.
+
+```json
+{
+  "requests": [
+    {
+      "id": "act_xxx",
+      "status": "approved",
+      "requestedSubject": "local-user-1",
+      "approvedUserId": 123,
+      "deniedReason": null,
+      "createdAt": "2026-06-05T19:42:40.000Z",
+      "expiresAt": "2026-06-05T19:52:40.384Z"
+    }
+  ]
+}
+```
+
+## List Authorizations
+
+```http
+GET /api/authorizations
+Authorization: Bearer <app-api-key>
+```
+
+The standing grants users have given your app: `subject` is the user's public
+id, plus the granted scopes.
+
+```json
+{
+  "authorizations": [
+    { "subject": "usr_abc123", "scopes": ["profile:read", "email:read"], "createdAt": "2026-06-05T19:43:00.000Z" }
+  ]
+}
+```
+
+## Revoke an Authorization
+
+```http
+POST /api/activation-requests/:id/revoke
+Authorization: Bearer <app-api-key>
+```
+
+Revokes the user's standing grant for an approved activation. The status
+endpoint then reports `revoked: true` and stops returning the profile. A `409`
+(`not_approved`) means the request was never approved.
+
+```json
+{ "id": "act_xxx", "revoked": true }
+```
 
 ## Approval Result
 
@@ -178,19 +284,43 @@ Your app should still verify approval server-side by polling `GET /api/activatio
 
 ## Error Shape
 
-Errors use JSON:
+Errors are JSON with a human-readable `error` and a stable machine-readable
+`code`. Branch on `code`, not on the English string:
 
 ```json
 {
-  "error": "invalid app credentials"
+  "error": "return url is not allowed",
+  "code": "return_url_not_allowed"
 }
 ```
 
-Common HTTP statuses:
+Codes and their statuses:
 
-- `400`: invalid request, invalid return URL, expired or invalid activation
-- `401`: missing or invalid bearer token
-- `403`: forbidden action
+| Code | Status | Meaning |
+|---|---|---|
+| `unauthorized` | 401 | missing bearer api key |
+| `invalid_credentials` | 401 | unknown or disabled app key |
+| `return_url_not_allowed` | 400 | returnUrl not in the app allowlist |
+| `not_found` | 404 | no such request for this app |
+| `not_pending` | 409 | request already decided |
+| `not_approved` | 409 | revoke target was never approved |
+| `expired` | 410 | request lapsed |
+| `subscription_required` | 403 | required product not active |
+| `rate_limited` | 429 | see `Retry-After` |
+| `internal_error` | 400 | unexpected failure |
+
+## Rate limits
+
+Per app key: create is 60/min, status polling is 300/min. Over the limit you
+get `429` with `Retry-After` and `RateLimit-Reset` (both seconds). Honor
+`Retry-After`; honest 2-5s polling never reaches the ceiling.
+
+## Domain migration
+
+`auth.bottleneck.cc` has moved to `auth.bneck.com`. The old origin returns
+`410 Gone` for `/api/*` with `Deprecation`/`Sunset` headers and a `location`
+pointing at the new origin. Update your base URL; do not follow the old origin
+in code.
 
 ## Security Rules
 
@@ -202,6 +332,12 @@ Common HTTP statuses:
 - Verify final status with the server before granting access.
 - Request the smallest scope set possible.
 - Cancel abandoned requests.
+- `requestedSubject` is an unauthenticated label you supply. The auth server
+  stores it but never verifies it against the user who approves. Match on it,
+  but treat `approvedUserId` / `profile.id` as the only authoritative identity.
+- The bearer API key is a single shared secret with no per-request signing. If
+  it leaks, an attacker can mint and read activations for your app until you
+  rotate it. Keep it in a secret manager and rotate on any suspected exposure.
 
 ## Webhooks
 
@@ -341,15 +477,17 @@ export async function getBottleneckAuthStatus(id: string) {
     id: string;
     status: "pending" | "approved" | "denied" | "expired" | "cancelled";
     approvedUserId: number | null;
+    revoked: boolean;
+    deniedReason: string | null;
     expiresAt: string;
-    profile?: {
+    profile: {
       id: string;
       firstName: string;
       username: string;
       bio: string | null;
       email: string | null;
       dob: string | null;
-    };
+    } | null;
   };
 }
 ```
