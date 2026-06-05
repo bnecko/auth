@@ -46,7 +46,7 @@ export default async function ActivatePage({
   // the user submit a second time and hit a raw "not pending" error.
   if (activation.status === "approved") {
     return (
-      <AuthShell tag="auth/authorized">
+      <AuthShell tag="auth/authorized" account={{ username: current.user.username }}>
         <div className="flex items-start gap-4 mb-7">
           <div
             className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
@@ -101,7 +101,7 @@ export default async function ActivatePage({
   );
 
   return (
-    <AuthShell tag="auth/authorize">
+    <AuthShell tag="auth/authorize" account={{ username: current.user.username }}>
       <div className="flex items-start gap-4 mb-7">
         <div
           className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"

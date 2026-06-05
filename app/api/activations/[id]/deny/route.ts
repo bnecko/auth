@@ -8,7 +8,9 @@ export const runtime = "nodejs";
 // Native HTML POST: every branch must redirect to a rendered page rather
 // than return JSON, or the browser shows a raw error body.
 function redirectTo(req: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, req.url));
+  // 303 See Other: this runs on a form POST, so the browser must GET the
+  // target. The default 307 would preserve the method and re-POST to a page.
+  return NextResponse.redirect(new URL(path, req.url), 303);
 }
 
 export async function POST(

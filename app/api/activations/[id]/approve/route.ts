@@ -12,7 +12,10 @@ export const runtime = "nodejs";
 // its status, so on any failure we send the user back there (or to /expired
 // when we have no token to rebuild the link).
 function redirectTo(req: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, req.url));
+  // 303 See Other: this handler runs on a form POST, so the browser must GET
+  // the target. NextResponse.redirect defaults to 307, which preserves the
+  // method and would re-POST to the GET-only activation page.
+  return NextResponse.redirect(new URL(path, req.url), 303);
 }
 
 function backToActivate(req: NextRequest, token: string, error?: string) {

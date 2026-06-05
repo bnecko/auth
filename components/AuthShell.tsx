@@ -28,9 +28,13 @@ function Monogram() {
 export function AuthShell({
   children,
   tag,
+  account,
 }: {
   children: React.ReactNode;
   tag?: string;
+  // When the page already has a signed-in user (e.g. the authorize screen),
+  // pass it so the header reflects that instead of offering sign in / register.
+  account?: { username: string } | null;
 }) {
   return (
     <main className="scanlines min-h-screen flex flex-col">
@@ -46,12 +50,20 @@ export function AuthShell({
           <span className="text-meta text-muted">/ auth</span>
         </Link>
         <nav className="flex items-center gap-5 text-meta text-secondary">
-          <Link href="/login" className="hover:text-accent transition-colors">
-            sign in
-          </Link>
-          <Link href="/register" className="hover:text-accent transition-colors">
-            register
-          </Link>
+          {account ? (
+            <Link href="/" className="hover:text-accent transition-colors">
+              {account.username}
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="hover:text-accent transition-colors">
+                sign in
+              </Link>
+              <Link href="/register" className="hover:text-accent transition-colors">
+                register
+              </Link>
+            </>
+          )}
         </nav>
       </header>
 

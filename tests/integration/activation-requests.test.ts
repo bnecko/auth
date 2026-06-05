@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { queryOne } from '@/lib/server/db';
 import { hashToken, publicId, randomToken } from '@/lib/server/crypto';
@@ -9,6 +9,9 @@ import {
   listActivationRequestsForApp,
   revokeActivationForApp,
 } from '@/lib/server/services/activation';
+import { createUser } from '@/lib/server/repositories/users';
+import { createSession } from '@/lib/server/repositories/sessions';
+import { mintActivationCsrf } from '@/lib/server/activationCsrf';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -174,5 +177,61 @@ describeDb('Activation requests: createExternalActivationRequest', () => {
     await expect(
       revokeActivationForApp(apiKey, created.id, makeRequest()),
     ).rejects.toMatchObject({ code: 'not_approved' });
+  });
+
+  it('approve POST replies 303 (See Other) back to the activation page', async () => {
+    vi.stubEnv('OAUTH_CSRF_SECRET', 'test-csrf-secret');
+    const { apiKey } = await seedApp();
+    const created = await createExternalActivationRequest(
+      apiKey,
+      { scopes: ['profile:read'] },
+      makeRequest(),
+    );
+
+    const suffix = randomToken(6).toLowerCase();
+    const user = await createUser({
+      publicId: publicId('usr'),
+      firstName: 'Approver',
+      username: `appr_${suffix}`,
+      bio: null,
+      email: `appr_${suffix}@example.com`,
+      dob: null,
+      passwordHash: 'x',
+      telegram: null,
+    });
+    const sessionToken = randomToken();
+    const session = await createSession({
+      userId: user.id,
+      token: sessionToken,
+      ip: '',
+      userAgent: '',
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    const csrf = mintActivationCsrf({ sessionId: session.id, activationId: created.id });
+
+    const body = new URLSearchParams({
+      csrf_token: csrf,
+      token: created.token,
+      scopes: 'profile:read',
+    });
+    const req = new NextRequest(
+      `http://localhost/api/activations/${created.id}/approve`,
+      {
+        method: 'POST',
+        headers: {
+          cookie: `bn_session=${sessionToken}`,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      },
+    );
+
+    const { POST } = await import('@/app/api/activations/[id]/approve/route');
+    const res = await POST(req, { params: Promise.resolve({ id: created.id }) });
+
+    // 303 (not the default 307) so the browser GETs the page instead of
+    // re-POSTing to it; Location carries the token back to the success view.
+    expect(res.status).toBe(303);
+    expect(res.headers.get('location')).toContain(`/activate?token=${created.token}`);
   });
 });
