@@ -14,9 +14,15 @@ export async function rateLimit(
   const multi = redis.multi();
   multi.incr(key);
   multi.pttl(key);
-  
-  const results = await multi.exec();
-  
+
+  let results: Awaited<ReturnType<typeof multi.exec>> = null;
+  try {
+    results = await multi.exec();
+  } catch {
+    // Fail open on a Redis connection error rather than locking everyone out.
+    return { success: true, reset: Date.now() + windowMs, remaining: limit };
+  }
+
   if (!results) {
     // If multi fails, fail open to prevent locking out users on Redis transient errors
     return { success: true, reset: Date.now() + windowMs, remaining: limit };

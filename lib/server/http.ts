@@ -100,3 +100,20 @@ export function forbidden(message = "forbidden") {
 export function tooManyRequests(message = "too many requests") {
   return json({ error: message }, 429);
 }
+
+// 429 with a Retry-After (seconds) the client can honor, plus the coded
+// envelope. resetMs is the epoch-ms when the current window clears.
+export function rateLimited(resetMs: number) {
+  const retryAfter = Math.max(1, Math.ceil((resetMs - Date.now()) / 1000));
+  return NextResponse.json(
+    { error: "rate limited", code: "rate_limited" },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfter),
+        "RateLimit-Reset": String(retryAfter),
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}

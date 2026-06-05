@@ -1,6 +1,8 @@
 import { type NextRequest } from "next/server";
 import { bearerToken } from "@/lib/server/apiAuth";
-import { apiError, json } from "@/lib/server/http";
+import { apiError, json, rateLimited } from "@/lib/server/http";
+import { hashToken } from "@/lib/server/crypto";
+import { rateLimit } from "@/lib/server/rateLimit";
 import { toIso } from "@/lib/server/time";
 import { findExternalAppByApiKey } from "@/lib/server/repositories/externalApps";
 import { findActivationByPublicId } from "@/lib/server/repositories/activationRequests";
@@ -16,6 +18,13 @@ export async function GET(
   const apiKey = bearerToken(req);
   if (!apiKey) {
     return apiError("missing bearer api key", "unauthorized", 401);
+  }
+
+  // Polling endpoint: a generous per-key ceiling (5/s) that honest 2-5s polling
+  // never reaches, but a hot loop does. Returns 429 + Retry-After.
+  const rl = await rateLimit(`rl:activation:status:${hashToken(apiKey)}`, 300, 60_000);
+  if (!rl.success) {
+    return rateLimited(rl.reset);
   }
 
   const app = await findExternalAppByApiKey(apiKey);

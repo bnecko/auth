@@ -1,6 +1,8 @@
 import { type NextRequest } from "next/server";
 import { bearerToken } from "@/lib/server/apiAuth";
-import { apiError, json, requestBody } from "@/lib/server/http";
+import { apiError, json, rateLimited, requestBody } from "@/lib/server/http";
+import { hashToken } from "@/lib/server/crypto";
+import { rateLimit } from "@/lib/server/rateLimit";
 import {
   activationErrorResponse,
   createExternalActivationRequest,
@@ -13,6 +15,11 @@ export async function POST(req: NextRequest) {
   const apiKey = bearerToken(req);
   if (!apiKey) {
     return apiError("missing bearer api key", "unauthorized", 401);
+  }
+
+  const rl = await rateLimit(`rl:activation:create:${hashToken(apiKey)}`, 60, 60_000);
+  if (!rl.success) {
+    return rateLimited(rl.reset);
   }
 
   try {
