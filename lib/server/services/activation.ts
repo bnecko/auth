@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { activationTtlMinutes, authBaseUrl } from "../config";
 import { publicId, randomToken } from "../crypto";
 import { apiError, requestContext } from "../http";
+import redis from "../redis";
 import {
   approveActivation,
   cancelActivation,
@@ -74,14 +75,38 @@ async function fireActivationWebhook(input: {
   }
 }
 
+type ActivationCreateResult = {
+  id: string;
+  token: string;
+  activationUrl: string;
+  expiresAt: string | null;
+};
+
 export async function createExternalActivationRequest(
   apiKey: string,
   body: Record<string, unknown>,
   req: NextRequest,
-) {
+  idempotencyKey?: string | null,
+): Promise<ActivationCreateResult> {
   const app = await findExternalAppByApiKey(apiKey);
   if (!app || app.status !== "active") {
     throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
+  }
+
+  // Idempotency: a retried create with the same key returns the original
+  // response (including its one-time token) instead of minting a duplicate.
+  // The cached value lives for the activation TTL, which is the only window in
+  // which a replay is meaningful. Keyed per app so keys cannot collide across
+  // tenants.
+  const idemKey =
+    idempotencyKey && idempotencyKey.length >= 8 && idempotencyKey.length <= 255
+      ? `idem:activation:${app.id}:${idempotencyKey}`
+      : null;
+  if (idemKey) {
+    const cached = await redis.get(idemKey);
+    if (cached) {
+      return JSON.parse(cached) as ActivationCreateResult;
+    }
   }
 
   const context = requestContext(req);
@@ -110,12 +135,33 @@ export async function createExternalActivationRequest(
     expiresAt,
   });
 
-  return {
+  const result: ActivationCreateResult = {
     id: request.publicId,
     token,
     activationUrl: `${authBaseUrl()}/activate?token=${token}`,
     expiresAt: toIso(request.expiresAt),
   };
+
+  if (idemKey) {
+    // SET NX so a concurrent create with the same key does not clobber the
+    // canonical response. If we lost the race, return the winner's cached
+    // value; our just-created row is orphaned and expires on its own.
+    const stored = await redis.set(
+      idemKey,
+      JSON.stringify(result),
+      "EX",
+      activationTtlMinutes() * 60,
+      "NX",
+    );
+    if (stored === null) {
+      const existing = await redis.get(idemKey);
+      if (existing) {
+        return JSON.parse(existing) as ActivationCreateResult;
+      }
+    }
+  }
+
+  return result;
 }
 
 export async function getActivationForUser(token: string, user: User) {

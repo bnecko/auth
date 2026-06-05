@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await requestBody(req);
-    const result = await createExternalActivationRequest(apiKey, body, req);
+    const idempotencyKey = req.headers.get("idempotency-key");
+    const result = await createExternalActivationRequest(apiKey, body, req, idempotencyKey);
     return json(result, 201);
   } catch (err) {
     return activationErrorResponse(err);
