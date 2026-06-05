@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { bearerToken } from "@/lib/server/apiAuth";
-import { badRequest, json, unauthorized } from "@/lib/server/http";
+import { apiError, json } from "@/lib/server/http";
+import { toIso } from "@/lib/server/time";
 import { findExternalAppByApiKey } from "@/lib/server/repositories/externalApps";
 import { findActivationByPublicId } from "@/lib/server/repositories/activationRequests";
 import { findUserById } from "@/lib/server/repositories/users";
@@ -14,18 +15,18 @@ export async function GET(
 ) {
   const apiKey = bearerToken(req);
   if (!apiKey) {
-    return unauthorized();
+    return apiError("missing bearer api key", "unauthorized", 401);
   }
 
   const app = await findExternalAppByApiKey(apiKey);
   if (!app) {
-    return unauthorized();
+    return apiError("invalid app credentials", "invalid_credentials", 401);
   }
 
   const { id } = await params;
   const activation = await findActivationByPublicId(id);
   if (!activation || activation.app.id !== app.id) {
-    return badRequest("activation not found");
+    return apiError("activation not found", "not_found", 404);
   }
 
   // A pending row whose expires_at has passed without any user
@@ -58,7 +59,7 @@ export async function GET(
     id: activation.publicId,
     status: effectiveStatus,
     approvedUserId: activation.approvedUserId,
-    expiresAt: activation.expiresAt,
+    expiresAt: toIso(activation.expiresAt),
     profile,
   });
 }

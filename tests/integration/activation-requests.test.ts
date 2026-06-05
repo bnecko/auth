@@ -58,7 +58,9 @@ describeDb('Activation requests: createExternalActivationRequest', () => {
     expect(result.id).toMatch(/^act_/);
     expect(result.token).toBeTypeOf('string');
     expect(result.activationUrl).toContain(result.token);
-    expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
+    // expiresAt is RFC 3339 (ISO 8601 with a Z offset), not Postgres text.
+    expect(result.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
+    expect(new Date(result.expiresAt as string).getTime()).toBeGreaterThan(Date.now());
   });
 
   it('rejects a returnUrl outside the allowed prefix list', async () => {

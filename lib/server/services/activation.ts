@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { activationTtlMinutes, authBaseUrl } from "../config";
 import { publicId, randomToken } from "../crypto";
-import { requestContext } from "../http";
+import { apiError, requestContext } from "../http";
 import {
   approveActivation,
   cancelActivation,
@@ -15,8 +15,32 @@ import { findExternalAppByApiKey } from "../repositories/externalApps";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { hasActiveSubscription } from "../repositories/subscriptions";
 import type { User } from "../types";
+import { toIso } from "../time";
 import { parseScopes } from "../validation";
 import { enqueueWebhookEvent } from "../webhooks";
+
+// Carries a machine-readable code and HTTP status so integrator-facing routes
+// can return {error, code} with the right status instead of a bare string.
+// Mirrors OAuthError in services/oauth.ts.
+export class ActivationError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public status = 400,
+  ) {
+    super(message);
+  }
+}
+
+// Maps a thrown error to the integrator API envelope. Known ActivationErrors
+// surface their code and status; anything else collapses to a generic 400 so
+// internal detail never leaks to the caller.
+export function activationErrorResponse(err: unknown) {
+  if (err instanceof ActivationError) {
+    return apiError(err.message, err.code, err.status);
+  }
+  return apiError("activation failed", "internal_error", 400);
+}
 
 // Webhook enqueue is best-effort: a downstream side effect must never
 // roll back the activation state transition the user just authorized.
@@ -52,7 +76,7 @@ export async function createExternalActivationRequest(
 ) {
   const app = await findExternalAppByApiKey(apiKey);
   if (!app || app.status !== "active") {
-    throw new Error("invalid app credentials");
+    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
   }
 
   const context = requestContext(req);
@@ -64,7 +88,7 @@ export async function createExternalActivationRequest(
     typeof body.callbackUrl === "string" ? body.callbackUrl : app.callbackUrl;
 
   if (returnUrl && !isAllowedReturnUrl(returnUrl, app.allowedRedirectUrls)) {
-    throw new Error("return url is not allowed");
+    throw new ActivationError("return_url_not_allowed", "return url is not allowed", 400);
   }
 
   const request = await createActivationRequest({
@@ -85,7 +109,7 @@ export async function createExternalActivationRequest(
     id: request.publicId,
     token,
     activationUrl: `${authBaseUrl()}/activate?token=${token}`,
-    expiresAt: request.expiresAt,
+    expiresAt: toIso(request.expiresAt),
   };
 }
 
@@ -118,23 +142,23 @@ export async function approveActivationForUser(
   const context = requestContext(req);
   const activation = await findActivationByPublicId(publicIdValue);
   if (!activation || activation.status !== "pending") {
-    throw new Error("activation is not pending");
+    throw new ActivationError("not_pending", "activation is not pending", 409);
   }
 
   if (Date.parse(activation.expiresAt) <= Date.now()) {
-    throw new Error("activation expired");
+    throw new ActivationError("expired", "activation expired", 410);
   }
 
   if (activation.app.requiredProduct) {
     const ok = await hasActiveSubscription(user.id, activation.app.requiredProduct);
     if (!ok) {
-      throw new Error("subscription required");
+      throw new ActivationError("subscription_required", "subscription required", 403);
     }
   }
 
   const approved = await approveActivation(publicIdValue, user.id);
   if (!approved) {
-    throw new Error("activation could not be approved");
+    throw new ActivationError("not_pending", "activation could not be approved", 409);
   }
 
   const finalScopes = grantedScopes
@@ -269,7 +293,7 @@ export async function cancelExternalActivationRequest(
 ) {
   const app = await findExternalAppByApiKey(apiKey);
   if (!app || app.status !== "active") {
-    throw new Error("invalid app credentials");
+    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
   }
 
   const cancelled = await cancelActivation(publicIdValue, app.id);

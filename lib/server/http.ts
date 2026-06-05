@@ -82,6 +82,13 @@ export function badRequest(message: string) {
   return json({ error: message }, 400);
 }
 
+// Error envelope for the external integrator API: a human-readable `error`
+// string plus a stable machine-readable `code`, so clients can branch on the
+// code instead of string-matching English.
+export function apiError(message: string, code: string, status = 400) {
+  return json({ error: message, code }, status);
+}
+
 export function unauthorized(message = "unauthorized") {
   return json({ error: message }, 401);
 }
