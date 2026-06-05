@@ -9,8 +9,13 @@ import {
   denyActivation,
   findActivationByPublicId,
   findActivationByToken,
+  listActivationsForApp,
 } from "../repositories/activationRequests";
-import { upsertAuthorization } from "../repositories/authorizations";
+import {
+  listAuthorizationsForApp,
+  revokeAuthorization,
+  upsertAuthorization,
+} from "../repositories/authorizations";
 import { findExternalAppByApiKey } from "../repositories/externalApps";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { hasActiveSubscription } from "../repositories/subscriptions";
@@ -312,4 +317,89 @@ export async function cancelExternalActivationRequest(
     });
   }
   return cancelled;
+}
+
+async function requireApp(apiKey: string) {
+  const app = await findExternalAppByApiKey(apiKey);
+  if (!app || app.status !== "active") {
+    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
+  }
+  return app;
+}
+
+// The app's own configuration, so an integrator can validate its redirect
+// allowlist and scopes before sending users through a flow that would 400.
+export async function getAppForApiKey(apiKey: string) {
+  const app = await requireApp(apiKey);
+  return {
+    id: app.publicId,
+    name: app.name,
+    slug: app.slug,
+    status: app.status,
+    callbackUrl: app.callbackUrl,
+    allowedRedirectUrls: app.allowedRedirectUrls,
+    allowedScopes: app.allowedScopes,
+    requiredProduct: app.requiredProduct,
+  };
+}
+
+export async function listActivationRequestsForApp(
+  apiKey: string,
+  filter: { subject?: string | null; status?: string | null },
+) {
+  const app = await requireApp(apiKey);
+  const rows = await listActivationsForApp({
+    appId: app.id,
+    subject: filter.subject,
+    status: filter.status,
+  });
+  return rows.map(row => ({
+    id: row.publicId,
+    status: row.status,
+    requestedSubject: row.requestedSubject,
+    approvedUserId: row.approvedUserId,
+    deniedReason: row.status === "denied" ? row.deniedReason : null,
+    createdAt: toIso(row.createdAt),
+    expiresAt: toIso(row.expiresAt),
+  }));
+}
+
+export async function listAppAuthorizations(apiKey: string) {
+  const app = await requireApp(apiKey);
+  const rows = await listAuthorizationsForApp(app.id);
+  return rows.map(row => ({
+    subject: row.subject,
+    scopes: row.scopes,
+    createdAt: toIso(row.createdAt),
+  }));
+}
+
+// Revokes the standing grant a user gave this app. The activation row stays as
+// historical record; revoking the authorization is what cuts off the profile
+// (the status endpoint stops returning it and reports revoked: true).
+export async function revokeActivationForApp(
+  apiKey: string,
+  publicIdValue: string,
+  req: NextRequest,
+) {
+  const app = await requireApp(apiKey);
+  const context = requestContext(req);
+  const activation = await findActivationByPublicId(publicIdValue);
+  if (!activation || activation.app.id !== app.id) {
+    throw new ActivationError("not_found", "activation not found", 404);
+  }
+  if (activation.status !== "approved" || !activation.approvedUserId) {
+    throw new ActivationError("not_approved", "activation is not approved", 409);
+  }
+
+  await revokeAuthorization(activation.approvedUserId, app.id);
+  await recordSecurityEvent({
+    userId: activation.approvedUserId,
+    eventType: "activation_revoked",
+    result: "ok",
+    context,
+    metadata: { activationId: publicIdValue, app: app.slug },
+  });
+
+  return { id: publicIdValue, revoked: true };
 }

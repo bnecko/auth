@@ -5,6 +5,9 @@ import { hashToken, publicId, randomToken } from '@/lib/server/crypto';
 import {
   cancelExternalActivationRequest,
   createExternalActivationRequest,
+  getAppForApiKey,
+  listActivationRequestsForApp,
+  revokeActivationForApp,
 } from '@/lib/server/services/activation';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
@@ -129,5 +132,47 @@ describeDb('Activation requests: createExternalActivationRequest', () => {
     const body = (await res.json()) as { status: string; profile: unknown };
     expect(body.status).toBe('expired');
     expect(body.profile).toBeNull();
+  });
+
+  it('getAppForApiKey exposes the app config for pre-flight validation', async () => {
+    const { apiKey } = await seedApp(['https://example.com/cb/']);
+    const me = await getAppForApiKey(apiKey);
+    expect(me.id).toMatch(/^app_/);
+    expect(me.status).toBe('active');
+    expect(me.allowedRedirectUrls).toEqual(['https://example.com/cb/']);
+  });
+
+  it('listActivationRequestsForApp returns the app rows, filtered by subject', async () => {
+    const { apiKey } = await seedApp();
+    await createExternalActivationRequest(
+      apiKey,
+      { scopes: ['profile:read'], requestedSubject: 'subj-a' },
+      makeRequest(),
+    );
+    await createExternalActivationRequest(
+      apiKey,
+      { scopes: ['profile:read'], requestedSubject: 'subj-b' },
+      makeRequest(),
+    );
+
+    const all = await listActivationRequestsForApp(apiKey, {});
+    expect(all.length).toBeGreaterThanOrEqual(2);
+    expect(all[0].expiresAt).toMatch(/Z$/);
+
+    const onlyA = await listActivationRequestsForApp(apiKey, { subject: 'subj-a' });
+    expect(onlyA).toHaveLength(1);
+    expect(onlyA[0].requestedSubject).toBe('subj-a');
+  });
+
+  it('revoke rejects a request that is not approved', async () => {
+    const { apiKey } = await seedApp();
+    const created = await createExternalActivationRequest(
+      apiKey,
+      { scopes: ['profile:read'] },
+      makeRequest(),
+    );
+    await expect(
+      revokeActivationForApp(apiKey, created.id, makeRequest()),
+    ).rejects.toMatchObject({ code: 'not_approved' });
   });
 });

@@ -267,6 +267,27 @@ export async function cancelActivation(publicId: string, appId: number) {
   return row ? mapActivation(row) : null;
 }
 
+// The app's own activation requests, optionally filtered by subject or status,
+// so an integrator that lost the request id can recover it. Scoped to one app.
+export async function listActivationsForApp(input: {
+  appId: number;
+  subject?: string | null;
+  status?: string | null;
+  limit?: number;
+}) {
+  const rows = await query<ActivationRow>(
+    `select ${activationSelect}
+       from activation_requests
+      where external_app_id = $1
+        and ($2::text is null or requested_subject = $2)
+        and ($3::text is null or status = $3)
+      order by created_at desc
+      limit $4`,
+    [input.appId, input.subject ?? null, input.status ?? null, input.limit ?? 50],
+  );
+  return rows.map(mapActivation);
+}
+
 export async function listRecentActivationsForUser(userId: number, limit = 20) {
   const rows = await query<ActivationWithAppRow>(
     `select

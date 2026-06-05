@@ -84,3 +84,45 @@ export async function findAuthorization(userId: number, appId: number) {
   );
   return row ? { scopes: row.scopes || [] } : null;
 }
+
+// Like findAuthorization but distinguishes "never authorized" (null) from
+// "authorized then revoked" (revoked: true), so the activation status endpoint
+// can report a revoked grant instead of silently dropping the profile.
+export async function findAuthorizationState(userId: number, appId: number) {
+  const row = await queryOne<{ scopes: string[]; revoked_at: string | null }>(
+    `select scopes, revoked_at::text
+       from app_authorizations
+      where user_id = $1 and external_app_id = $2`,
+    [userId, appId],
+  );
+  if (!row) {
+    return null;
+  }
+  return { scopes: row.scopes || [], revoked: row.revoked_at !== null };
+}
+
+// Authorizations granted to one app, for the integrator's GET /api/authorizations.
+// Subject is the user's public id, never the internal row id.
+export async function listAuthorizationsForApp(appId: number, limit = 200) {
+  const rows = await query<{
+    subject: string;
+    scopes: string[];
+    created_at: string;
+  }>(
+    `select u.public_id as subject,
+            aa.scopes,
+            aa.created_at::text
+       from app_authorizations aa
+       join users u on u.id = aa.user_id
+      where aa.external_app_id = $1
+        and aa.revoked_at is null
+      order by aa.created_at desc
+      limit $2`,
+    [appId, limit],
+  );
+  return rows.map(row => ({
+    subject: row.subject,
+    scopes: row.scopes || [],
+    createdAt: row.created_at,
+  }));
+}

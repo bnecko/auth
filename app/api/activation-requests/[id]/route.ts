@@ -5,7 +5,7 @@ import { toIso } from "@/lib/server/time";
 import { findExternalAppByApiKey } from "@/lib/server/repositories/externalApps";
 import { findActivationByPublicId } from "@/lib/server/repositories/activationRequests";
 import { findUserById } from "@/lib/server/repositories/users";
-import { findAuthorization } from "@/lib/server/repositories/authorizations";
+import { findAuthorizationState } from "@/lib/server/repositories/authorizations";
 
 export const runtime = "nodejs";
 
@@ -40,18 +40,22 @@ export async function GET(
       : activation.status;
 
   let profile = null;
+  let revoked = false;
   if (effectiveStatus === "approved" && activation.approvedUserId) {
-    const user = await findUserById(activation.approvedUserId);
-    const auth = await findAuthorization(activation.approvedUserId, app.id);
-    if (user && auth) {
-      profile = {
-        id: user.publicId,
-        firstName: user.firstName,
-        username: user.username,
-        bio: user.bio,
-        email: auth.scopes.includes("email:read") ? user.email : null,
-        dob: auth.scopes.includes("dob:read") ? user.dob : null,
-      };
+    const auth = await findAuthorizationState(activation.approvedUserId, app.id);
+    revoked = auth?.revoked ?? false;
+    if (auth && !auth.revoked) {
+      const user = await findUserById(activation.approvedUserId);
+      if (user) {
+        profile = {
+          id: user.publicId,
+          firstName: user.firstName,
+          username: user.username,
+          bio: user.bio,
+          email: auth.scopes.includes("email:read") ? user.email : null,
+          dob: auth.scopes.includes("dob:read") ? user.dob : null,
+        };
+      }
     }
   }
 
@@ -59,6 +63,7 @@ export async function GET(
     id: activation.publicId,
     status: effectiveStatus,
     approvedUserId: activation.approvedUserId,
+    revoked,
     deniedReason: effectiveStatus === "denied" ? activation.deniedReason : null,
     expiresAt: toIso(activation.expiresAt),
     profile,
