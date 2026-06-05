@@ -9,6 +9,7 @@ type ActivationRow = {
   status: ActivationRequest["status"];
   requested_subject: string | null;
   approved_user_id: string | null;
+  denied_reason: string | null;
   scopes: string[];
   callback_url: string | null;
   return_url: string | null;
@@ -46,6 +47,7 @@ function mapActivation(row: ActivationRow): ActivationRequest {
     status: row.status,
     requestedSubject: row.requested_subject,
     approvedUserId: row.approved_user_id ? Number(row.approved_user_id) : null,
+    deniedReason: row.denied_reason,
     scopes: row.scopes || [],
     callbackUrl: row.callback_url,
     returnUrl: row.return_url,
@@ -89,6 +91,7 @@ const activationSelect = `
   status,
   requested_subject,
   approved_user_id,
+  denied_reason,
   scopes,
   callback_url,
   return_url,
@@ -105,6 +108,7 @@ const activationSelectWithAlias = `
   ar.status,
   ar.requested_subject,
   ar.approved_user_id,
+  ar.denied_reason,
   ar.scopes,
   ar.callback_url,
   ar.return_url,
@@ -235,15 +239,16 @@ export async function approveActivation(publicId: string, userId: number) {
   return row ? mapActivation(row) : null;
 }
 
-export async function denyActivation(publicId: string) {
+export async function denyActivation(publicId: string, reason: string) {
   const row = await queryOne<ActivationRow>(
     `update activation_requests
         set status = 'denied',
-            denied_at = now()
+            denied_at = now(),
+            denied_reason = $2
       where public_id = $1
         and status = 'pending'
       returning ${activationSelect}`,
-    [publicId],
+    [publicId, reason],
   );
   return row ? mapActivation(row) : null;
 }

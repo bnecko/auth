@@ -65,6 +65,7 @@ export type ActivationRequest = {
   status: "pending" | "approved" | "denied" | "expired" | "cancelled";
   requestedSubject: string | null;
   approvedUserId: number | null;
+  deniedReason: string | null;
   scopes: string[];
   callbackUrl: string | null;
   returnUrl: string | null;

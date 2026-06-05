@@ -214,9 +214,10 @@ export async function denyActivationForUser(
   publicIdValue: string,
   user: User,
   req: NextRequest,
+  reason = "user_declined",
 ) {
   const context = requestContext(req);
-  const activation = await denyActivation(publicIdValue);
+  const activation = await denyActivation(publicIdValue, reason);
 
   await recordSecurityEvent({
     userId: user.id,
@@ -234,6 +235,7 @@ export async function denyActivationForUser(
       payload: {
         id: publicIdValue,
         status: "denied",
+        deniedReason: reason,
         deniedAt: new Date().toISOString(),
       },
     });

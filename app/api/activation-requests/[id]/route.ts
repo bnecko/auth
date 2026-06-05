@@ -59,6 +59,7 @@ export async function GET(
     id: activation.publicId,
     status: effectiveStatus,
     approvedUserId: activation.approvedUserId,
+    deniedReason: effectiveStatus === "denied" ? activation.deniedReason : null,
     expiresAt: toIso(activation.expiresAt),
     profile,
   });

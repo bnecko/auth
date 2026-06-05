@@ -88,6 +88,7 @@ create table activation_requests (
   expires_at timestamptz not null,
   approved_at timestamptz,
   denied_at timestamptz,
+  denied_reason text,
   cancelled_at timestamptz
 );
 
