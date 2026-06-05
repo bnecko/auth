@@ -127,6 +127,14 @@ describeDb('webhook delivery loop', () => {
     responseStatus = 200;
     const { deliveryId } = await seedPendingDelivery('/ok');
 
+    // processWebhookBatch claims pending deliveries table-wide. Other suites
+    // (e.g. webhook-enqueue) leave pending rows in the shared DB, so neutralize
+    // them first; otherwise this batch delivers and counts foreign rows too.
+    await query(
+      `update webhook_deliveries set status = 'cancelled' where id <> $1 and status = 'pending'`,
+      [deliveryId],
+    );
+
     await worker.processWebhookBatch();
 
     const row = await readDelivery(deliveryId);
