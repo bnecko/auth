@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { env } from "@/lib/server/config";
-import { hashToken } from "@/lib/server/crypto";
+import { hashToken, safeEqual } from "@/lib/server/crypto";
 import { badRequest, forbidden, json, requestBody, requestContext } from "@/lib/server/http";
 import {
   verifyRegistrationByTelegram,
@@ -13,7 +13,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const secret = env("TELEGRAM_BOT_WEBHOOK_SECRET");
-  if (secret && req.headers.get("x-bottleneck-bot-secret") !== secret) {
+  const provided = req.headers.get("x-bottleneck-bot-secret") || "";
+  if (!secret || !safeEqual(provided, secret)) {
     return forbidden();
   }
 
