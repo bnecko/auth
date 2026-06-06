@@ -14,26 +14,34 @@ export type RequestContext = {
 // logging. In production we require an explicit TRUSTED_PROXY value to
 // opt in to a specific proxy's header. Outside production the headers
 // are still read so local development behind a reverse proxy works.
-function clientIp(req: NextRequest): string {
+// Resolves the client IP from proxy headers, trusting them only when
+// TRUSTED_PROXY opts in to a specific proxy. Takes a header getter so the
+// same gate applies to both NextRequest handlers and server actions (which
+// read headers via next/headers) — otherwise server actions would trust
+// spoofable headers that the request path correctly ignores.
+function resolveClientIp(get: (name: string) => string | null | undefined): string {
   const trusted = env("TRUSTED_PROXY").toLowerCase();
 
   if (trusted === "cf" || (!isProduction() && trusted === "")) {
-    const cf = req.headers.get("cf-connecting-ip");
+    const cf = get("cf-connecting-ip");
     if (cf) return cf;
   }
 
   if (trusted === "xff" || (!isProduction() && trusted === "")) {
-    const real = req.headers.get("x-real-ip");
+    const real = get("x-real-ip");
     if (real) return real;
-    const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const fwd = get("x-forwarded-for")?.split(",")[0]?.trim();
     if (fwd) return fwd;
   }
 
-  // Next.js does not expose req.ip on NextRequest in all runtimes; if no
-  // trusted header is available we surface an empty string so callers can
-  // decide whether to skip per-IP rate limiting rather than rate-limiting
-  // every visitor under a shared empty key.
+  // No trusted header available: surface an empty string so callers can
+  // decide whether to skip per-IP rate limiting rather than bucketing every
+  // visitor under a shared empty key.
   return "";
+}
+
+function clientIp(req: NextRequest): string {
+  return resolveClientIp(name => req.headers.get(name));
 }
 
 export function requestContext(req: NextRequest): RequestContext {
@@ -53,7 +61,7 @@ export function requestContextFromHeaders(
   h: Awaited<ReturnType<typeof import("next/headers").headers>>,
 ): RequestContext {
   return {
-    ip: h.get("cf-connecting-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
+    ip: resolveClientIp(name => h.get(name)),
     userAgent: h.get("user-agent") || "",
     country: h.get("cf-ipcountry") || h.get("x-vercel-ip-country") || "",
   };
