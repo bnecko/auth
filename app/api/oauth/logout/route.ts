@@ -15,11 +15,11 @@ export const runtime = "nodejs";
 // the post_logout_redirect_uri only when it appears on the client's
 // registered allowlist.
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const idTokenHint = url.searchParams.get("id_token_hint") || "";
-  const postLogoutRedirectUri = url.searchParams.get("post_logout_redirect_uri") || "";
-  const state = url.searchParams.get("state") || "";
-  const clientIdParam = url.searchParams.get("client_id") || "";
+  const params = req.nextUrl.searchParams;
+  const idTokenHint = params.get("id_token_hint") || "";
+  const postLogoutRedirectUri = params.get("post_logout_redirect_uri") || "";
+  const state = params.get("state") || "";
+  const clientIdParam = params.get("client_id") || "";
 
   const sessionToken = req.cookies.get(sessionCookieName)?.value || "";
   const session = sessionToken ? await findSessionByToken(sessionToken) : null;

@@ -3,6 +3,7 @@ import { requestBody, badRequest, requestContext } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { randomToken, safeEqual } from "@/lib/server/crypto";
 import {
+  authBaseUrl,
   currentOAuthProfileVersion,
   oauthDynamicRegistrationToken,
   supportedOAuthProfileVersion,
@@ -200,7 +201,7 @@ export async function POST(req: NextRequest) {
       scope: scopes.join(" "),
       ...(jwksUri ? { jwks_uri: jwksUri } : {}),
       ...(jwks ? { jwks } : {}),
-      registration_client_uri: `${req.nextUrl.origin}/api/oauth/register/${clientId}`,
+      registration_client_uri: `${authBaseUrl()}/api/oauth/register/${clientId}`,
       registration_access_token: registrationAccessToken,
       registration_status: "pending_review",
     }, {
