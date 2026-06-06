@@ -7,6 +7,7 @@ import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { hashToken } from "@/lib/server/crypto";
 import { revokeSessionsForUser } from "@/lib/server/repositories/sessions";
 import { requestContextFromHeaders } from "@/lib/server/http";
+import { notifyUser } from "@/lib/server/notifications";
 import { headers } from "next/headers";
 
 export async function resetPasswordAction(formData: FormData) {
@@ -42,6 +43,8 @@ export async function resetPasswordAction(formData: FormData) {
     context,
     metadata: {},
   });
+
+  await notifyUser(userId, { type: "password_reset_completed" });
 
   return { success: true };
 }

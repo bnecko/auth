@@ -9,8 +9,14 @@ import {
   randomToken,
   telegramStartToken,
 } from "../crypto";
-import { requestContext } from "../http";
+import { requestContext, type RequestContext } from "../http";
 import { hashPassword, verifyPassword } from "../password";
+import {
+  bumpFailureCount,
+  clearFailureCount,
+  readFailureCount,
+} from "../rateLimit";
+import { notifyUser } from "../notifications";
 import {
   completeRegistrationRequest,
   createRegistrationRequest,
@@ -30,10 +36,13 @@ import {
 import {
   createUser,
   findPasswordHash,
+  findPasswordHashById,
   findUserById,
   findUserByTelegramId,
+  updateUserPassword,
   usernameOrEmailExists,
 } from "../repositories/users";
+import { revokeOtherSessionsForUser } from "../repositories/sessions";
 import { verifyTurnstile } from "../turnstile";
 import { verifyTelegramLogin } from "../telegram";
 import type { TelegramIdentity, User } from "../types";
@@ -173,16 +182,26 @@ const DUMMY_PASSWORD_HASH =
 const LOGIN_FAILURE_HARD_LIMIT = 30;
 const LOGIN_FAILURE_WINDOW_MINUTES = 15;
 
+// Per-account lockout, independent of the per-IP gate above. A distributed
+// attacker rotating IPs is throttled per IP but could still grind a single
+// account; once this many failures land on one resolved user the account is
+// temporarily locked (auto-expires) and the user is alerted once. Keyed on
+// the resolved user id (not the raw identifier) so spraying an unknown
+// identifier cannot lock anyone out. Cleared on a successful login.
+const ACCOUNT_FAILURE_HARD_LIMIT = 10;
+const ACCOUNT_FAILURE_WINDOW_MINUTES = 60;
+
 const REGISTER_ATTEMPT_HARD_LIMIT = 5;
 const REGISTER_ATTEMPT_WINDOW_MINUTES = 15;
 
 export async function loginUser(input: LoginInput, req: NextRequest) {
   const context = requestContext(req);
-  const rateLimitKey = `rate_limit:login_failure:${context.ip || "unknown"}`;
-  
-  const failures = context.ip ? Number(await redis.get(rateLimitKey)) || 0 : 0;
+  const ipKey = `rate_limit:login_failure:${context.ip || "unknown"}`;
+  const ipWindow = LOGIN_FAILURE_WINDOW_MINUTES * 60;
+  const accountWindow = ACCOUNT_FAILURE_WINDOW_MINUTES * 60;
 
-  if (failures >= LOGIN_FAILURE_HARD_LIMIT) {
+  const ipFailures = context.ip ? await readFailureCount(ipKey) : 0;
+  if (ipFailures >= LOGIN_FAILURE_HARD_LIMIT) {
     await recordSecurityEvent({
       eventType: "login_failure",
       result: "rate_limited",
@@ -201,6 +220,12 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
     throw new Error("verification failed");
   }
 
+  const bumpIp = async () => {
+    if (context.ip) {
+      await bumpFailureCount(ipKey, ipWindow);
+    }
+  };
+
   const credentials = await findPasswordHash(input.identifier);
   if (!credentials) {
     await verifyPassword(input.password, DUMMY_PASSWORD_HASH);
@@ -209,15 +234,16 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
       result: "invalid",
       context,
     });
-    if (context.ip) {
-      await redis.multi().incr(rateLimitKey).expire(rateLimitKey, LOGIN_FAILURE_WINDOW_MINUTES * 60).exec();
-    }
+    await bumpIp();
     throw new Error("invalid credentials");
   }
 
+  const userId = Number(credentials.id);
+  const userKey = `rate_limit:login_failure:user:${userId}`;
+
   if (credentials.status === "banned") {
     await recordSecurityEvent({
-      userId: Number(credentials.id),
+      userId,
       eventType: "login_failure",
       result: "banned",
       context,
@@ -225,23 +251,43 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
     throw new Error("account banned");
   }
 
+  if ((await readFailureCount(userKey)) >= ACCOUNT_FAILURE_HARD_LIMIT) {
+    await recordSecurityEvent({
+      userId,
+      eventType: "login_failure",
+      result: "rate_limited_user",
+      context,
+    });
+    throw new Error("too many attempts, try again later");
+  }
+
   const valid = await verifyPassword(input.password, credentials.password_hash);
   if (!valid) {
     await recordSecurityEvent({
-      userId: Number(credentials.id),
+      userId,
       eventType: "login_failure",
       result: "invalid",
       context,
     });
-    if (context.ip) {
-      await redis.multi().incr(rateLimitKey).expire(rateLimitKey, LOGIN_FAILURE_WINDOW_MINUTES * 60).exec();
+    await bumpIp();
+    const userFailures = await bumpFailureCount(userKey, accountWindow);
+    // Alert exactly once, on the attempt that trips the lock (atomic INCR
+    // means only one concurrent caller sees the boundary value), rather than
+    // on every subsequent locked attempt.
+    if (userFailures === ACCOUNT_FAILURE_HARD_LIMIT) {
+      await notifyUser(userId, { type: "login_failure_threshold" });
     }
     throw new Error("invalid credentials");
   }
 
-  const user = await findUserById(Number(credentials.id));
+  const user = await findUserById(userId);
   if (!user) {
     throw new Error("invalid credentials");
+  }
+
+  await clearFailureCount(userKey);
+  if (context.ip) {
+    await clearFailureCount(ipKey);
   }
 
   await recordSecurityEvent({
@@ -257,6 +303,52 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
   });
 
   return user;
+}
+
+// Authenticated password change from the security center. Requires the
+// current password, validates the new one, rotates the hash, and signs out
+// every other session so a change after a suspected compromise actually
+// evicts the attacker. Best-effort Telegram notification on success.
+export async function changePasswordForUser(input: {
+  userId: number;
+  currentPassword: string;
+  newPassword: string;
+  currentSessionId: number;
+  context: RequestContext;
+}) {
+  const credentials = await findPasswordHashById(input.userId);
+  if (!credentials) {
+    throw new Error("account not found");
+  }
+
+  const valid = await verifyPassword(input.currentPassword, credentials.password_hash);
+  if (!valid) {
+    await recordSecurityEvent({
+      userId: input.userId,
+      eventType: "password_change",
+      result: "invalid_current",
+      context: input.context,
+    });
+    throw new Error("current password is incorrect");
+  }
+
+  if (input.newPassword.length < 10 || input.newPassword.length > 256) {
+    throw new Error("new password must be 10-256 characters");
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+  await updateUserPassword(input.userId, passwordHash);
+  await revokeOtherSessionsForUser({
+    userId: input.userId,
+    currentSessionId: input.currentSessionId,
+  });
+  await recordSecurityEvent({
+    userId: input.userId,
+    eventType: "password_change",
+    result: "ok",
+    context: input.context,
+  });
+  await notifyUser(input.userId, { type: "password_changed" });
 }
 
 export async function createTelegramLoginChallenge(

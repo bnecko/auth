@@ -2,7 +2,7 @@
 
 import { findUserByIdentifier } from "@/lib/server/repositories/users";
 import redis from "@/lib/server/redis";
-import { hashToken, randomToken } from "@/lib/server/crypto";
+import { hashToken, normalizeIdentifier, randomToken } from "@/lib/server/crypto";
 import { sendTelegramMessage } from "@/lib/server/telegramSend";
 import { authBaseUrl } from "@/lib/server/config";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
@@ -23,6 +23,18 @@ export async function requestPasswordReset(formData: FormData) {
   const rl = await rateLimit(`rl:forgot:ip:${context.ip || "unknown"}`, 3, 15 * 60 * 1000);
   if (!rl.success) {
     return { error: "Too many requests. Please try again later." };
+  }
+
+  // Per-account cap on top of the per-IP gate: stops a distributed attacker
+  // from flooding one account's reset channel. Checked before the user lookup
+  // and silently treated as success so it does not leak account existence.
+  const rlIdentifier = await rateLimit(
+    `rl:forgot:identifier:${normalizeIdentifier(identifier)}`,
+    5,
+    60 * 60 * 1000,
+  );
+  if (!rlIdentifier.success) {
+    return { success: true };
   }
 
   const user = await findUserByIdentifier(identifier);

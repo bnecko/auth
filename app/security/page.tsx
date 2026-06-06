@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PasskeyManager } from "@/components/PasskeyManager";
+import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Sidebar } from "@/components/Sidebar";
 import { Tag } from "@/components/Tag";
@@ -10,6 +11,7 @@ import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauth
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
 import {
+  changePasswordAction,
   revokeAllOAuthGrantsAction,
   revokeOtherSessionsAction,
 } from "./actions";
@@ -208,6 +210,16 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="5.0"
+              title="password"
+              hint="rotate your account password"
+            >
+              <ChangePasswordForm action={changePasswordAction} />
+            </Section>
+          </div>
+
+          <div data-mount-row>
+            <Section
+              index="6.0"
               title="recent activity"
               hint="security events"
             >

@@ -225,6 +225,13 @@ export async function findPasswordHash(identifier: string) {
   );
 }
 
+export async function findPasswordHashById(userId: number) {
+  return queryOne<{ id: string; password_hash: string; status: UserStatus }>(
+    `select id, password_hash, status from users where id = $1`,
+    [userId],
+  );
+}
+
 export async function updateUserPassword(userId: number, passwordHash: string) {
   await query(
     `update users set password_hash = $2, updated_at = now() where id = $1`,

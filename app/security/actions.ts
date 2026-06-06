@@ -7,7 +7,10 @@ import { revokeAllOAuthTokensForUser } from "@/lib/server/repositories/oauth";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { revokeOtherSessionsForUser } from "@/lib/server/repositories/sessions";
 import { requestContextFromHeaders } from "@/lib/server/http";
+import { changePasswordForUser } from "@/lib/server/services/auth";
 import { getCurrentSession } from "@/lib/server/session";
+
+export type ChangePasswordState = { error?: string; success?: boolean } | null;
 
 export async function revokeOtherSessionsAction() {
   const current = await getCurrentSession();
@@ -25,6 +28,41 @@ export async function revokeOtherSessionsAction() {
   });
   revalidatePath("/security");
   revalidatePath("/");
+}
+
+// CSRF is covered by Next.js server-action origin verification plus the
+// SameSite=Lax session cookie, matching the other mutations in this file
+// (revokeOtherSessionsAction / revokeAllOAuthGrantsAction). The action also
+// requires the current password, so a forged submit cannot change it blind.
+export async function changePasswordAction(
+  _prev: ChangePasswordState,
+  formData: FormData,
+): Promise<ChangePasswordState> {
+  const current = await getCurrentSession();
+  if (!current) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+
+  const currentPassword = String(formData.get("currentPassword") || "");
+  const newPassword = String(formData.get("newPassword") || "");
+  if (!currentPassword || !newPassword) {
+    return { error: "Enter your current and new password." };
+  }
+
+  try {
+    await changePasswordForUser({
+      userId: current.user.id,
+      currentPassword,
+      newPassword,
+      currentSessionId: current.session.id,
+      context: requestContextFromHeaders(await headers()),
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not change password." };
+  }
+
+  revalidatePath("/security");
+  return { success: true };
 }
 
 export async function revokeAllOAuthGrantsAction() {
