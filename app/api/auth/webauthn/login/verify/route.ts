@@ -50,6 +50,16 @@ export async function POST(req: NextRequest) {
       });
     } catch (verifyErr) {
       console.error("[webauthn/login/verify] verifyAuthenticationResponse threw:", verifyErr);
+      await recordSecurityEvent({
+        userId: credential.userId,
+        eventType: "webauthn_login",
+        result: "verification_failed",
+        context: requestContext(req),
+        metadata: {
+          credentialId: credential.credentialId,
+          error: verifyErr instanceof Error ? verifyErr.message : "unknown",
+        },
+      });
       return json({ error: verifyErr instanceof Error ? verifyErr.message : "verification failed" }, 400);
     }
 
@@ -70,6 +80,13 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
+    await recordSecurityEvent({
+      userId: credential.userId,
+      eventType: "webauthn_login",
+      result: "verification_failed",
+      context: requestContext(req),
+      metadata: { credentialId: credential.credentialId },
+    });
     return json({ error: "verification failed" }, 400);
   } catch (err) {
     console.error(err);
