@@ -391,21 +391,14 @@ async function sweepExpiredActivations() {
   }
 }
 
-// Fail the boot, not the first job. Mirrors validateConfig() in
-// lib/server/config.ts: the worker ships as standalone JS (the container
-// copies only worker.js, no lib/), so the shared list is duplicated here
-// rather than imported.
+// Fail the boot, not the first job: the worker cannot run without its
+// database and bot token, so assert them up front instead of crashing deep
+// in the first delivery. The web app validates its own larger secret set
+// in lib/server/config.ts; the worker container only receives and needs
+// these two (see docker-compose worker service), so it does not assert the
+// OIDC/CSRF/Turnstile secrets it never uses.
 function validateConfig() {
-  if (process.env.NODE_ENV !== "production") {
-    return;
-  }
-  const required = [
-    "OIDC_PRIVATE_KEY_PEM",
-    "OAUTH_CSRF_SECRET",
-    "DATABASE_URL",
-    "TELEGRAM_BOT_WEBHOOK_SECRET",
-    "TURNSTILE_SECRET_KEY",
-  ];
+  const required = ["DATABASE_URL", "TELEGRAM_BOT_TOKEN"];
   const missing = required.filter(name => !process.env[name]);
   if (missing.length > 0) {
     throw new Error(`missing required environment variables: ${missing.join(", ")}`);
@@ -418,14 +411,6 @@ function validateConfig() {
 function startWorker() {
   validateConfig();
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) {
-    console.error("TELEGRAM_BOT_TOKEN is required for the worker");
-    process.exit(1);
-  }
-  if (!databaseUrl) {
-    console.error("DATABASE_URL is required for the worker");
-    process.exit(1);
-  }
 
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
   const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
