@@ -1,13 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
-import { badRequest } from "@/lib/server/http";
 import { verifyAuthorizeCsrf } from "@/lib/server/oauthCsrf";
-import {
-  approveOAuthAuthorization,
-  OAuthError,
-} from "@/lib/server/services/oauth";
+import { approveOAuthAuthorization } from "@/lib/server/services/oauth";
 
 export const runtime = "nodejs";
+
+// The consent form is a native HTML POST, so the browser navigates to
+// whatever this route returns. Success redirects to the client's
+// redirect_uri (absolute, already the public host); any failure redirects
+// to the /expired page rather than returning JSON a native form would
+// render as a raw body. 303 See Other turns the form POST into a GET of
+// the target: the default 307 would re-POST the auth code to the client's
+// GET-only callback, breaking spec-compliant clients.
+function redirectTo(location: string) {
+  return new NextResponse(null, { status: 303, headers: { Location: location } });
+}
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser(req);
@@ -32,7 +39,7 @@ export async function POST(req: NextRequest) {
         state,
       })
     ) {
-      return badRequest("invalid_request: csrf token is invalid or expired");
+      return redirectTo("/expired?reason=invalid");
     }
 
     const target = await approveOAuthAuthorization(
@@ -41,11 +48,8 @@ export async function POST(req: NextRequest) {
       req,
       auth.session.session.createdAt,
     );
-    return NextResponse.redirect(target);
-  } catch (err) {
-    if (err instanceof OAuthError) {
-      return badRequest(`${err.code}: ${err.message}`);
-    }
-    return badRequest(err instanceof Error ? err.message : "authorization failed");
+    return redirectTo(target.toString());
+  } catch {
+    return redirectTo("/expired?reason=invalid");
   }
 }

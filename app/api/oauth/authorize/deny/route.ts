@@ -1,13 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
-import { badRequest } from "@/lib/server/http";
 import { verifyAuthorizeCsrf } from "@/lib/server/oauthCsrf";
-import {
-  denyOAuthAuthorization,
-  OAuthError,
-} from "@/lib/server/services/oauth";
+import { denyOAuthAuthorization } from "@/lib/server/services/oauth";
 
 export const runtime = "nodejs";
+
+// Like the approve route, the deny form is a native HTML POST. On success
+// denyOAuthAuthorization returns the client's redirect_uri carrying
+// error=access_denied (absolute, public host); on CSRF or other failure we
+// send the browser to /expired rather than returning raw JSON. 303 turns
+// the POST into a GET so the default 307 cannot re-POST to a GET-only page.
+function redirectTo(location: string) {
+  return new NextResponse(null, { status: 303, headers: { Location: location } });
+}
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser(req);
@@ -31,15 +36,12 @@ export async function POST(req: NextRequest) {
         state,
       })
     ) {
-      return badRequest("invalid_request: csrf token is invalid or expired");
+      return redirectTo("/expired?reason=invalid");
     }
 
     const target = await denyOAuthAuthorization(body, auth.session.user, req);
-    return NextResponse.redirect(target);
-  } catch (err) {
-    if (err instanceof OAuthError) {
-      return badRequest(`${err.code}: ${err.message}`);
-    }
-    return badRequest(err instanceof Error ? err.message : "authorization failed");
+    return redirectTo(target.toString());
+  } catch {
+    return redirectTo("/expired?reason=invalid");
   }
 }
