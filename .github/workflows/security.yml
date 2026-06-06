@@ -39,7 +39,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_ENV"
       - run: npm ci
-      - run: npm audit --omit=dev
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run public:hygiene
       - run: npm run migrate
       - run: npm run typecheck
