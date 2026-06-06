@@ -43,3 +43,24 @@ export async function rateLimit(
     remaining: Math.max(0, limit - count)
   };
 }
+
+// Failure counters for brute-force protection: explicit incr-on-failure,
+// clear-on-success counters keyed per IP / identifier / user. Distinct
+// from the fixed-window rateLimit() above, which gates request volume
+// regardless of outcome. These let a successful login clear the slate so
+// a legitimate user is never locked out by their own earlier typos.
+export async function readFailureCount(key: string): Promise<number> {
+  return Number(await redis.get(key)) || 0;
+}
+
+// Returns the post-increment count so callers can act exactly on the
+// threshold-crossing attempt (INCR is atomic, so only one concurrent caller
+// observes the boundary value) rather than re-reading and racing.
+export async function bumpFailureCount(key: string, windowSeconds: number): Promise<number> {
+  const results = await redis.multi().incr(key).expire(key, windowSeconds).exec();
+  return Number(results?.[0]?.[1] ?? 0);
+}
+
+export async function clearFailureCount(key: string): Promise<void> {
+  await redis.del(key);
+}
