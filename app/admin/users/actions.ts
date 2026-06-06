@@ -2,13 +2,12 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { getCurrentSession } from "@/lib/server/session";
+import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 import { setAccountStatus } from "@/lib/server/services/admin";
 import { requestContextFromHeaders } from "@/lib/server/http";
 
 export async function banUserAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") throw new Error("forbidden");
+  const current = await requireAdminStepUpSession();
 
   const userId = Number(formData.get("userId"));
   if (!userId) return;
@@ -19,8 +18,7 @@ export async function banUserAction(formData: FormData) {
 }
 
 export async function unbanUserAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") throw new Error("forbidden");
+  const current = await requireAdminStepUpSession();
 
   const userId = Number(formData.get("userId"));
   if (!userId) return;

@@ -2,16 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getCurrentSession } from "@/lib/server/session";
+import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { retryWebhookDelivery } from "@/lib/server/repositories/webhooks";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export async function retryWebhookDeliveryAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") {
-    throw new Error("Not authorized");
-  }
+  const current = await requireAdminStepUpSession();
 
   const publicId = String(formData.get("public_id") || "");
   if (!publicId) {

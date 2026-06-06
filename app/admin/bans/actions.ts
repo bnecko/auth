@@ -1,12 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentSession } from "@/lib/server/session";
+import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 import { query } from "@/lib/server/db";
 
 export async function revokeBanAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") throw new Error("forbidden");
+  await requireAdminStepUpSession();
 
   const banId = Number(formData.get("banId"));
   if (!banId) return;

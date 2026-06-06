@@ -10,7 +10,7 @@ import {
   findOAuthClientRegistrationRequestById,
 } from "@/lib/server/repositories/oauthClientRegistrations";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
-import { getCurrentSession } from "@/lib/server/session";
+import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 
 function slugFor(name: string) {
   const stem = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -18,10 +18,7 @@ function slugFor(name: string) {
 }
 
 export async function approveOAuthClientRegistrationAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") {
-    throw new Error("Unauthorized");
-  }
+  const current = await requireAdminStepUpSession();
 
   const id = Number(formData.get("request_id") || 0);
   const request = id ? await findOAuthClientRegistrationRequestById(id) : null;
@@ -56,10 +53,7 @@ export async function approveOAuthClientRegistrationAction(formData: FormData) {
 }
 
 export async function denyOAuthClientRegistrationAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") {
-    throw new Error("Unauthorized");
-  }
+  const current = await requireAdminStepUpSession();
 
   const id = Number(formData.get("request_id") || 0);
   const denied = id

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { requireAdminStepUp } from "@/lib/server/apiAuth";
 import { searchSecurityEvents } from "@/lib/server/repositories/securityEvents";
-import { getSessionFromRequest } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
@@ -10,9 +10,9 @@ function csvCell(value: unknown) {
 }
 
 export async function GET(req: NextRequest) {
-  const current = await getSessionFromRequest(req);
-  if (!current || current.user.role !== "admin") {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await requireAdminStepUp(req);
+  if (auth.response) {
+    return auth.response;
   }
 
   const events = await searchSecurityEvents({

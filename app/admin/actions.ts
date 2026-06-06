@@ -1,16 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentSession } from "@/lib/server/session";
+import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 import { decideBearerRequest } from "@/lib/server/services/bearer";
 import { bearerAdminTelegramId } from "@/lib/server/config";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export async function decideBearerAction(formData: FormData) {
-  const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") {
-    throw new Error("Not authorized");
-  }
+  const current = await requireAdminStepUpSession();
 
   const requestIdStr = formData.get("requestId");
   const decision = formData.get("decision");
