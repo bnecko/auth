@@ -160,3 +160,27 @@ export function telegramBotUsername() {
 }
 
 export const adminStepUpTtlSeconds = 600;
+
+const requiredProductionSecrets = [
+  "OIDC_PRIVATE_KEY_PEM",
+  "OAUTH_CSRF_SECRET",
+  "DATABASE_URL",
+  "TELEGRAM_BOT_WEBHOOK_SECRET",
+  "TURNSTILE_SECRET_KEY",
+] as const;
+
+// Fail the boot, not the first request. In production every secret the
+// service depends on must be present before we accept traffic; a missing
+// one would otherwise surface as a 500 on whichever endpoint reached for
+// it first. Called from instrumentation.ts (web) and the worker boot.
+export function validateConfig() {
+  if (!isProduction()) {
+    return;
+  }
+  const missing = requiredProductionSecrets.filter(name => !env(name));
+  if (missing.length > 0) {
+    throw new Error(
+      `missing required environment variables: ${missing.join(", ")}`,
+    );
+  }
+}

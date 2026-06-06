@@ -391,10 +391,32 @@ async function sweepExpiredActivations() {
   }
 }
 
+// Fail the boot, not the first job. Mirrors validateConfig() in
+// lib/server/config.ts: the worker ships as standalone JS (the container
+// copies only worker.js, no lib/), so the shared list is duplicated here
+// rather than imported.
+function validateConfig() {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+  const required = [
+    "OIDC_PRIVATE_KEY_PEM",
+    "OAUTH_CSRF_SECRET",
+    "DATABASE_URL",
+    "TELEGRAM_BOT_WEBHOOK_SECRET",
+    "TURNSTILE_SECRET_KEY",
+  ];
+  const missing = required.filter(name => !process.env[name]);
+  if (missing.length > 0) {
+    throw new Error(`missing required environment variables: ${missing.join(", ")}`);
+  }
+}
+
 // Wires up the Redis-backed telegram worker and the DB poll loops. Kept
 // behind a require.main guard so the delivery functions can be imported
 // by tests without opening a Redis connection or starting the timers.
 function startWorker() {
+  validateConfig();
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) {
     console.error("TELEGRAM_BOT_TOKEN is required for the worker");
