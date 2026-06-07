@@ -2,6 +2,7 @@ create table users (
   id bigserial primary key,
   public_id text not null unique,
   first_name text not null,
+  constraint users_first_name_length_check check (length(first_name) <= 80),
   username text not null,
   username_normalized text not null unique,
   bio text,
@@ -60,6 +61,9 @@ create table external_apps (
   updated_at timestamptz not null default now()
 );
 
+comment on column external_apps.oauth_client_secret_hash is
+  'Hash of the current client secret. Confidential clients using client_secret_basic or client_secret_post have a value; public clients and private_key_jwt/none auth are null. Rotated secrets move to external_app_oauth_secrets with an expiry.';
+
 create table external_app_oauth_secrets (
   id bigserial primary key,
   external_app_id bigint not null references external_apps(id) on delete cascade,
@@ -105,7 +109,8 @@ create table subscriptions (
   expires_at timestamptz,
   revoked_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint subscriptions_user_id_product_key unique (user_id, product)
 );
 
 create index subscriptions_user_product_idx on subscriptions(user_id, product);
@@ -161,6 +166,7 @@ create table security_events (
 
 create index security_events_user_id_idx on security_events(user_id);
 create index security_events_ip_created_at_idx on security_events(ip, created_at);
+create index security_events_created_at_idx on security_events(created_at);
 
 -- User-initiated requests for an external_apps API bearer key. The
 -- requesting user fills in app name + reason; an admin reviews via
@@ -317,10 +323,12 @@ create table oauth_pushed_requests (
   code_challenge_method text,
   nonce text,
   created_at timestamptz not null default now(),
-  expires_at timestamptz not null
+  expires_at timestamptz not null,
+  consumed_at timestamptz
 );
 
 create index oauth_pushed_requests_expires_at_idx on oauth_pushed_requests(expires_at);
+create index oauth_pushed_requests_consumed_at_idx on oauth_pushed_requests(consumed_at);
 
 create table oauth_device_codes (
   id bigserial primary key,
