@@ -36,3 +36,17 @@ export async function queryOne<T extends QueryResultRow>(
   const rows = await query<T>(text, params);
   return rows[0] || null;
 }
+
+// Readiness probe: true when a trivial query round-trips, false on any error.
+// Never throws. Bounded by an explicit race (shorter than the pool's 5s
+// connectionTimeoutMillis) so the readiness route stays well inside the
+// healthcheck's 5s budget even when the pool is slow to hand out a connection.
+export async function dbHealthy(timeoutMs = 3000): Promise<boolean> {
+  try {
+    const probe = getPool().query("select 1").then(() => true).catch(() => false);
+    const timeout = new Promise<boolean>(resolve => setTimeout(() => resolve(false), timeoutMs));
+    return await Promise.race([probe, timeout]);
+  } catch {
+    return false;
+  }
+}
