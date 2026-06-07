@@ -155,6 +155,10 @@ export function bearerAdminTelegramId() {
   return env("BEARER_ADMIN_TELEGRAM_ID");
 }
 
+export function alertTelegramChatId() {
+  return env("ALERT_TELEGRAM_CHAT_ID") || env("BEARER_ADMIN_TELEGRAM_ID");
+}
+
 export function telegramBotUsername() {
   return env("TELEGRAM_BOT_USERNAME");
 }

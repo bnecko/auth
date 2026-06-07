@@ -24,6 +24,7 @@ import type { User } from "../types";
 import { toIso } from "../time";
 import { parseScopes } from "../validation";
 import { enqueueWebhookEvent } from "../webhooks";
+import { sendEnqueueFailedAlert } from "./webhookAlerts";
 
 // Carries a machine-readable code and HTTP status so integrator-facing routes
 // can return {error, code} with the right status instead of a bare string.
@@ -72,6 +73,10 @@ async function fireActivationWebhook(input: {
       context: { ip: "", userAgent: "activation-service", country: "" },
       metadata: { activationId: input.payload.id, eventType: input.eventType },
     });
+    await sendEnqueueFailedAlert(
+      input.appId,
+      err instanceof Error ? err.message : "unknown",
+    ).catch(() => {});
   }
 }
 
