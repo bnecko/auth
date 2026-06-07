@@ -369,6 +369,70 @@ async function sweepHygiene() {
         where status in ('delivered', 'failed', 'cancelled')
           and created_at < now() - interval '30 days'`,
     );
+    // Sessions: revoked or expired for over an hour. Active sessions (not
+    // revoked, not past expiry) never match.
+    await pool.query(
+      `delete from sessions
+        where (revoked_at is not null or expires_at < now())
+          and coalesce(revoked_at, expires_at) < now() - interval '1 hour'`,
+    );
+    // OAuth authorization codes: consumed or expired for over an hour.
+    await pool.query(
+      `delete from oauth_authorization_codes
+        where (consumed_at is not null or expires_at < now())
+          and coalesce(consumed_at, expires_at) < now() - interval '1 hour'`,
+    );
+    // OAuth access tokens: revoked or expired for over an hour.
+    await pool.query(
+      `delete from oauth_access_tokens
+        where (revoked_at is not null or expires_at < now())
+          and coalesce(revoked_at, expires_at) < now() - interval '1 hour'`,
+    );
+    // OAuth refresh tokens: keep a 30-day grace past revocation/expiry so the
+    // rotation chain remains available for reuse detection within a token's
+    // own lifetime, then purge (covers rotated/replaced rows too, so the chain
+    // does not grow without bound).
+    await pool.query(
+      `delete from oauth_refresh_tokens
+        where (revoked_at is not null or expires_at < now())
+          and coalesce(revoked_at, expires_at) < now() - interval '30 days'`,
+    );
+    // Pushed authorization requests: expired or consumed for over an hour.
+    await pool.query(
+      `delete from oauth_pushed_requests
+        where expires_at < now() - interval '1 hour'
+           or (consumed_at is not null and consumed_at < now() - interval '1 hour')`,
+    );
+    // Device codes: terminal and expired for over an hour.
+    await pool.query(
+      `delete from oauth_device_codes
+        where status in ('expired', 'consumed', 'denied')
+          and expires_at < now() - interval '1 hour'`,
+    );
+    // Telegram login challenges: terminal and expired for over an hour.
+    await pool.query(
+      `delete from telegram_login_challenges
+        where status in ('verified', 'expired', 'cancelled')
+          and expires_at < now() - interval '1 hour'`,
+    );
+    // Activation requests: terminal, kept 7 days so an integrator can still
+    // poll the final status after the user decided or it lapsed.
+    await pool.query(
+      `delete from activation_requests
+        where status in ('approved', 'denied', 'expired', 'cancelled')
+          and expires_at < now() - interval '7 days'`,
+    );
+    // Security events: 90-day audit retention, bounded per sweep so a large
+    // backlog drains over several hourly runs instead of one long transaction.
+    await pool.query(
+      `delete from security_events
+        where id in (
+          select id from security_events
+           where created_at < now() - interval '90 days'
+           order by id
+           limit 5000
+        )`,
+    );
   } catch (err) {
     logger.error("hygiene_sweep_error", { error: err });
   }
