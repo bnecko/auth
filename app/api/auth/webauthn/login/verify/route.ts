@@ -3,10 +3,11 @@ import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { findWebauthnCredentialById, updateWebauthnCredentialSignCount } from "@/lib/server/repositories/webauthn";
 import { getRpID, getOrigin } from "@/lib/server/webauthn";
 import redis from "@/lib/server/redis";
-import { json, requestBody, requestContext } from "@/lib/server/http";
+import { json, requestBody, requestContext, requestId } from "@/lib/server/http";
 import { createUserSession } from "@/lib/server/session";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { findUserById } from "@/lib/server/repositories/users";
+import { log } from "@/lib/server/log";
 
 export const runtime = "nodejs";
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch (verifyErr) {
-      console.error("[webauthn/login/verify] verifyAuthenticationResponse threw:", verifyErr);
+      log.error("webauthn_verify_threw", { requestId: requestId(req), error: verifyErr });
       await recordSecurityEvent({
         userId: credential.userId,
         eventType: "webauthn_login",
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
           error: verifyErr instanceof Error ? verifyErr.message : "unknown",
         },
       });
-      return json({ error: verifyErr instanceof Error ? verifyErr.message : "verification failed" }, 400);
+      // Generic to the client; the library error is in the log + event only.
+      return json({ error: "verification failed" }, 400);
     }
 
     if (verification.verified && verification.authenticationInfo) {
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
     });
     return json({ error: "verification failed" }, 400);
   } catch (err) {
-    console.error(err);
-    return json({ error: err instanceof Error ? err.message : "verification failed" }, 400);
+    log.error("webauthn_login_error", { requestId: requestId(req), error: err });
+    return json({ error: "verification failed" }, 400);
   }
 }

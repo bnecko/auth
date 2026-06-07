@@ -4,8 +4,9 @@ import { getSessionFromRequest } from "@/lib/server/session";
 import { createWebauthnCredential } from "@/lib/server/repositories/webauthn";
 import { getRpID, getOrigin } from "@/lib/server/webauthn";
 import redis from "@/lib/server/redis";
-import { json, requestBody, requestContext } from "@/lib/server/http";
+import { json, requestBody, requestContext, requestId } from "@/lib/server/http";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
+import { log } from "@/lib/server/log";
 
 export const runtime = "nodejs";
 
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     return json({ error: "verification failed" }, 400);
   } catch (err) {
-    console.error(err);
-    return json({ error: err instanceof Error ? err.message : "verification failed" }, 400);
+    log.error("webauthn_register_error", { requestId: requestId(req), error: err });
+    return json({ error: "verification failed" }, 400);
   }
 }

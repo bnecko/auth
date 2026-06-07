@@ -44,6 +44,12 @@ function clientIp(req: NextRequest): string {
   return resolveClientIp(name => req.headers.get(name));
 }
 
+// Correlation id set by proxy.ts; empty string when absent (e.g. a request
+// that did not pass through the middleware). Useful in log lines.
+export function requestId(req: NextRequest): string {
+  return req.headers.get("x-request-id") || "";
+}
+
 export function requestContext(req: NextRequest): RequestContext {
   return {
     ip: clientIp(req),

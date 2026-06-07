@@ -263,9 +263,18 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
   }
 
   const scriptNonce = nonce();
+  // Correlation id for tracing one request across logs and security events.
+  // Honor an inbound id only if it is well-formed (so a spoofed/oversized
+  // header cannot pollute logs); otherwise mint a fresh one.
+  const inboundRequestId = req.headers.get("x-request-id");
+  const requestId =
+    inboundRequestId && /^[A-Za-z0-9_-]{1,64}$/.test(inboundRequestId)
+      ? inboundRequestId
+      : `req_${nonce().replace(/[^a-z0-9]/gi, "").slice(0, 16)}`;
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", scriptNonce);
   requestHeaders.set("x-pathname", req.nextUrl.pathname);
+  requestHeaders.set("x-request-id", requestId);
   const res = NextResponse.next({
     request: {
       headers: requestHeaders,
@@ -274,6 +283,7 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
 
   res.headers.set("x-pathname", req.nextUrl.pathname);
   res.headers.set("x-nonce", scriptNonce);
+  res.headers.set("x-request-id", requestId);
   res.headers.set("Content-Security-Policy", contentSecurityPolicy(scriptNonce));
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");
