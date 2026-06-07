@@ -11,8 +11,29 @@ if (!databaseUrl) {
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const migrationsDir = path.join(root, "db", "migrations");
-const client = new pg.Client({ connectionString: databaseUrl });
+const checkOnly = process.argv.includes("--check");
 
+// Migrations must be named NNN_name.sql with a strictly ascending numeric
+// prefix. Catch a misnamed or out-of-order file before it is applied (or
+// silently skipped by the sort), since order is load-bearing.
+function validateMigrationFiles(files) {
+  let lastNum = -1;
+  for (const file of files) {
+    const match = /^(\d+)_.+\.sql$/.exec(file);
+    if (!match) {
+      throw new Error(`invalid migration filename (expected NNN_name.sql): ${file}`);
+    }
+    const num = Number(match[1]);
+    if (num <= lastNum) {
+      throw new Error(
+        `migration files out of order at ${file} (prefix ${num} not greater than previous ${lastNum})`,
+      );
+    }
+    lastNum = num;
+  }
+}
+
+const client = new pg.Client({ connectionString: databaseUrl });
 await client.connect();
 
 try {
@@ -27,29 +48,37 @@ try {
     .filter(file => file.endsWith(".sql"))
     .sort();
 
-  for (const file of files) {
-    const version = file.replace(/\.sql$/, "");
-    const existing = await client.query(
-      `select 1 from schema_migrations where version = $1`,
-      [version],
-    );
+  validateMigrationFiles(files);
 
-    if (existing.rowCount) {
-      continue;
+  const applied = new Set(
+    (await client.query(`select version from schema_migrations`)).rows.map(r => r.version),
+  );
+  const pending = files.filter(file => !applied.has(file.replace(/\.sql$/, "")));
+
+  if (checkOnly) {
+    // Dry run for CI / pre-deploy: report pending migrations, change nothing.
+    if (pending.length === 0) {
+      console.log("migrations: up to date");
+    } else {
+      console.log(`migrations: ${pending.length} pending`);
+      for (const file of pending) console.log(`  ${file}`);
     }
-
-    const sql = await readFile(path.join(migrationsDir, file), "utf8");
-    await client.query("begin");
-    try {
-      await client.query(sql);
-      await client.query(
-        `insert into schema_migrations (version) values ($1)`,
-        [version],
-      );
-      await client.query("commit");
-    } catch (err) {
-      await client.query("rollback");
-      throw err;
+  } else {
+    for (const file of pending) {
+      const version = file.replace(/\.sql$/, "");
+      const sql = await readFile(path.join(migrationsDir, file), "utf8");
+      await client.query("begin");
+      try {
+        await client.query(sql);
+        await client.query(
+          `insert into schema_migrations (version) values ($1)`,
+          [version],
+        );
+        await client.query("commit");
+      } catch (err) {
+        await client.query("rollback");
+        throw err;
+      }
     }
   }
 } finally {
