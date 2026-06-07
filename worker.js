@@ -4,6 +4,35 @@ const { createHmac } = require("crypto");
 const { Pool } = require("pg");
 const { lookup } = require("dns/promises");
 const { isIP } = require("net");
+const logger = require("./worker-log.js");
+
+// Operator alert (plain JS; the worker cannot import the TS webhookAlerts
+// service). Auto-disable transitions fire exactly once per endpoint, so no
+// rate limit is needed here. Best-effort, never throws.
+async function sendOperatorAlert(text) {
+  const chatId = process.env.ALERT_TELEGRAM_CHAT_ID || process.env.BEARER_ADMIN_TELEGRAM_ID;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!chatId || !token || process.env.NODE_ENV !== "production") return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    });
+  } catch (err) {
+    logger.error("operator_alert_failed", { error: err });
+  }
+}
+
+// Graceful-shutdown state. On SIGTERM/SIGINT we stop scheduling new work,
+// let the in-flight delivery batch drain (bounded), then close the pool and
+// redis so a deploy does not sever connections mid-write.
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS || 10000);
+let isShuttingDown = false;
+let inFlightBatches = 0;
+const intervalIds = [];
+let bullWorker = null;
+let bullConnection = null;
 
 // SSRF guard. Webhook URLs are user-supplied; refuse anything pointing at
 // localhost, RFC1918, link-local, cloud metadata, etc. Resolve-then-fetch
@@ -99,7 +128,10 @@ const databaseUrl = process.env.DATABASE_URL;
 // see plan note that crash-safety relies on the DB next_attempt_at
 // rather than BullMQ persistence.
 
-const pool = new Pool({ connectionString: databaseUrl });
+// Small explicit pool: the worker only polls + sweeps, so it does not need
+// the default 10 connections. Keeping it small protects the Postgres
+// connection budget when multiple worker replicas run.
+const pool = new Pool({ connectionString: databaseUrl, max: 5 });
 
 // After attempt N fails, wait this many seconds before attempt N+1.
 // Index 0 is unused; we look up by attempt_count (1-indexed).
@@ -256,8 +288,12 @@ async function disableEndpointIfFailing(row) {
         }),
       ],
     );
-    console.warn(
-      `Webhook endpoint ${row.webhook_endpoint_id} auto-disabled after ${endpoint.consecutive_failures} consecutive failures.`,
+    logger.warn("webhook_endpoint_auto_disabled", {
+      endpointId: row.webhook_endpoint_id,
+      consecutiveFailures: endpoint.consecutive_failures,
+    });
+    await sendOperatorAlert(
+      `<b>Webhook endpoint auto-disabled</b>\nendpoint #${row.webhook_endpoint_id} after ${endpoint.consecutive_failures} consecutive failures`,
     );
   }
 }
@@ -297,11 +333,11 @@ async function processWebhookBatch() {
       try {
         await deliverOne(row);
       } catch (err) {
-        console.error(`Webhook delivery ${row.public_id} threw:`, err);
+        logger.error("webhook_delivery_threw", { deliveryId: row.public_id, error: err });
       }
     }
   } catch (err) {
-    console.error("Webhook batch error:", err);
+    logger.error("webhook_batch_error", { error: err });
   }
 }
 
@@ -334,7 +370,7 @@ async function sweepHygiene() {
           and created_at < now() - interval '30 days'`,
     );
   } catch (err) {
-    console.error("Hygiene sweep error:", err);
+    logger.error("hygiene_sweep_error", { error: err });
   }
 }
 
@@ -384,10 +420,10 @@ async function sweepExpiredActivations() {
     const expiredCount = rows[0] ? rows[0].expired_count : 0;
     const enqueuedCount = rows[0] ? rows[0].enqueued_count : 0;
     if (expiredCount > 0) {
-      console.log(`Expired ${expiredCount} activation(s), enqueued ${enqueuedCount} webhook(s).`);
+      logger.info("activations_expired", { expiredCount, enqueuedCount });
     }
   } catch (err) {
-    console.error("Activation expiry sweep error:", err);
+    logger.error("activation_expiry_sweep_error", { error: err });
   }
 }
 
@@ -408,16 +444,59 @@ function validateConfig() {
 // Wires up the Redis-backed telegram worker and the DB poll loops. Kept
 // behind a require.main guard so the delivery functions can be imported
 // by tests without opening a Redis connection or starting the timers.
+// Runs a periodic job while tracking it as in-flight so graceful shutdown can
+// wait for it to finish. Skips scheduling once shutdown has begun.
+function runBatch(fn, errorEvent) {
+  if (isShuttingDown) return;
+  inFlightBatches += 1;
+  fn()
+    .catch(err => logger.error(errorEvent, { error: err }))
+    .finally(() => {
+      inFlightBatches -= 1;
+    });
+}
+
+async function shutdownGracefully(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  logger.info("worker_shutdown_start", { signal, inFlightBatches });
+  for (const id of intervalIds) clearInterval(id);
+  try {
+    if (bullWorker) await bullWorker.close();
+  } catch (err) {
+    logger.error("worker_close_failed", { error: err });
+  }
+  const deadline = Date.now() + GRACEFUL_SHUTDOWN_TIMEOUT_MS;
+  while (inFlightBatches > 0 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (inFlightBatches > 0) {
+    logger.warn("worker_shutdown_timeout", { inFlightBatches });
+  }
+  try {
+    await pool.end();
+  } catch (err) {
+    logger.error("pool_end_failed", { error: err });
+  }
+  try {
+    if (bullConnection) await bullConnection.quit();
+  } catch (err) {
+    logger.error("redis_quit_failed", { error: err });
+  }
+  logger.info("worker_shutdown_complete", { signal });
+  process.exit(0);
+}
+
 function startWorker() {
   validateConfig();
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-  const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  bullConnection = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
-  const worker = new Worker("telegram-notifications", async (job) => {
+  bullWorker = new Worker("telegram-notifications", async (job) => {
     if (job.name === "send") {
-      console.log(`Sending telegram message for job ${job.id}...`);
+      logger.debug("telegram_job_send", { jobId: job.id });
       const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -426,37 +505,34 @@ function startWorker() {
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`Telegram API error: ${errText}`);
+        logger.error("telegram_api_error", { status: res.status, body: errText });
         throw new Error(`Telegram API error: ${res.status}`);
       }
     }
-  }, { connection });
+  }, { connection: bullConnection });
 
-  worker.on("completed", job => console.log(`Job ${job.id} completed!`));
-  worker.on("failed", (job, err) => console.error(`Job ${job?.id} failed: ${err.message}`));
-  console.log("Telegram BullMQ Worker started.");
+  bullWorker.on("completed", job => logger.debug("telegram_job_completed", { jobId: job.id }));
+  bullWorker.on("failed", (job, err) => logger.error("telegram_job_failed", { jobId: job?.id, error: err }));
+  logger.info("telegram_worker_started");
 
   // Poll roughly once a second. A crashed worker leaves pending rows in
   // the DB; they are picked up on next start.
-  setInterval(() => {
-    processWebhookBatch().catch(err => console.error("Webhook loop error:", err));
-  }, 1000);
-  console.log("Webhook delivery loop started.");
+  intervalIds.push(setInterval(() => runBatch(processWebhookBatch, "webhook_loop_error"), 1000));
+  logger.info("webhook_delivery_loop_started");
 
-  setInterval(() => {
-    sweepHygiene().catch(err => console.error("Hygiene loop error:", err));
-  }, 60 * 60 * 1000);
+  intervalIds.push(setInterval(() => runBatch(sweepHygiene, "hygiene_loop_error"), 60 * 60 * 1000));
   // Run once at startup so the first sweep doesn't wait an hour.
-  sweepHygiene().catch(err => console.error("Initial hygiene sweep error:", err));
-  console.log("DB hygiene sweep started.");
+  runBatch(sweepHygiene, "initial_hygiene_sweep_error");
+  logger.info("hygiene_sweep_started");
 
   // Activations carry a short TTL (minutes), so sweep every minute to
   // fire activation.expired close to the actual lapse.
-  setInterval(() => {
-    sweepExpiredActivations().catch(err => console.error("Activation sweep loop error:", err));
-  }, 60 * 1000);
-  sweepExpiredActivations().catch(err => console.error("Initial activation sweep error:", err));
-  console.log("Activation expiry sweep started.");
+  intervalIds.push(setInterval(() => runBatch(sweepExpiredActivations, "activation_sweep_loop_error"), 60 * 1000));
+  runBatch(sweepExpiredActivations, "initial_activation_sweep_error");
+  logger.info("activation_expiry_sweep_started");
+
+  process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
+  process.on("SIGINT", () => shutdownGracefully("SIGINT"));
 }
 
 if (require.main === module) {
