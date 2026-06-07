@@ -91,13 +91,14 @@ services:
       BEARER_ADMIN_TELEGRAM_ID: ${BEARER_ADMIN_TELEGRAM_ID:-}
       INTERNAL_ANALYTICS_SECRET: ${INTERNAL_ANALYTICS_SECRET:-}
       TRUSTED_PROXY: ${TRUSTED_PROXY:-cf}
+      ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
     expose:
       - "3000"
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 15s
@@ -169,6 +170,10 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       DATABASE_URL: postgres://auth:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/auth
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN}
+      ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
+      BEARER_ADMIN_TELEGRAM_ID: ${BEARER_ADMIN_TELEGRAM_ID:-}
+      GRACEFUL_SHUTDOWN_TIMEOUT_MS: ${GRACEFUL_SHUTDOWN_TIMEOUT_MS:-10000}
+      NODE_ENV: production
     depends_on:
       redis:
         condition: service_started

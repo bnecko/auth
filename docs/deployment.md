@@ -43,3 +43,53 @@ The default Compose file is tuned for a small always-on host:
 - cloudflared: 128 MB
 
 Raise `DATABASE_POOL_MAX` and `APP_NODE_OPTIONS` only if traffic requires it.
+
+## Health checks
+
+- `GET /api/health` — liveness. Static 200, no I/O. Use it to tell if the
+  process is up.
+- `GET /api/health/ready` — readiness. Pings Postgres and Redis with a short
+  timeout; returns 200 only when both are reachable, otherwise 503 with a body
+  naming the failed dependency (`{"ok":false,"failed":["redis"]}`). The Compose
+  app healthcheck targets this so the stack does not treat a database/redis
+  outage as healthy.
+
+## Graceful shutdown
+
+On `SIGTERM`/`SIGINT` the worker stops scheduling new work, lets the in-flight
+webhook batch drain (up to `GRACEFUL_SHUTDOWN_TIMEOUT_MS`, default 10s), then
+closes the Postgres pool and Redis connection before exiting. The Next.js app
+drains in-flight requests on `SIGTERM` itself. Both sides are restart-safe: a
+hard kill mid-delivery is recovered via `webhook_deliveries.next_attempt_at`,
+so `docker compose up -d --build app worker` is safe at any time.
+
+## Operator alerts
+
+Set `ALERT_TELEGRAM_CHAT_ID` (falls back to `BEARER_ADMIN_TELEGRAM_ID`) to get a
+Telegram message when a webhook endpoint is auto-disabled or an enqueue fails.
+Alerts are rate-limited and no-op outside production or without a chat id.
+
+## Backup and restore
+
+Postgres holds all durable state (users, sessions, OAuth clients/tokens,
+activations, webhooks, security events). Redis is ephemeral (rate-limit
+counters, short-lived challenges) and does not need backup.
+
+Back up with a logical dump against the Compose db service:
+
+```sh
+docker compose exec -T db pg_dump -U auth -d auth -Fc > backup-$(date +%F).dump
+```
+
+Restore into a fresh database (stop the app/worker first so nothing writes
+mid-restore):
+
+```sh
+docker compose stop app worker
+docker compose exec -T db pg_restore -U auth -d auth --clean --if-exists < backup-YYYY-MM-DD.dump
+docker compose up -d app worker
+```
+
+Run a restore drill periodically against a throwaway database
+(`createdb`/`pg_restore -d`) so the dumps are known-good before you need them.
+Schedule the `pg_dump` from cron on the host and ship the dump off-box.
