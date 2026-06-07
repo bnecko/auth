@@ -131,6 +131,14 @@ export function oauthAccessTokenTtlSeconds() {
   return Number(env("OAUTH_ACCESS_TOKEN_TTL_SECONDS") || 15 * 60);
 }
 
+// Absolute ceiling on a refresh-token family's age. Rotation issues a fresh
+// 30-day expiry on every use, so without this a family could live forever;
+// anchored to the original auth_time, this forces a real re-authentication
+// after the ceiling regardless of activity. Default 90 days.
+export function oauthRefreshAbsoluteLifetimeSeconds() {
+  return Number(env("OAUTH_REFRESH_ABSOLUTE_LIFETIME_SECONDS") || 90 * 24 * 60 * 60);
+}
+
 export const currentOAuthProfileVersion = "bn-oauth-2026-05";
 export const legacyOAuthProfileVersion = "bn-oauth-2026-01";
 

@@ -300,7 +300,7 @@ export async function rotateRefreshToken(
   replacementToken: string,
   appId: number,
 ) {
-  const row = await queryOne<TokenRow & { auth_time: string | null }>(
+  const row = await queryOne<TokenRow & { auth_time: string | null; created_at: string }>(
     `update oauth_refresh_tokens
         set revoked_at = now(),
             replaced_by_hash = $2
@@ -308,10 +308,10 @@ export async function rotateRefreshToken(
         and external_app_id = $3
         and revoked_at is null
         and expires_at > $4
-      returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text, auth_time::text`,
+      returning id, external_app_id, user_id, scopes, expires_at::text, revoked_at::text, auth_time::text, created_at::text`,
     [hashToken(refreshToken), hashToken(replacementToken), appId, new Date().toISOString()],
   );
-  return row ? { ...mapToken(row), authTime: row.auth_time } : null;
+  return row ? { ...mapToken(row), authTime: row.auth_time, createdAt: row.created_at } : null;
 }
 
 export async function findAccessToken(token: string) {
@@ -570,8 +570,48 @@ export async function findPushedRequest(requestUri: string): Promise<OAuthPushed
   }>(
     `select id, external_app_id, scopes, redirect_uri, state, code_challenge, code_challenge_method, nonce, expires_at::text
      from oauth_pushed_requests
-     where request_uri_hash = $1 and expires_at > now()`,
+     where request_uri_hash = $1 and expires_at > now() and consumed_at is null`,
     [hashToken(requestUri)]
+  );
+
+  if (!row) return null;
+
+  return {
+    id: Number(row.id),
+    appId: Number(row.external_app_id),
+    scopes: row.scopes || [],
+    redirectUri: row.redirect_uri,
+    state: row.state,
+    codeChallenge: row.code_challenge,
+    codeChallengeMethod: row.code_challenge_method,
+    nonce: row.nonce,
+    expiresAt: row.expires_at,
+  };
+}
+
+// Single-use consume for a pushed authorization request (RFC 9126). Atomic:
+// the WHERE guard + RETURNING means exactly one caller can claim a request_uri,
+// so it cannot be replayed to mint multiple authorization codes. Returns the
+// request on success, null if already consumed / expired / unknown.
+export async function consumePushedRequest(requestUri: string): Promise<OAuthPushedRequest | null> {
+  const row = await queryOne<{
+    id: string;
+    external_app_id: string;
+    scopes: string[];
+    redirect_uri: string;
+    state: string | null;
+    code_challenge: string | null;
+    code_challenge_method: string | null;
+    nonce: string | null;
+    expires_at: string;
+  }>(
+    `update oauth_pushed_requests
+        set consumed_at = now()
+      where request_uri_hash = $1
+        and consumed_at is null
+        and expires_at > now()
+      returning id, external_app_id, scopes, redirect_uri, state, code_challenge, code_challenge_method, nonce, expires_at::text`,
+    [hashToken(requestUri)],
   );
 
   if (!row) return null;

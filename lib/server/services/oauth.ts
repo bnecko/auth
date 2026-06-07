@@ -13,6 +13,7 @@ import {
   legacyOAuthProfileVersion,
   oauthAccessTokenTtlSeconds,
   oauthDynamicRegistrationToken,
+  oauthRefreshAbsoluteLifetimeSeconds,
   oidcSigningKeys,
 } from "../config";
 import { randomToken, safeEqual } from "../crypto";
@@ -35,7 +36,7 @@ import {
   revokeRefreshToken,
   revokeAccessTokensForRefreshGrant,
   rotateRefreshToken,
-  findPushedRequest,
+  consumePushedRequest,
   findRotatedRefreshTokenContext,
   revokeAllTokensForUserAndApp,
   markDeviceCodePolled,
@@ -387,7 +388,12 @@ export async function getOAuthAuthorizeView(
   const requestUri = Array.isArray(searchParams.request_uri) ? searchParams.request_uri[0] : searchParams.request_uri;
 
   if (requestUri) {
-    const pushedReq = await findPushedRequest(requestUri);
+    // Single-use per RFC 9126: consume the pushed request the first time the
+    // authorize endpoint resolves it. Every onward redirect (login, reauth)
+    // rebuilds the URL with the expanded params rather than the request_uri,
+    // so the happy path resolves it exactly once; a manual refresh of the
+    // request_uri URL is then correctly rejected as already used.
+    const pushedReq = await consumePushedRequest(requestUri);
     if (!pushedReq) {
       throw new OAuthError("invalid_request", "invalid or expired request_uri");
     }
@@ -993,6 +999,20 @@ export async function exchangeOAuthToken(
 
     if (!previous.userId) {
       throw new OAuthError("invalid_grant", "refresh_token is invalid");
+    }
+
+    // Absolute family lifetime: rotation issues a fresh 30-day expiry on every
+    // use, so without this a family lives forever. Anchor on the original
+    // auth_time (created_at for tokens predating auth_time) and force a real
+    // re-authentication once the ceiling is passed, poisoning the family.
+    const familyAnchor = previous.authTime || previous.createdAt;
+    if (
+      familyAnchor &&
+      Math.floor((Date.now() - Date.parse(familyAnchor)) / 1000) >
+        oauthRefreshAbsoluteLifetimeSeconds()
+    ) {
+      await revokeAllTokensForUserAndApp({ appId: previous.appId, userId: previous.userId });
+      throw new OAuthError("invalid_grant", "refresh_token exceeded maximum age");
     }
 
     const user = await findUserById(previous.userId);
