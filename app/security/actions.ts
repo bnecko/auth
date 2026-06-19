@@ -26,8 +26,7 @@ export async function revokeOtherSessionsAction() {
     result: "revoked_other_sessions",
     context: requestContextFromHeaders(await headers()),
   });
-  revalidatePath("/security");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 // CSRF is covered by Next.js server-action origin verification plus the
@@ -77,6 +76,5 @@ export async function revokeAllOAuthGrantsAction() {
     result: "revoked_all_grants",
     context: requestContextFromHeaders(await headers()),
   });
-  revalidatePath("/security");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
