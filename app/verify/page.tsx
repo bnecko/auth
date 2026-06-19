@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
-import { Cursor } from "@/components/Glyph";
 
 type Status = "waiting" | "completed" | "failed";
 
@@ -77,25 +76,25 @@ export default function VerifyPage() {
 
   return (
     <AuthShell tag="auth/verify">
-      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
-        verify with telegram
+      <h1 className="text-[28px] text-fg mb-1 leading-none">
+        Verify with Telegram
       </h1>
       <p className="text-meta text-muted mb-7">
-        open the bot to finish signing up
+        Open the bot to finish signing up
       </p>
 
       <div className="border-t border-rule">
         <div className="flex items-baseline justify-between py-2.5">
-          <span className="text-meta uppercase tracking-wider text-muted">
-            channel
+          <span className="text-[13px] text-muted">
+            Channel
           </span>
-          <span className="text-meta text-fg">telegram</span>
+          <span className="text-meta text-fg">Telegram</span>
         </div>
         <div className="flex items-baseline justify-between py-2.5 border-t border-rule">
-          <span className="text-meta uppercase tracking-wider text-muted">
-            expires in
+          <span className="text-[13px] text-muted">
+            Expires in
           </span>
-          <span className="text-meta text-accent tabular-nums">
+          <span className="text-meta text-accent-strong tabular-nums">
             {Math.floor(secondsLeft / 60)}:
             {(secondsLeft % 60).toString().padStart(2, "0")}
           </span>
@@ -104,7 +103,7 @@ export default function VerifyPage() {
       </div>
 
       <p className="text-meta text-secondary mt-3 mb-5">
-        the button opens telegram with a one-time start token attached.
+        The button opens Telegram with a one-time start token attached.
       </p>
 
       <a
@@ -114,28 +113,27 @@ export default function VerifyPage() {
         className="block mb-3"
       >
         <Button type="button" disabled={!botUrl}>
-          open telegram bot
+          Open Telegram bot
         </Button>
       </a>
 
       {!botUrl && (
         <div className="mb-4">
           <Alert tone="warning">
-            verification link missing — start registration again
+            Verification link missing — start registration again
           </Alert>
         </div>
       )}
 
       {status === "waiting" && (
-        <div className="flex items-baseline gap-2 text-meta uppercase tracking-wider text-muted my-5">
-          <Cursor />
-          <span>waiting for verification</span>
+        <div className="flex items-baseline gap-2 text-[13px] text-muted my-5">
+          <span>Waiting for verification…</span>
         </div>
       )}
 
       {error && <Alert tone="danger">{error}</Alert>}
       {status === "completed" && (
-        <Alert tone="success">verified — redirecting</Alert>
+        <Alert tone="success">Verified — redirecting</Alert>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-3">
@@ -144,10 +142,10 @@ export default function VerifyPage() {
           type="button"
           onClick={() => window.location.assign("/register")}
         >
-          start over
+          Start over
         </Button>
         <Button variant="ghost" type="button" onClick={checkStatus}>
-          check status
+          Check status
         </Button>
       </div>
     </AuthShell>

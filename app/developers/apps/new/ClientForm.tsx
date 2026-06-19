@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { Field } from "@/components/Field";
-import { Glyph } from "@/components/Glyph";
 import { createAppAction } from "./actions";
 
 export function ClientForm() {
@@ -39,43 +38,42 @@ export function ClientForm() {
     return (
       <div>
         <div className="flex items-baseline gap-3 mb-1">
-          <Glyph kind="ok" />
-          <span className="text-meta uppercase tracking-wider text-ok">
-            application created
+          <span className="inline-block w-2 h-2 rounded-full bg-ok" />
+          <span className="text-[12px] text-ok">
+            Application created
           </span>
         </div>
-        <h2 className="text-[24px] tracking-tightest text-fg mb-2 leading-none">
-          credentials issued
+        <h2 className="text-[24px] text-fg mb-2 leading-none">
+          Credentials issued
         </h2>
-        <p className="text-meta text-muted mb-7">
-          copy your client secret now — it will never be shown again
+        <p className="text-[13px] text-muted mb-7">
+          Copy your client secret now — it will never be shown again
         </p>
 
-        <div className="space-y-5 mb-8">
-          <div>
-            <label className="block text-meta uppercase tracking-wider text-muted mb-1">
-              client id
+        <div className="bg-card border border-rule rounded-lg divide-y divide-rule mb-8">
+          <div className="px-4 py-3">
+            <label className="block text-[12px] text-muted mb-1">
+              Client ID
             </label>
-            <code className="block px-1 py-2 border-b border-rule text-[13.5px] text-accent select-all break-all">
+            <code className="block text-[13.5px] text-accent-strong select-all break-all">
               {created.clientId}
             </code>
           </div>
-          <div>
-            <label className="block text-meta uppercase tracking-wider text-muted mb-1">
-              client secret
+          <div className="px-4 py-3">
+            <label className="block text-[12px] text-muted mb-1">
+              Client secret
             </label>
-            <code className="block px-1 py-2 border-b border-rule text-[13.5px] text-accent select-all break-all">
+            <code className="block text-[13.5px] text-accent-strong select-all break-all">
               {created.clientSecret}
             </code>
-            <p className="mt-2 text-meta text-accent flex items-baseline gap-1.5">
-              <Glyph kind="warn" />
-              <span>shown once — store immediately</span>
+            <p className="mt-2 text-[12px] text-accent-strong flex items-baseline gap-1.5">
+              <span>Shown once — store immediately</span>
             </p>
           </div>
         </div>
 
         <Link href={`/developers/apps/${created.slug}`}>
-          <Button>go to app settings</Button>
+          <Button>Go to app settings</Button>
         </Link>
       </div>
     );
@@ -86,32 +84,32 @@ export function ClientForm() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <Field
-        label="application name"
+        label="Application name"
         name="name"
-        placeholder="my cool app"
+        placeholder="My cool app"
         required
         maxLength={50}
-        hint="displayed to users on the authorization consent screen"
+        hint="Displayed to users on the authorization consent screen"
       />
 
       <Field
-        label="redirect uri"
+        label="Redirect URI"
         name="redirect_uri"
         type="url"
         placeholder="https://yourapp.com/oauth/callback"
         required
-        hint="where users are sent after authorizing — https required (except localhost)"
+        hint="Where users are sent after authorizing — https required (except localhost)"
       />
 
       <div className="pt-4 border-t border-rule flex items-center justify-end gap-4">
         <Link
           href="/developers/apps"
-          className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+          className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
         >
-          cancel
+          Cancel
         </Link>
         <Button type="submit" loading={loading}>
-          create app
+          Create app
         </Button>
       </div>
     </form>

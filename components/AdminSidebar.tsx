@@ -4,21 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/admin", label: "overview" },
-  { href: "/admin/users", label: "users" },
-  { href: "/admin/oauth-clients", label: "oauth clients" },
-  { href: "/admin/keys", label: "signing keys" },
-  { href: "/admin/activation-requests", label: "activation requests" },
-  { href: "/admin/webhooks", label: "webhook deliveries" },
-  { href: "/admin/bans", label: "bans" },
-  { href: "/admin/security", label: "security events" },
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/oauth-clients", label: "OAuth clients" },
+  { href: "/admin/keys", label: "Signing keys" },
+  { href: "/admin/activation-requests", label: "Activation requests" },
+  { href: "/admin/webhooks", label: "Webhook deliveries" },
+  { href: "/admin/bans", label: "Bans" },
+  { href: "/admin/security", label: "Security events" },
 ];
 
 function Monogram() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="18"
+      height="18"
       viewBox="0 0 20 20"
       fill="none"
       aria-hidden="true"
@@ -35,28 +35,27 @@ export function AdminSidebar({ username }: { username: string }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-rule bg-bg min-h-screen sticky top-0">
+    <aside className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-rule bg-card min-h-screen sticky top-0">
       <div className="px-5 py-5 border-b border-rule">
         <Link href="/admin" className="flex items-center gap-2.5 select-none group">
           <Monogram />
           <div>
-            <div className="text-[14px] tracking-tightest text-fg group-hover:text-danger transition-colors">
+            <div className="text-[15px] font-semibold tracking-tight text-fg group-hover:text-danger transition-colors">
               bottleneck
             </div>
-            <div className="text-micro uppercase tracking-wider text-danger">
-              admin · root
+            <div className="text-[11px] font-medium uppercase tracking-wider text-danger">
+              Admin
             </div>
           </div>
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-5 overflow-y-auto">
-        <div className="px-2 mb-2 text-micro uppercase tracking-wider text-faint flex items-baseline gap-2">
-          <span className="tabular-nums">00</span>
-          <span>controls</span>
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <div className="px-2.5 mb-1.5 text-[11px] font-medium uppercase tracking-wider text-faint">
+          Controls
         </div>
-        <ul>
-          {navItems.map((item, i) => {
+        <ul className="space-y-0.5">
+          {navItems.map(item => {
             const active =
               item.href === "/admin"
                 ? pathname === "/admin"
@@ -65,22 +64,13 @@ export function AdminSidebar({ username }: { username: string }) {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`group flex items-baseline gap-2 px-2 h-7 leading-7 text-[13px] transition-colors ${
-                    active ? "text-danger" : "text-secondary hover:text-fg"
+                  className={`flex items-center px-2.5 h-8 rounded-md text-[13px] transition-colors ${
+                    active
+                      ? "bg-[#fdecec] text-danger font-medium"
+                      : "text-secondary hover:bg-hover hover:text-fg"
                   }`}
                 >
-                  <span
-                    aria-hidden
-                    className={`w-2 text-[10px] ${
-                      active ? "text-danger" : "text-faint"
-                    }`}
-                  >
-                    {active ? "■" : "·"}
-                  </span>
-                  <span className="text-faint text-micro tabular-nums w-6 shrink-0">
-                    {String(i).padStart(2, "0")}
-                  </span>
-                  <span>{item.label}</span>
+                  {item.label}
                 </Link>
               </li>
             );
@@ -89,13 +79,10 @@ export function AdminSidebar({ username }: { username: string }) {
       </nav>
 
       <div className="px-3 py-3 border-t border-rule">
-        <div className="flex items-baseline gap-2 px-2 py-2 text-meta">
-          <span className="text-danger" aria-hidden>
-            ▌
-          </span>
+        <div className="flex items-center gap-2 px-2 py-2 text-[13px]">
           <span className="text-fg truncate">@{username}</span>
-          <span className="ml-auto text-micro uppercase tracking-wider text-danger">
-            root
+          <span className="ml-auto inline-flex items-center rounded bg-[#fdecec] px-1.5 py-0.5 text-[11px] font-medium text-danger">
+            Root
           </span>
         </div>
       </div>

@@ -22,22 +22,18 @@ export default async function TestLabPage() {
         }}
       />
       <div className="flex-1 min-w-0">
-        <TopNav trail="developers / test field lab" />
+        <TopNav trail="Developers / Test field lab" />
         <main className="max-w-[1120px] mx-auto px-6 py-10">
           <header className="mb-10">
-            <div className="flex items-baseline gap-2 mb-2 text-meta">
-              <span className="text-accent">$</span>
-              <span className="uppercase tracking-wider text-muted">
-                oauth.lab
-              </span>
-              <span className="text-faint">·</span>
-              <Tag tone="info">api lab</Tag>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-[13px] text-muted">OAuth lab</span>
+              <Tag tone="info">API lab</Tag>
             </div>
-            <h1 className="text-[36px] leading-none tracking-tightest text-fg mb-3">
-              test field lab
+            <h1 className="text-[36px] leading-none tracking-tight text-fg mb-3">
+              Test field lab
             </h1>
-            <p className="text-meta text-muted leading-6 max-w-[680px]">
-              build an authorization url, generate pkce values, inspect
+            <p className="text-[14px] text-muted leading-6 max-w-[680px]">
+              Build an authorization URL, generate PKCE values, inspect
               discovery metadata, and test token endpoints against this auth
               server.
             </p>

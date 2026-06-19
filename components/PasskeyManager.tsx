@@ -4,7 +4,6 @@ import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Row, RowLabel, RowValue, Empty } from "./Section";
 import { Tag } from "./Tag";
-import { Glyph } from "./Glyph";
 import { revokePasskeyAction } from "@/app/dashboard-actions";
 
 export function PasskeyManager({
@@ -50,32 +49,31 @@ export function PasskeyManager({
   return (
     <>
       {error && (
-        <div className="border-t border-rule first:border-t-0 px-1 py-2.5 text-meta flex items-baseline gap-2">
-          <Glyph kind="error" />
+        <div className="border-t border-rule first:border-t-0 px-1 py-2.5 text-[13px] flex items-baseline gap-2">
           <span className="text-danger">{error}</span>
         </div>
       )}
 
       {passkeys.length === 0 ? (
-        <Empty>no passkeys registered</Empty>
+        <Empty>No passkeys registered</Empty>
       ) : (
         passkeys.map(key => (
           <Row key={key.id}>
-            <RowLabel>{key.name || "unknown device"}</RowLabel>
+            <RowLabel>{key.name || "Unknown device"}</RowLabel>
             <RowValue>
-              <Tag tone="success">active</Tag>
-              <Glyph kind="dot" />
+              <Tag tone="success">Active</Tag>
+              <span className="text-faint">·</span>
               <span className="text-muted">
-                last used {key.lastUsed.slice(0, 10)}
+                Last used {key.lastUsed.slice(0, 10)}
               </span>
             </RowValue>
             <form action={revokePasskeyAction}>
               <input type="hidden" name="credentialId" value={key.id} />
               <button
                 type="submit"
-                className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors"
+                className="text-[13px] text-secondary hover:text-danger transition-colors"
               >
-                revoke
+                Revoke
               </button>
             </form>
           </Row>
@@ -86,19 +84,9 @@ export function PasskeyManager({
         <button
           onClick={registerPasskey}
           disabled={loading}
-          className="text-meta uppercase tracking-wider text-accent hover:text-fg transition-colors disabled:text-faint disabled:cursor-not-allowed flex items-baseline gap-2"
+          className="text-[13px] text-accent-strong hover:text-fg transition-colors disabled:text-faint disabled:cursor-not-allowed"
         >
-          {loading ? (
-            <>
-              <span className="cursor-blink">▌</span>
-              <span>registering</span>
-            </>
-          ) : (
-            <>
-              <Glyph kind="ok" />
-              <span>add passkey</span>
-            </>
-          )}
+          {loading ? "Registering…" : "Add passkey"}
         </button>
       </div>
     </>

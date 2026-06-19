@@ -47,3 +47,6 @@ pip-delete-this-directory.txt
 
 # macOS
 .DS_Store
+
+# Saved design reference pages (contain third-party account PII; never commit)
+reference/

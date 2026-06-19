@@ -1,6 +1,5 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { Button } from "@/components/Button";
 import { searchSecurityEvents } from "@/lib/server/repositories/securityEvents";
 import { getCurrentSession } from "@/lib/server/session";
@@ -56,26 +55,21 @@ export default async function AdminSecurityPage({
         data-mount-row
       >
         <div>
-          <div className="flex items-baseline gap-2 mb-2 text-meta">
-            <span className="text-danger">$</span>
-            <span className="uppercase tracking-wider text-muted">
-              admin.audit
+          <p className="text-[13px] text-muted mb-2">
+            Admin / Audit
+            <span className="ml-2 tabular-nums text-faint">
+              {events.length}
             </span>
-            <span className="text-faint">·</span>
-            <span className="text-meta text-faint tabular-nums">
-              {String(events.length).padStart(2, "0")}
-            </span>
-          </div>
-          <h1 className="text-[32px] tracking-tightest text-fg leading-none">
-            audit console
+          </p>
+          <h1 className="text-[32px] tracking-tight text-fg leading-none">
+            Audit console
           </h1>
         </div>
         <a
           href={`/admin/security/export?${exportParams.toString()}`}
-          className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors flex items-baseline gap-1.5"
+          className="text-[13px] text-accent-strong hover:underline transition-colors"
         >
-          <Glyph kind="prompt" />
-          <span>export csv</span>
+          Export CSV
         </a>
       </header>
 
@@ -84,16 +78,14 @@ export default async function AdminSecurityPage({
         data-mount-row
       >
         {[
-          ["event", "event type"],
-          ["result", "result"],
-          ["user", "username"],
-          ["ip", "ip"],
-          ["limit", "limit"],
+          ["event", "Event type"],
+          ["result", "Result"],
+          ["user", "Username"],
+          ["ip", "IP"],
+          ["limit", "Limit"],
         ].map(([name, label]) => (
           <label key={name} className="block">
-            <span className="block text-meta uppercase tracking-wider text-muted mb-1">
-              {label}
-            </span>
+            <span className="block text-[12px] text-muted mb-1">{label}</span>
             <input
               name={name}
               defaultValue={String(
@@ -101,24 +93,24 @@ export default async function AdminSecurityPage({
                   name === "event" ? "eventType" : (name as keyof typeof filters)
                 ] || "",
               )}
-              className="w-full bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
+              className="w-full bg-card border border-rule rounded-md px-2 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
             />
           </label>
         ))}
         <Button type="submit" className="self-end h-8! px-3!">
-          filter
+          Filter
         </Button>
       </form>
 
       <div data-mount-row>
-        <Section index="1.0" title="events" hint={`last ${events.length}`}>
+        <Section index="1.0" title="Events" hint={`last ${events.length}`}>
           {events.length === 0 ? (
-            <Empty>no events</Empty>
+            <Empty>No events</Empty>
           ) : (
             events.map((ev, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[180px_90px_1fr_140px] gap-4 items-baseline border-t border-rule first:border-t-0 py-2.5 px-1 text-meta"
+                className="grid grid-cols-[180px_90px_1fr_140px] gap-4 items-baseline border-t border-rule first:border-t-0 py-2.5 px-1 text-[13px]"
               >
                 <div className="text-fg truncate">{ev.event_type}</div>
                 <Tag tone={resultTone[ev.result] ?? "neutral"}>{ev.result}</Tag>
@@ -126,11 +118,11 @@ export default async function AdminSecurityPage({
                   {ev.username && (
                     <span className="text-secondary">@{ev.username}</span>
                   )}
-                  {ev.username && ev.ip && <Glyph kind="dot" />}
+                  {ev.username && ev.ip && <span className="text-faint">·</span>}
                   {ev.ip && <span>{ev.ip}</span>}
                   {Object.keys(ev.metadata || {}).length > 0 && (
                     <>
-                      <Glyph kind="dot" />
+                      <span className="text-faint">·</span>
                       <code className="text-faint truncate">
                         {JSON.stringify(ev.metadata)}
                       </code>

@@ -2,11 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Glyph } from "./Glyph";
 
-// Console-style top bar — no backdrop blur, no shadow. A single
-// hairline rule under the bar, breadcrumb on the left written as a
-// `$` shell path, sign-out on the right with a > prompt mark.
+// Top bar: white surface, a single hairline beneath, brand and breadcrumb on
+// the left, admin link and sign-out on the right.
 export function TopNav({
   trail,
   isAdmin,
@@ -22,40 +20,30 @@ export function TopNav({
   }
 
   return (
-    <header className="border-b border-rule bg-bg sticky top-0 z-10">
-      <div className="max-w-[1140px] mx-auto px-6 h-11 flex items-center justify-between text-meta">
-        <div className="flex items-baseline gap-2">
-          <span className="text-accent" aria-hidden>
-            $
-          </span>
-          <Link
-            href="/"
-            className="text-fg hover:text-accent transition-colors tracking-wider"
-          >
+    <header className="border-b border-rule bg-card sticky top-0 z-10">
+      <div className="max-w-[1140px] mx-auto px-6 h-14 flex items-center justify-between text-[14px]">
+        <div className="flex items-center gap-2">
+          <Link href="/" className="font-semibold text-fg hover:text-accent-strong transition-colors">
             bottleneck
           </Link>
           <span className="text-faint">/</span>
-          <span className="text-secondary tracking-wider">{trail ?? "account"}</span>
+          <span className="text-secondary">{trail ?? "Account"}</span>
         </div>
-        <nav className="flex items-baseline gap-4 text-muted">
+        <nav className="flex items-center gap-4 text-[13px]">
           {isAdmin && (
-            <>
-              <Link
-                href="/admin"
-                className="hover:text-accent transition-colors flex items-baseline gap-1.5 uppercase tracking-wider"
-              >
-                <Glyph kind="active" className="text-[10px]" />
-                <span>admin</span>
-              </Link>
-              <span className="text-faint">·</span>
-            </>
+            <Link
+              href="/admin"
+              className="text-secondary hover:text-fg transition-colors"
+            >
+              Admin
+            </Link>
           )}
           <button
             type="button"
             onClick={signOut}
-            className="hover:text-danger transition-colors uppercase tracking-wider"
+            className="text-secondary hover:text-danger transition-colors"
           >
-            sign-out
+            Sign out
           </button>
         </nav>
       </div>

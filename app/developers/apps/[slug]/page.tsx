@@ -68,29 +68,23 @@ export default async function AppSettingsPage({
             data-mount-row
           >
             <div
-              className="h-16 w-16 border border-accent flex items-center justify-center text-accent text-[20px] tracking-wider shrink-0"
+              className="h-16 w-16 rounded-lg border border-rule bg-bg-soft flex items-center justify-center text-accent-strong text-[20px] font-semibold shrink-0"
               aria-hidden
             >
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2 mb-2 text-meta">
-                <span className="text-accent">$</span>
-                <span className="uppercase tracking-wider text-muted">
-                  app.settings
-                </span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[12px] text-muted">App settings</span>
                 {app.status === "disabled" && (
-                  <>
-                    <span className="text-faint">·</span>
-                    <Tag tone="danger">disabled</Tag>
-                  </>
+                  <Tag tone="danger">Disabled</Tag>
                 )}
               </div>
-              <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-2 truncate">
+              <h1 className="text-[32px] tracking-tight text-fg leading-none mb-2 truncate">
                 {app.name}
               </h1>
-              <p className="text-meta text-muted">
-                client id: <CopyValue value={app.public_id} label="client id" />
+              <p className="text-[13px] text-muted">
+                Client ID: <CopyValue value={app.public_id} label="client id" />
               </p>
             </div>
           </header>
@@ -98,25 +92,25 @@ export default async function AppSettingsPage({
           <div data-mount-row>
             <Section
               index="1.0"
-              title="identifiers"
-              hint="immutable oauth credentials"
+              title="Identifiers"
+              hint="Immutable OAuth credentials"
             >
               <Row>
-                <RowLabel>client id</RowLabel>
+                <RowLabel>Client ID</RowLabel>
                 <RowValue>
                   <CopyValue value={app.public_id} label="client id" />
                 </RowValue>
                 <span />
               </Row>
               <Row>
-                <RowLabel>slug</RowLabel>
+                <RowLabel>Slug</RowLabel>
                 <RowValue>
                   <span className="text-fg">{slug}</span>
                 </RowValue>
                 <span />
               </Row>
               <Row>
-                <RowLabel>created</RowLabel>
+                <RowLabel>Created</RowLabel>
                 <RowValue>
                   <span className="text-muted tabular-nums">
                     {app.created_at.slice(0, 16).replace("T", " ")}

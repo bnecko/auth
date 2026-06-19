@@ -12,7 +12,7 @@ declare global {
           callback: (token: string) => void;
           "expired-callback": () => void;
           "error-callback": () => void;
-          theme: "dark";
+          theme: "light";
         },
       ) => string;
       reset: (widgetId: string) => void;
@@ -74,7 +74,7 @@ export function TurnstileField() {
 
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
-          theme: "dark",
+          theme: "light",
           callback: value => {
             setToken(value);
             setError("");
@@ -99,7 +99,7 @@ export function TurnstileField() {
     <div className="space-y-1.5">
       <input type="hidden" name="turnstileToken" value={token} />
       <div ref={containerRef} />
-      {error && <p className="text-meta text-danger">× {error}</p>}
+      {error && <p className="text-[12px] text-danger">{error}</p>}
     </div>
   );
 }

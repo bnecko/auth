@@ -22,14 +22,14 @@ export function ChangePasswordForm({
         </Alert>
       )}
       <Field
-        label="current password"
+        label="Current password"
         name="currentPassword"
         type="password"
         autoComplete="current-password"
         required
       />
       <Field
-        label="new password"
+        label="New password"
         name="newPassword"
         type="password"
         autoComplete="new-password"
@@ -40,7 +40,7 @@ export function ChangePasswordForm({
       />
       <div>
         <Button type="submit" loading={pending}>
-          change password
+          Change password
         </Button>
       </div>
     </form>

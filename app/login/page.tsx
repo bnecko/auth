@@ -102,11 +102,11 @@ export default function LoginPage() {
 
   return (
     <AuthShell tag="auth/sign-in">
-      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
-        sign in
+      <h1 className="text-[28px] text-fg mb-1 leading-none">
+        Sign in
       </h1>
-      <p className="text-meta text-muted mb-7">
-        access your bottleneck account
+      <p className="text-[13px] text-muted mb-7">
+        Access your bottleneck account
       </p>
 
       {error && (
@@ -117,7 +117,7 @@ export default function LoginPage() {
 
       <form className="space-y-5" onSubmit={onSubmit} noValidate>
         <Field
-          label="email or username"
+          label="Email or username"
           name="identifier"
           type="text"
           autoComplete="username"
@@ -125,7 +125,7 @@ export default function LoginPage() {
           required
         />
         <Field
-          label="password"
+          label="Password"
           name="password"
           type="password"
           autoComplete="current-password"
@@ -137,30 +137,30 @@ export default function LoginPage() {
             type="checkbox"
             name="remember"
             defaultChecked
-            className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+            className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5 rounded-md"
           />
-          <span className="text-meta uppercase tracking-wider text-muted group-hover:text-fg transition-colors">
-            remember this device
+          <span className="text-[13px] text-muted group-hover:text-fg transition-colors">
+            Remember this device
           </span>
         </label>
         <TurnstileField />
         <Button type="submit" loading={loading}>
-          continue
+          Continue
         </Button>
       </form>
 
-      <div className="flex justify-between mt-5 text-meta uppercase tracking-wider">
+      <div className="flex justify-between mt-5 text-[13px]">
         <Link
           href="/register"
-          className="text-secondary hover:text-accent transition-colors"
+          className="text-secondary hover:text-accent-strong transition-colors"
         >
-          create account
+          Create account
         </Link>
         <Link
           href="/forgot"
-          className="text-secondary hover:text-accent transition-colors"
+          className="text-secondary hover:text-accent-strong transition-colors"
         >
-          forgot password
+          Forgot password
         </Link>
       </div>
 
@@ -175,10 +175,10 @@ export default function LoginPage() {
           onClick={onPasskeyLogin}
           loading={loading}
         >
-          continue with passkey
+          Continue with passkey
         </Button>
         <Button variant="secondary" type="button">
-          continue with telegram
+          Continue with Telegram
         </Button>
       </div>
     </AuthShell>

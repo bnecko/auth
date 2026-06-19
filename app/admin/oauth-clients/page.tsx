@@ -1,6 +1,5 @@
 import { Empty, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { listPendingOAuthClientRegistrationRequests } from "@/lib/server/repositories/oauthClientRegistrations";
 import {
   approveOAuthClientRegistrationAction,
@@ -18,29 +17,28 @@ export default async function AdminOAuthClientsPage() {
       data-mount-stagger
     >
       <header className="mb-10" data-mount-row>
-        <div className="flex items-baseline gap-2 mb-2 text-meta">
-          <span className="text-danger">$</span>
-          <span className="uppercase tracking-wider text-muted">
-            admin.oauth.clients
-          </span>
+        <div className="flex items-baseline gap-2 mb-2 text-[13px]">
+          <span className="text-muted">Admin</span>
           <span className="text-faint">·</span>
-          <span className="text-meta text-faint tabular-nums">
+          <span className="text-muted">OAuth clients</span>
+          <span className="text-faint">·</span>
+          <span className="text-faint tabular-nums">
             {String(requests.length).padStart(2, "0")} pending
           </span>
         </div>
-        <h1 className="text-[32px] tracking-tightest text-fg leading-none">
-          oauth client reviews
+        <h1 className="text-[32px] text-fg leading-none">
+          OAuth client reviews
         </h1>
       </header>
 
       <div data-mount-row>
         <Section
           index="1.0"
-          title="pending registrations"
-          hint="awaiting approval"
+          title="Pending registrations"
+          hint="Awaiting approval"
         >
           {requests.length === 0 ? (
-            <Empty>no pending clients</Empty>
+            <Empty>No pending clients</Empty>
           ) : (
             requests.map(request => (
               <div
@@ -76,21 +74,21 @@ export default async function AdminOAuthClientsPage() {
                 </div>
 
                 <dl className="mt-3 grid grid-cols-[100px_1fr] gap-x-3 gap-y-1 text-meta">
-                  <dt className="text-muted uppercase tracking-wider">
+                  <dt className="text-[12px] text-muted">
                     redirects
                   </dt>
                   <dd className="text-fg break-all">
                     {request.redirectUris.join(", ")}
                   </dd>
-                  <dt className="text-muted uppercase tracking-wider">
+                  <dt className="text-[12px] text-muted">
                     grants
                   </dt>
                   <dd className="text-fg">{request.grantTypes.join(", ")}</dd>
-                  <dt className="text-muted uppercase tracking-wider">
+                  <dt className="text-[12px] text-muted">
                     scopes
                   </dt>
                   <dd className="text-fg">{request.scopes.join(", ")}</dd>
-                  <dt className="text-muted uppercase tracking-wider">
+                  <dt className="text-[12px] text-muted">
                     requester
                   </dt>
                   <dd className="text-fg">
@@ -98,25 +96,23 @@ export default async function AdminOAuthClientsPage() {
                   </dd>
                 </dl>
 
-                <div className="mt-4 flex items-baseline gap-5 text-meta uppercase tracking-wider">
+                <div className="mt-4 flex items-baseline gap-5 text-[13px]">
                   <form action={approveOAuthClientRegistrationAction}>
                     <input type="hidden" name="request_id" value={request.id} />
                     <button
                       type="submit"
-                      className="text-ok hover:text-fg transition-colors flex items-baseline gap-1.5"
+                      className="text-accent-strong hover:text-fg transition-colors"
                     >
-                      <Glyph kind="ok" />
-                      <span>approve</span>
+                      Approve
                     </button>
                   </form>
                   <form action={denyOAuthClientRegistrationAction}>
                     <input type="hidden" name="request_id" value={request.id} />
                     <button
                       type="submit"
-                      className="text-secondary hover:text-danger transition-colors flex items-baseline gap-1.5"
+                      className="text-secondary hover:text-danger transition-colors"
                     >
-                      <Glyph kind="error" />
-                      <span>deny</span>
+                      Deny
                     </button>
                   </form>
                 </div>

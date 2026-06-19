@@ -1,6 +1,5 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { query, queryOne } from "@/lib/server/db";
 import { decideBearerAction } from "./actions";
 
@@ -59,38 +58,33 @@ export default async function AdminPage() {
       data-mount-stagger
     >
       <header className="mb-10" data-mount-row>
-        <div className="flex items-baseline gap-2 mb-2 text-meta">
-          <span className="text-danger">$</span>
-          <span className="uppercase tracking-wider text-muted">
-            admin.overview
-          </span>
-          <span className="text-faint">·</span>
-          <span className="text-meta text-faint">root</span>
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-[12px] text-muted">Admin</span>
+          <span className="text-[12px] text-faint">/</span>
+          <span className="text-[12px] text-muted">Overview</span>
         </div>
-        <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-3">
-          overview
+        <h1 className="text-[32px] tracking-tight text-fg leading-none mb-3">
+          Overview
         </h1>
-        <p className="text-meta text-muted">system state at a glance</p>
+        <p className="text-[14px] text-muted">System state at a glance</p>
       </header>
 
       <div
-        className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-rule mb-12"
+        className="grid grid-cols-2 sm:grid-cols-4 bg-card border border-rule rounded-lg mb-12"
         data-mount-row
       >
         {[
-          { label: "active users", value: data.stats.activeUsers },
-          { label: "sessions", value: data.stats.activeSessions },
-          { label: "pending bearers", value: data.stats.pendingBearers },
-          { label: "pending activations", value: data.stats.pendingActivations },
+          { label: "Active users", value: data.stats.activeUsers },
+          { label: "Sessions", value: data.stats.activeSessions },
+          { label: "Pending bearers", value: data.stats.pendingBearers },
+          { label: "Pending activations", value: data.stats.pendingActivations },
         ].map((stat, i) => (
           <div
             key={stat.label}
-            className={`px-1 py-4 ${i > 0 ? "border-l border-rule" : ""}`}
+            className={`px-4 py-5 ${i > 0 ? "border-l border-rule" : ""}`}
           >
-            <div className="text-meta uppercase tracking-wider text-muted mb-1">
-              {stat.label}
-            </div>
-            <div className="text-[34px] text-danger tabular-nums tracking-tightest leading-none">
+            <div className="text-[12px] text-muted mb-1">{stat.label}</div>
+            <div className="text-[34px] text-fg tabular-nums leading-none">
               {String(stat.value).padStart(2, "0")}
             </div>
           </div>
@@ -100,11 +94,11 @@ export default async function AdminPage() {
       <div data-mount-row>
         <Section
           index="1.0"
-          title="pending bearer requests"
-          hint="awaiting review"
+          title="Pending bearer requests"
+          hint="Awaiting review"
         >
           {data.pendingRequests.length === 0 ? (
-            <Empty>no pending requests</Empty>
+            <Empty>No pending requests</Empty>
           ) : (
             data.pendingRequests.map(req => (
               <div
@@ -119,12 +113,12 @@ export default async function AdminPage() {
                       <span className="text-faint">· id {req.user_id}</span>
                     </div>
                   </div>
-                  <Tag tone="warning">pending</Tag>
+                  <Tag tone="warning">Pending</Tag>
                 </div>
                 <div className="text-meta text-secondary mb-4 border-l border-rule pl-3 py-1 leading-relaxed whitespace-pre-wrap">
                   {req.reason}
                 </div>
-                <div className="flex items-baseline gap-5 text-meta uppercase tracking-wider">
+                <div className="flex items-baseline gap-5">
                   <form action={decideBearerAction}>
                     <input
                       type="hidden"
@@ -134,10 +128,9 @@ export default async function AdminPage() {
                     <input type="hidden" name="decision" value="approve" />
                     <button
                       type="submit"
-                      className="text-ok hover:text-fg transition-colors flex items-baseline gap-1.5"
+                      className="text-[13px] text-ok hover:text-fg transition-colors"
                     >
-                      <Glyph kind="ok" />
-                      <span>approve</span>
+                      Approve
                     </button>
                   </form>
                   <form action={decideBearerAction}>
@@ -149,10 +142,9 @@ export default async function AdminPage() {
                     <input type="hidden" name="decision" value="reject" />
                     <button
                       type="submit"
-                      className="text-secondary hover:text-danger transition-colors flex items-baseline gap-1.5"
+                      className="text-[13px] text-secondary hover:text-danger transition-colors"
                     >
-                      <Glyph kind="error" />
-                      <span>reject</span>
+                      Deny
                     </button>
                   </form>
                 </div>

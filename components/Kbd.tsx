@@ -1,7 +1,4 @@
-// Keyboard shortcut pill. Brackets are part of the glyph language —
-// no border, no background, no rounded box. Just bracketed characters
-// rendered in the muted shade so the keystroke reads as printed
-// documentation rather than a "click me" affordance.
+// Keyboard shortcut key: a small bordered, rounded cap.
 export function Kbd({
   children,
   className = "",
@@ -10,10 +7,10 @@ export function Kbd({
   className?: string;
 }) {
   return (
-    <span className={`text-micro text-muted whitespace-nowrap ${className}`}>
-      <span className="text-faint">[</span>
+    <span
+      className={`inline-flex items-center rounded border border-rule bg-card px-1.5 py-0.5 text-[11px] text-secondary whitespace-nowrap ${className}`}
+    >
       {children}
-      <span className="text-faint">]</span>
     </span>
   );
 }

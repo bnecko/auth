@@ -5,7 +5,6 @@ import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { Field } from "@/components/Field";
-import { Cursor } from "@/components/Glyph";
 
 type Step = "send" | "enter_code" | "bot_link" | "success" | "error";
 
@@ -102,15 +101,15 @@ export default function RelinkPage() {
 
   return (
     <AuthShell tag="account/relink">
-      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
-        relink telegram
+      <h1 className="text-[28px] tracking-tight text-fg mb-1 leading-none">
+        Relink Telegram
       </h1>
-      <p className="text-meta text-muted mb-7">
-        {step === "send" && "confirm ownership of your linked account before relinking"}
-        {step === "enter_code" && "enter the code sent to your linked telegram"}
-        {step === "bot_link" && "open the bot to complete the relink"}
-        {step === "success" && "telegram account relinked — redirecting"}
-        {step === "error" && "something went wrong"}
+      <p className="text-[13px] text-muted mb-7">
+        {step === "send" && "Confirm ownership of your linked account before relinking"}
+        {step === "enter_code" && "Enter the code sent to your linked Telegram"}
+        {step === "bot_link" && "Open the bot to complete the relink"}
+        {step === "success" && "Telegram account relinked — redirecting"}
+        {step === "error" && "Something went wrong"}
       </p>
 
       {error && (
@@ -119,26 +118,21 @@ export default function RelinkPage() {
         </div>
       )}
 
-      {step === "success" && <Alert tone="success">relinked successfully</Alert>}
+      {step === "success" && <Alert tone="success">Relinked successfully</Alert>}
 
       {step === "send" && (
         <Button onClick={sendCode} loading={sending}>
-          send code to telegram
+          Send code to Telegram
         </Button>
       )}
 
       {step === "enter_code" && (
         <form onSubmit={verifyCode} className="space-y-5">
-          <div className="border-t border-rule">
-            <div className="flex items-baseline justify-between py-2.5">
-              <span className="text-meta uppercase tracking-wider text-muted">
-                one-time code
-              </span>
-              <span className="text-meta text-accent tabular-nums">
-                expires {mins}:{secs}
-              </span>
-            </div>
-            <div className="border-t border-rule" />
+          <div className="bg-card border border-rule rounded-md px-3 py-2.5 flex items-baseline justify-between mb-1">
+            <span className="text-[12px] text-muted">One-time code</span>
+            <span className="text-[12px] text-accent-strong tabular-nums">
+              Expires {mins}:{secs}
+            </span>
           </div>
           <Field
             label="10-character code"
@@ -150,7 +144,7 @@ export default function RelinkPage() {
             required
           />
           <Button type="submit" loading={verifying}>
-            verify code
+            Verify code
           </Button>
           <Button
             variant="ghost"
@@ -160,32 +154,24 @@ export default function RelinkPage() {
               sendCode();
             }}
           >
-            resend code
+            Resend code
           </Button>
         </form>
       )}
 
       {step === "bot_link" && (
         <>
-          <div className="border-t border-rule mb-3">
-            <div className="flex items-baseline justify-between py-2.5">
-              <span className="text-meta uppercase tracking-wider text-muted">
-                channel
-              </span>
-              <span className="text-meta text-fg">telegram</span>
-            </div>
-            <div className="border-t border-rule" />
+          <div className="bg-card border border-rule rounded-md px-3 py-2.5 flex items-baseline justify-between mb-4">
+            <span className="text-[12px] text-muted">Channel</span>
+            <span className="text-[12px] text-fg">Telegram</span>
           </div>
-          <p className="text-meta text-secondary mb-5">
-            open the bot link from the telegram account you want to link.
+          <p className="text-[13px] text-secondary mb-5">
+            Open the bot link from the Telegram account you want to link.
           </p>
           <a href={botUrl} target="_blank" rel="noreferrer" className="block mb-3">
-            <Button type="button">open telegram bot</Button>
+            <Button type="button">Open Telegram bot</Button>
           </a>
-          <div className="flex items-baseline gap-2 text-meta uppercase tracking-wider text-muted my-5">
-            <Cursor />
-            <span>waiting for telegram</span>
-          </div>
+          <p className="text-[12px] text-muted my-5">Waiting for Telegram…</p>
         </>
       )}
 
@@ -196,7 +182,7 @@ export default function RelinkPage() {
             setStep("send");
           }}
         >
-          start over
+          Start over
         </Button>
       )}
 
@@ -207,7 +193,7 @@ export default function RelinkPage() {
             type="button"
             onClick={() => window.location.assign("/")}
           >
-            cancel
+            Cancel
           </Button>
         </div>
       )}

@@ -4,7 +4,6 @@ import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import { mintActivationCsrf } from "@/lib/server/activationCsrf";
 import { getActivationForUser } from "@/lib/server/services/activation";
@@ -49,16 +48,16 @@ export default async function ActivatePage({
       <AuthShell tag="auth/authorized" account={{ username: current.user.username }}>
         <div className="flex items-start gap-4 mb-7">
           <div
-            className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
+            className="h-12 w-12 border border-accent rounded-md flex items-center justify-center text-accent-strong text-[13px] font-medium shrink-0"
             aria-hidden
           >
             {activation.app.name.slice(0, 2)}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-meta uppercase tracking-wider text-muted mb-1">
-              authorized
+            <div className="text-[12px] text-muted mb-1">
+              Authorized
             </div>
-            <h1 className="text-[26px] tracking-tightest text-fg truncate leading-none">
+            <h1 className="text-[26px] text-fg truncate leading-none">
               {activation.app.name}
             </h1>
           </div>
@@ -71,7 +70,7 @@ export default async function ActivatePage({
         </div>
         <Link href="/">
           <Button variant="secondary" type="button">
-            return to dashboard
+            Return to dashboard
           </Button>
         </Link>
       </AuthShell>
@@ -104,24 +103,24 @@ export default async function ActivatePage({
     <AuthShell tag="auth/authorize" account={{ username: current.user.username }}>
       <div className="flex items-start gap-4 mb-7">
         <div
-          className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
+          className="h-12 w-12 border border-accent rounded-md flex items-center justify-center text-accent-strong text-[13px] font-medium shrink-0"
           aria-hidden
         >
           {activation.app.name.slice(0, 2)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-meta uppercase tracking-wider text-muted mb-1">
-            authorize app
+          <div className="text-[12px] text-muted mb-1">
+            Authorize app
           </div>
-          <h1 className="text-[26px] tracking-tightest text-fg truncate leading-none">
+          <h1 className="text-[26px] text-fg truncate leading-none">
             {activation.app.name}
           </h1>
           <div className="mt-2 flex items-center gap-2">
             {expired ? (
-              <Tag tone="danger">expired</Tag>
+              <Tag tone="danger">Expired</Tag>
             ) : (
-              <span className="text-meta text-muted">
-                expires {activation.expiresAt.slice(0, 16).replace("T", " ")}
+              <span className="text-[12px] text-muted">
+                Expires {activation.expiresAt.slice(0, 16).replace("T", " ")}
               </span>
             )}
           </div>
@@ -129,19 +128,19 @@ export default async function ActivatePage({
       </div>
 
       <div className="border-t border-rule mb-5">
-        <DetailRow label="signed in" value={current.user.username} />
-        <DetailRow label="email" value={current.user.email} />
+        <DetailRow label="Signed in" value={current.user.username} />
+        <DetailRow label="Email" value={current.user.email} />
         <DetailRow
-          label="origin"
+          label="Origin"
           value={`${activation.userAgent || "unknown device"} · ${activation.ip || "unknown ip"}`}
         />
         {requiredProduct && (
           <DetailRow
-            label="requires"
+            label="Requires"
             value={requiredProduct}
             right={
               <Tag tone={blocked ? "warning" : "success"}>
-                {blocked ? "missing" : "active"}
+                {blocked ? "Missing" : "Active"}
               </Tag>
             }
           />
@@ -150,8 +149,8 @@ export default async function ActivatePage({
       </div>
 
       <div className="mb-5">
-        <div className="text-meta uppercase tracking-wider text-muted mb-2">
-          will share
+        <div className="text-[12px] text-muted mb-2">
+          Will share
         </div>
         <div className="border-t border-rule">
           {standardScopes.map((scope) => {
@@ -161,8 +160,8 @@ export default async function ActivatePage({
                 key={scope}
                 className="flex items-baseline gap-3 py-2.5 border-b border-rule"
               >
-                <Glyph kind="ok" />
-                <span className="text-meta text-fg flex-1">{item.label}</span>
+                <span className="w-2 h-2 rounded-full bg-accent shrink-0 translate-y-0.5" aria-hidden />
+                <span className="text-[13px] text-fg flex-1">{item.label}</span>
                 <input
                   type="hidden"
                   name="scopes"
@@ -185,13 +184,13 @@ export default async function ActivatePage({
                   value={scope}
                   defaultChecked
                   form="approve-form"
-                  className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+                  className="appearance-none w-4 h-4 border border-rule rounded bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
                 />
-                <span className="text-meta text-fg flex-1 group-hover:text-accent transition-colors">
+                <span className="text-[13px] text-fg flex-1 group-hover:text-accent-strong transition-colors">
                   {item.label}
                 </span>
-                <span className="text-micro uppercase tracking-wider text-accent">
-                  optional
+                <span className="text-[12px] text-accent-strong">
+                  Optional
                 </span>
               </label>
             );
@@ -202,7 +201,7 @@ export default async function ActivatePage({
       {blocked && !expired && requiredProduct && (
         <div className="mb-5">
           <Alert tone="warning">
-            active {requiredProduct} subscription required to approve
+            Active {requiredProduct} subscription required to approve
           </Alert>
         </div>
       )}
@@ -210,7 +209,7 @@ export default async function ActivatePage({
       {error === "csrf" && (
         <div className="mb-5">
           <Alert tone="warning">
-            your confirmation expired. review and approve again.
+            Your confirmation expired. Review and approve again.
           </Alert>
         </div>
       )}
@@ -223,7 +222,7 @@ export default async function ActivatePage({
           <input type="hidden" name="csrf_token" value={csrfToken} />
           <input type="hidden" name="token" value={token} />
           <Button variant="ghost" type="submit" disabled={expired}>
-            deny
+            Deny
           </Button>
         </form>
         <form
@@ -234,7 +233,7 @@ export default async function ActivatePage({
           <input type="hidden" name="csrf_token" value={csrfToken} />
           <input type="hidden" name="token" value={token} />
           <Button type="submit" disabled={expired || blocked}>
-            approve
+            Approve
           </Button>
         </form>
       </div>
@@ -253,10 +252,10 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-2 border-b border-rule last:border-b-0">
-      <span className="text-meta uppercase tracking-wider text-muted shrink-0">
+      <span className="text-[12px] text-muted shrink-0">
         {label}
       </span>
-      <span className="text-meta text-right truncate flex-1 flex items-center justify-end gap-2">
+      <span className="text-[13px] text-right truncate flex-1 flex items-center justify-end gap-2">
         <span className="truncate text-fg">{value}</span>
         {right}
       </span>

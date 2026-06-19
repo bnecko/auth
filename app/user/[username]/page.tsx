@@ -3,7 +3,6 @@ import { findUserByIdentifier } from "@/lib/server/repositories/users";
 import { TopNav } from "@/components/TopNav";
 import { Tag } from "@/components/Tag";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
-import { Glyph } from "@/components/Glyph";
 
 export const dynamic = "force-dynamic";
 
@@ -34,18 +33,9 @@ export default async function UserProfilePage(props: {
         data-mount-stagger
       >
         <header className="mb-12" data-mount-row>
-          <div className="flex items-baseline gap-2 mb-2 text-meta">
-            <span className="text-accent">$</span>
-            <span className="uppercase tracking-wider text-muted">
-              user.profile
-            </span>
-            {user.role === "admin" && (
-              <>
-                <span className="text-faint">·</span>
-                <Tag tone="danger">admin</Tag>
-              </>
-            )}
-            <span className="text-faint">·</span>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[12px] text-muted">User profile</span>
+            {user.role === "admin" && <Tag tone="danger">Admin</Tag>}
             <Tag tone={user.status === "active" ? "success" : "warning"}>
               {user.status}
             </Tag>
@@ -53,13 +43,13 @@ export default async function UserProfilePage(props: {
 
           <div className="flex items-start gap-5">
             <div
-              className="h-16 w-16 border border-accent flex items-center justify-center text-accent text-[20px] tracking-wider shrink-0"
+              className="h-16 w-16 rounded-lg border border-accent bg-card flex items-center justify-center text-accent-strong text-[20px] shrink-0"
               aria-hidden
             >
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-[36px] tracking-tightest text-fg leading-none mb-2">
+              <h1 className="text-[36px] tracking-tight text-fg leading-none mb-2">
                 {user.firstName}
               </h1>
               <p className="text-[16px] text-secondary">@{user.username}</p>
@@ -68,33 +58,33 @@ export default async function UserProfilePage(props: {
         </header>
 
         <div data-mount-row>
-          <Section index="1.0" title="about" hint="public info">
+          <Section index="1.0" title="About" hint="Public info">
             <Row>
-              <RowLabel>bio</RowLabel>
+              <RowLabel>Bio</RowLabel>
               <RowValue>
                 {user.bio || (
-                  <span className="text-muted italic">no bio provided</span>
+                  <span className="text-muted italic">No bio provided</span>
                 )}
               </RowValue>
               <span />
             </Row>
             <Row>
-              <RowLabel>joined</RowLabel>
+              <RowLabel>Joined</RowLabel>
               <RowValue>{joinedAt}</RowValue>
               <span />
             </Row>
             {user.telegramUsername && (
               <Row>
-                <RowLabel>telegram</RowLabel>
+                <RowLabel>Telegram</RowLabel>
                 <RowValue>
                   <a
                     href={`https://t.me/${user.telegramUsername}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-accent hover:text-fg transition-colors flex items-baseline gap-1.5"
+                    className="text-accent-strong hover:text-fg transition-colors flex items-baseline gap-1.5"
                   >
                     <span>@{user.telegramUsername}</span>
-                    <span className="text-meta text-faint">↗</span>
+                    <span className="text-[12px] text-faint">↗</span>
                   </a>
                 </RowValue>
                 <span />
@@ -104,10 +94,7 @@ export default async function UserProfilePage(props: {
         </div>
 
         <div data-mount-row>
-          <div className="text-meta text-faint flex items-baseline gap-2">
-            <Glyph kind="prompt" muted />
-            <span>end of profile</span>
-          </div>
+          <p className="text-[12px] text-faint">End of profile</p>
         </div>
       </main>
     </div>

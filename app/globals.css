@@ -3,6 +3,9 @@
 @theme {
   --color-bg: var(--bg);
   --color-bg-soft: var(--bg-soft);
+  --color-canvas: var(--bg);
+  --color-card: var(--bg-soft);
+  --color-hover: var(--hover);
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
   --color-fg: var(--fg);
@@ -11,41 +14,48 @@
   --color-faint: var(--faint);
   --color-accent: var(--accent);
   --color-accent-dim: var(--accent-dim);
+  --color-accent-strong: var(--accent-strong);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
+  --color-info: var(--info);
+
+  /* Aliases kept so existing utility usage keeps resolving. */
   --color-surface: var(--bg-soft);
   --color-elevated: var(--bg-soft);
-  --color-hover: var(--bg-soft);
   --color-border: var(--rule);
   --color-border-strong: var(--rule-strong);
   --color-success: var(--ok);
   --color-warning: var(--accent);
-  --color-info: var(--secondary);
 
-  --font-mono:
-    JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --text-meta: 12px;
   --text-meta--line-height: 16px;
-  --text-meta--letter-spacing: 0.01em;
+  --text-meta--letter-spacing: 0em;
   --text-micro: 11px;
   --text-micro--line-height: 14px;
-  --text-micro--letter-spacing: 0.06em;
+  --text-micro--letter-spacing: 0.01em;
 
   --tracking-tightest: -0.02em;
-  --tracking-wider: 0.08em;
+  --tracking-tight: -0.01em;
+  --tracking-wider: 0.04em;
 
-  --radius-none: 0;
-  --radius-sm: 0;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
 }
 
 /*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
+  The default border color is `currentcolor` in Tailwind CSS v4. Pin it to
+  the hairline token so elements that rely on the default border color get
+  the quiet rule rather than inheriting text color.
 */
 @layer base {
   *,
@@ -53,35 +63,36 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--rule);
   }
 }
 
-/* OPERATOR CONSOLE
- *
- * One typeface (JetBrains Mono), one accent (phosphor amber), rule
- * lines instead of bordered boxes, square corners, no shadows. The
- * design treats the auth service as a serious systems tool, not a
- * SaaS site. Everything below is the typographic and chromatic
- * substrate every component sits on.
- */
+/* Light surface system: a near-white canvas, white cards lifted by a single
+ * soft shadow and a hairline border, one warm accent, generous radius. The
+ * type is a humanist sans at a 14px base. Color does the structural work that
+ * heavy borders used to. */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  --bg: #0a0a0a;
-  --bg-soft: #111111;
-  --rule: #262626;
-  --rule-strong: #3a3a3a;
-  --fg: #f0f0f0;
-  --secondary: #9a9a9a;
-  --muted: #5e5e5e;
-  --faint: #2f2f2f;
+  --bg: #fafafa;
+  --bg-soft: #ffffff;
+  --hover: #f4f4f5;
+  --rule: #e6e6e6;
+  --rule-strong: #d4d4d4;
+  --fg: #1a1a1a;
+  --secondary: #5c5c5c;
+  --muted: #8a8a8a;
+  --faint: #b4b4b4;
 
   --accent: #ffb000;
-  --accent-dim: #6e4d00;
-  --danger: #ff5c5c;
-  --ok: #6dca5f;
+  --accent-dim: #c98a00;
+  /* Readable amber for text/links on a white ground, where the bright accent
+     would fail contrast. */
+  --accent-strong: #9a6300;
+  --danger: #e5484d;
+  --ok: #2f9e44;
+  --info: #056dff;
 }
 
 html,
@@ -90,45 +101,43 @@ body {
   color: var(--fg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
-    monospace;
-  /* JetBrains Mono designed alternates: slashed zero, alt 'g', curly
-     braces with serifs. The face has personality the default glyphs
-     hide. */
-  font-feature-settings: "ss01", "cv01", "cv02", "zero", "calt";
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 ::selection {
-  background: var(--accent);
-  color: var(--bg);
+  background: #ffe2a8;
+  color: var(--fg);
 }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--fg);
-  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-soft) inset;
   caret-color: var(--accent);
   transition: background-color 9999s ease-in-out 0s;
 }
 
 *:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--rule);
+  background: var(--rule-strong);
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--rule-strong);
+  background: var(--muted);
 }
 
 input[type="number"]::-webkit-outer-spin-button,
@@ -137,9 +146,6 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
-/* Cursor blink — step-end keyframes so it's an actual on/off blink,
-   not Tailwind's smooth pulse. Used by the loading button and the
-   typewriter empty-state. */
 @keyframes blink-step {
   0%,
   49% {
@@ -155,9 +161,8 @@ input[type="number"]::-webkit-inner-spin-button {
   animation: blink-step 1s step-end infinite;
 }
 
-/* Mount stagger — one bold page-load reveal. Apply
-   `data-mount-stagger` on a container and `data-mount-row` on each
-   child; CSS handles the rest. */
+/* Mount stagger — a single quiet page-load reveal. Apply `data-mount-stagger`
+   on a container and `data-mount-row` on each child. */
 [data-mount-stagger] > [data-mount-row] {
   opacity: 0;
   transform: translateY(4px);
@@ -195,9 +200,6 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
-/* Search palette mount — overlay fades in, dialog rises one notch.
-   Short enough to feel like a keystroke, long enough to read as
-   intentional. */
 @keyframes overlay-in {
   from {
     opacity: 0;
@@ -241,32 +243,7 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
-/* CRT scanlines — opt-in via `.scanlines` on a container. Applied
-   only on the AuthShell so the dashboard stays clean. 2px stripe at
-   4% opacity reads as texture, not noise. */
-.scanlines {
-  position: relative;
-  isolation: isolate;
-}
-.scanlines::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.03) 0,
-    rgba(255, 255, 255, 0.03) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  mix-blend-mode: overlay;
-}
-
-/* Rule line vocabulary used across the design system. The horizontal
-   variant is the load-bearing structural element — it replaces the
-   bordered-card pattern everywhere. */
+/* Hairline helpers retained for dense table/section dividers. */
 .rule-x {
   border-top: 1px solid var(--rule);
 }
@@ -274,14 +251,11 @@ input[type="number"]::-webkit-inner-spin-button {
   border-left: 1px solid var(--rule);
 }
 
-/* OAuth docs code blocks: sit transparent on the page bg so the
-   horizontal-rule pattern carries the structure, not a darker fill
-   that fights the rest of the page. */
 .oauth-code-block {
   margin: 0;
-  border-radius: 0;
+  border-radius: var(--radius-md);
   text-shadow: none;
-  background: transparent;
+  background: var(--hover);
 }
 
 .oauth-code {

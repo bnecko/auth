@@ -25,7 +25,7 @@ function ResetPasswordForm() {
       <AuthShell tag="auth/reset">
         <Alert tone="danger">Missing reset token.</Alert>
         <Link href="/forgot" className="block mt-4">
-          <Button variant="ghost">request new link</Button>
+          <Button variant="ghost">Request new link</Button>
         </Link>
       </AuthShell>
     );
@@ -33,11 +33,11 @@ function ResetPasswordForm() {
 
   return (
     <AuthShell tag="auth/reset">
-      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
-        set new password
+      <h1 className="text-[24px] text-fg mb-1">
+        Set new password
       </h1>
-      <p className="text-meta text-muted mb-5">
-        enter your new password below.
+      <p className="text-[13px] text-muted mb-5">
+        Enter your new password below.
       </p>
 
       {state?.error && (
@@ -52,7 +52,7 @@ function ResetPasswordForm() {
             Password has been successfully reset!
           </Alert>
           <Link href="/login" className="block mt-4">
-            <Button>sign in now</Button>
+            <Button>Sign in now</Button>
           </Link>
         </div>
       ) : (
@@ -70,7 +70,7 @@ function ResetPasswordForm() {
           </div>
 
           <Button type="submit" disabled={pending}>
-            {pending ? "saving..." : "reset password"}
+            {pending ? "Saving..." : "Reset password"}
           </Button>
         </form>
       )}

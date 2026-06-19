@@ -4,19 +4,13 @@
 
 The interface should feel like a focused auth product, not a marketing site.
 
-References:
-
-- OpenAI login pages
-- Anthropic login pages
-- Cloudflare dashboard/auth screens
-
 Visual direction:
 
-- jet-black background
-- minimal panels
-- sharp typography
-- quiet borders
-- restrained color
+- light, near-white canvas
+- a single centered card for auth, lifted by a soft shadow and a hairline border
+- humanist sans-serif typography
+- quiet borders and restrained color
+- one warm accent, used sparingly
 - no decorative gradients
 - no oversized hero section
 - no playful illustrations
@@ -41,28 +35,29 @@ The user should immediately understand what action is required.
 
 Base:
 
-- background: near black, for example `#050505` or `#070707`
-- surface: `#0f0f10`
-- elevated surface: `#151516`
-- border: `#27272a`
-- primary text: `#f4f4f5`
-- secondary text: `#a1a1aa`
-- muted text: `#71717a`
+- canvas: near white, `#fafafa`
+- surface (cards): `#ffffff`
+- hover fill: `#f4f4f5`
+- border (hairline): `#e6e6e6`
+- primary text: `#1a1a1a`
+- secondary text: `#5c5c5c`
+- muted text: `#8a8a8a`
 
 Accent:
 
-- primary action: white or near-white button on dark background
-- destructive: muted red
-- success: muted green
-- warning: muted amber
+- primary action: amber `#ffb000` fill with dark text
+- accent text/links on white: deeper amber `#9a6300`
+- destructive: red `#e5484d`
+- success: green `#2f9e44`
 
-Avoid a one-color theme. The UI should read as black, white, and neutral gray with small semantic accents.
+The UI should read as white and neutral gray with a single warm accent and small semantic colors.
 
 ### Typography
 
-- Use a modern sans-serif stack.
-- Use compact headings.
-- Use normal letter spacing.
+- Inter (humanist sans), self-hosted via next/font.
+- 14px base size.
+- Sentence case for all copy: headings, labels, buttons, links.
+- Compact headings, normal letter spacing.
 - Do not scale font size with viewport width.
 - Labels should be smaller than field values.
 - Dashboard numbers can be slightly larger, but not hero-sized.
@@ -247,7 +242,7 @@ Give the user a quick account overview and basic control.
 
 Tone:
 
-Quiet, black, compact, utility-focused.
+Quiet, light, compact, utility-focused.
 
 Top area:
 
@@ -319,7 +314,7 @@ Do not use long explanatory empty states.
 
 ## Error Pages
 
-Use the same dark minimal shell.
+Use the same light minimal shell.
 
 Needed states:
 
@@ -384,7 +379,7 @@ Desktop:
 
 ## Copy Guidelines
 
-Use direct labels:
+Use sentence case (capitalize the first word and proper nouns only). Use direct labels:
 
 - `Sign in`
 - `Create account`

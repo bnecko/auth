@@ -6,23 +6,23 @@ type Reason = "invalid" | "expired" | "denied" | "unavailable";
 
 const copy: Record<Reason, { title: string; body: string; tag: string }> = {
   invalid: {
-    title: "invalid activation",
-    body: "this link is malformed or has already been used.",
+    title: "Invalid activation",
+    body: "This link is malformed or has already been used.",
     tag: "auth/error / invalid",
   },
   expired: {
-    title: "activation expired",
-    body: "this request is no longer valid.",
+    title: "Activation expired",
+    body: "This request is no longer valid.",
     tag: "auth/error / expired",
   },
   denied: {
-    title: "activation denied",
-    body: "you denied this request. the app was not authorized.",
+    title: "Activation denied",
+    body: "You denied this request. The app was not authorized.",
     tag: "auth/error / denied",
   },
   unavailable: {
-    title: "app unavailable",
-    body: "this app is not currently available.",
+    title: "App unavailable",
+    body: "This app is not currently available.",
     tag: "auth/error / unavailable",
   },
 };
@@ -43,11 +43,11 @@ export default async function ExpiredPage({
 
   return (
     <AuthShell tag={tag}>
-      <h1 className="text-[24px] tracking-tightest text-fg mb-2">{title}</h1>
+      <h1 className="text-[24px] text-fg mb-2">{title}</h1>
       <p className="text-[13px] text-secondary mb-6">{body}</p>
       <Link href="/">
         <Button variant="secondary" type="button">
-          return to dashboard
+          Return to dashboard
         </Button>
       </Link>
     </AuthShell>

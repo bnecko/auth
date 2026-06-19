@@ -1,40 +1,34 @@
-import { Glyph } from "./Glyph";
-
 type Tone = "danger" | "warning" | "info" | "success";
 
-const toneGlyph: Record<Tone, Parameters<typeof Glyph>[0]["kind"]> = {
-  danger: "error",
-  warning: "warn",
-  info: "prompt",
-  success: "ok",
+// A soft tinted banner: tone-matched background, hairline border, and text,
+// with rounded corners so it reads as a contained message rather than a rule
+// across the page.
+const toneStyles: Record<Tone, string> = {
+  danger: "bg-[#fdecec] border-[#f3c2c2] text-[#9f1c25]",
+  warning: "bg-[#fff6e0] border-[#f1d28a] text-[#7a5200]",
+  info: "bg-[#eaf2ff] border-[#bcd4ff] text-[#0b4ea8]",
+  success: "bg-[#e9f7ec] border-[#bfe6c7] text-[#1c6b2b]",
 };
 
-const toneText: Record<Tone, string> = {
-  danger: "text-danger",
-  warning: "text-accent",
-  info: "text-secondary",
-  success: "text-ok",
-};
-
-// No bordered box. The alert is a horizontal strip framed top and
-// bottom by hairline rules; the glyph carries the tone and lives
-// in the same column as the body text. Lets the alert sit inline
-// with surrounding content instead of breaking the rhythm with a
-// pill shape.
 export function Alert({
   tone = "info",
+  className = "",
   children,
 }: {
   tone?: Tone;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <div
       role="alert"
-      className="rule-x border-b border-rule py-2.5 px-1 text-[13px] flex items-baseline gap-3"
+      className={[
+        "rounded-md border px-3 py-2.5 text-[13px] leading-snug",
+        toneStyles[tone],
+        className,
+      ].join(" ")}
     >
-      <Glyph kind={toneGlyph[tone]} className={toneText[tone]} />
-      <div className="flex-1 leading-snug text-fg">{children}</div>
+      {children}
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Cursor, Glyph } from "./Glyph";
 import { Kbd } from "./Kbd";
 
 type NavItem = {
@@ -15,36 +14,36 @@ type NavItem = {
 
 const groups: { label: string; items: Omit<NavItem, "group">[] }[] = [
   {
-    label: "account",
+    label: "Account",
     items: [
-      { href: "/#profile", label: "profile" },
-      { href: "/#subscriptions", label: "subscriptions" },
-      { href: "/#apps", label: "connected apps" },
-      { href: "/#bearers", label: "api bearers" },
+      { href: "/#profile", label: "Profile" },
+      { href: "/#subscriptions", label: "Subscriptions" },
+      { href: "/#apps", label: "Connected apps" },
+      { href: "/#bearers", label: "API bearers" },
     ],
   },
   {
-    label: "security",
+    label: "Security",
     items: [
-      { href: "/#sessions", label: "sessions" },
-      { href: "/#security", label: "password & 2fa" },
-      { href: "/#events", label: "recent events" },
-      { href: "/security", label: "security center" },
+      { href: "/#sessions", label: "Sessions" },
+      { href: "/#security", label: "Password & 2FA" },
+      { href: "/#events", label: "Recent events" },
+      { href: "/security", label: "Security center" },
     ],
   },
   {
-    label: "developer",
+    label: "Developer",
     items: [
-      { href: "/developers/apps", label: "oauth apps" },
-      { href: "/developers/oauth", label: "oauth docs", newWindow: true },
-      { href: "/developers/test-lab", label: "test field lab" },
+      { href: "/developers/apps", label: "OAuth apps" },
+      { href: "/developers/oauth", label: "OAuth docs", newWindow: true },
+      { href: "/developers/test-lab", label: "Test field lab" },
     ],
   },
   {
-    label: "support",
+    label: "Support",
     items: [
-      { href: "https://t.me/bottleneck_help", label: "telegram" },
-      { href: "/#faq", label: "faq" },
+      { href: "https://t.me/bottleneck_help", label: "Telegram" },
+      { href: "/#faq", label: "FAQ" },
     ],
   },
 ];
@@ -79,8 +78,8 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
   const results = query.trim()
     ? allItems.filter(
         it =>
-          it.label.includes(query.toLowerCase()) ||
-          it.group.includes(query.toLowerCase()),
+          it.label.toLowerCase().includes(query.toLowerCase()) ||
+          it.group.toLowerCase().includes(query.toLowerCase()),
       )
     : allItems;
 
@@ -123,27 +122,24 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="overlay-mount fixed inset-0 z-50 flex items-start justify-center pt-[18vh] px-5 bg-bg/75 backdrop-blur-md"
+      className="overlay-mount fixed inset-0 z-50 flex items-start justify-center pt-[18vh] px-5 bg-fg/20 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="search palette"
-        className="palette-mount w-full max-w-[580px] bg-bg border border-rule-strong"
+        aria-label="Search"
+        className="palette-mount w-full max-w-[580px] bg-card border border-rule rounded-lg shadow-elevated overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 p-4 border-b border-rule">
-          <span className="text-accent text-[15px] leading-none" aria-hidden="true">
-            $
-          </span>
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="search pages, settings, docs"
-            aria-label="search"
+            placeholder="Search pages, settings, docs"
+            aria-label="Search"
             aria-controls="sidebar-search-results"
             aria-activedescendant={
               results[selected]
@@ -152,26 +148,23 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
             }
             className="flex-1 bg-transparent text-[15px] text-fg placeholder-faint outline-hidden focus:outline-hidden focus-visible:outline-hidden"
           />
-          <Kbd>esc</Kbd>
+          <Kbd>Esc</Kbd>
         </div>
         <ul
           id="sidebar-search-results"
           role="listbox"
-          aria-label="search results"
+          aria-label="Search results"
           className="max-h-[360px] overflow-y-auto py-1.5"
         >
           {results.length === 0 ? (
-            <li className="px-4 py-4 text-meta text-muted flex items-baseline gap-2">
-              <Glyph kind="prompt" muted />
-              <span>
-                no match
-                {query && (
-                  <>
-                    {" for "}
-                    <span className="text-accent">&quot;{query}&quot;</span>
-                  </>
-                )}
-              </span>
+            <li className="px-4 py-4 text-[13px] text-muted">
+              No match
+              {query && (
+                <>
+                  {" for "}
+                  <span className="text-fg">&quot;{query}&quot;</span>
+                </>
+              )}
             </li>
           ) : (
             results.map((it, i) => (
@@ -180,56 +173,41 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                 id={`sidebar-search-option-${i}`}
                 role="option"
                 aria-selected={i === selected}
+                className="px-1.5"
               >
                 <button
                   type="button"
                   onClick={() => navigate(it)}
                   onMouseEnter={() => setSelected(i)}
-                  className={`w-full text-left flex items-baseline gap-3 px-4 h-9 text-[13px] transition-colors ${
-                    i === selected
-                      ? "text-accent bg-bg-soft"
-                      : "text-secondary"
+                  className={`w-full text-left flex items-center gap-3 px-2.5 h-9 rounded-md text-[13px] transition-colors ${
+                    i === selected ? "bg-hover text-fg" : "text-secondary"
                   }`}
                 >
-                  <span
-                    aria-hidden="true"
-                    className={`w-3 ${
-                      i === selected ? "text-accent" : "text-faint"
-                    }`}
-                  >
-                    {i === selected ? "▸" : ""}
-                  </span>
-                  <span
-                    className={`text-micro uppercase tracking-wider w-[72px] shrink-0 ${
-                      i === selected ? "text-accent/70" : "text-faint"
-                    }`}
-                  >
+                  <span className="text-[12px] text-muted w-[64px] shrink-0">
                     {it.group}
                   </span>
                   <span className="flex-1 truncate">{it.label}</span>
                   {it.newWindow && (
-                    <span className="text-faint text-micro shrink-0">↗</span>
+                    <span className="text-faint text-[12px] shrink-0">↗</span>
                   )}
                 </button>
               </li>
             ))
           )}
         </ul>
-        <div className="px-4 h-9 border-t border-rule flex items-center justify-between text-meta text-faint">
+        <div className="px-4 h-9 border-t border-rule flex items-center justify-between text-[12px] text-muted">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <Kbd>↑↓</Kbd>
-              <span>nav</span>
+              <span>Navigate</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Kbd>↵</Kbd>
-              <span>open</span>
+              <span>Open</span>
             </span>
           </div>
-          <span className="tabular-nums">
-            {String(results.length).padStart(2, "0")}
-            <span className="text-faint/60">/</span>
-            {String(allItems.length).padStart(2, "0")}
+          <span className="tabular-nums text-faint">
+            {results.length}/{allItems.length}
           </span>
         </div>
       </div>
@@ -261,21 +239,13 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
     <>
       <div className="hidden md:block w-[240px] shrink-0" aria-hidden />
 
-      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[240px] flex-col border-r border-rule bg-bg z-10">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[240px] flex-col border-r border-rule bg-card z-10">
         <div className="px-5 py-5 border-b border-rule">
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 select-none group"
-          >
+          <Link href="/" className="flex items-center gap-2.5 select-none group">
             <Monogram />
-            <div>
-              <div className="text-[14px] tracking-tightest text-fg group-hover:text-accent transition-colors">
-                bottleneck
-              </div>
-              <div className="text-micro uppercase tracking-wider text-faint">
-                console
-              </div>
-            </div>
+            <span className="text-[15px] font-semibold tracking-tight text-fg group-hover:text-accent-strong transition-colors">
+              bottleneck
+            </span>
           </Link>
         </div>
 
@@ -283,26 +253,22 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="w-full flex items-baseline gap-2 px-2 h-9 text-meta text-muted hover:text-accent transition-colors group"
+            className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md border border-rule text-[13px] text-muted hover:bg-hover transition-colors"
           >
-            <span className="text-accent">$</span>
-            <span>locate</span>
+            <span>Search</span>
             <span className="ml-auto">
-              <Kbd>{isMac ? "⌘K" : "ctrl·k"}</Kbd>
+              <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
             </span>
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-5 space-y-6 overflow-y-auto">
-          {groups.map((g, gi) => (
+        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+          {groups.map(g => (
             <div key={g.label}>
-              <div className="px-2 mb-2 text-micro uppercase tracking-wider text-faint flex items-baseline gap-2">
-                <span className="tabular-nums">
-                  {String(gi + 1).padStart(2, "0")}
-                </span>
-                <span>{g.label}</span>
+              <div className="px-2.5 mb-1.5 text-[11px] font-medium uppercase tracking-wider text-faint">
+                {g.label}
               </div>
-              <ul>
+              <ul className="space-y-0.5">
                 {g.items.map(it => {
                   const isActive =
                     !it.newWindow &&
@@ -315,25 +281,15 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
                         href={it.href}
                         target={it.newWindow ? "_blank" : undefined}
                         rel={it.newWindow ? "noreferrer" : undefined}
-                        className={`group flex items-baseline gap-2 px-2 h-7 leading-7 text-[13px] transition-colors ${
+                        className={`flex items-center gap-2 px-2.5 h-8 rounded-md text-[13px] transition-colors ${
                           isActive
-                            ? "text-accent"
-                            : "text-secondary hover:text-fg"
+                            ? "bg-hover text-fg font-medium"
+                            : "text-secondary hover:bg-hover hover:text-fg"
                         }`}
                       >
-                        <span
-                          aria-hidden="true"
-                          className={`w-2 text-[10px] ${
-                            isActive ? "text-accent" : "text-faint"
-                          } group-hover:text-accent transition-colors`}
-                        >
-                          {isActive ? "■" : "·"}
-                        </span>
-                        <span>{it.label}</span>
+                        <span className="truncate">{it.label}</span>
                         {it.newWindow && (
-                          <span className="ml-auto text-faint text-micro">
-                            ↗
-                          </span>
+                          <span className="ml-auto text-faint text-[12px]">↗</span>
                         )}
                       </Link>
                     </li>
@@ -347,14 +303,14 @@ export function Sidebar({ user }: { user: { name: string; username: string } }) 
         <div className="px-3 py-3 border-t border-rule">
           <Link
             href={`/user/${user.username}`}
-            className="flex items-baseline gap-2 px-2 py-2 text-meta hover:text-accent transition-colors"
+            className="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-hover transition-colors"
           >
-            <span className="text-accent" aria-hidden="true">
-              ▌
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-hover text-[12px] font-medium text-secondary shrink-0">
+              {user.name.charAt(0).toUpperCase()}
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-[13px] text-fg truncate">{user.name}</div>
-              <div className="text-meta text-muted truncate">
+              <div className="text-[12px] text-muted truncate">
                 @{user.username}
               </div>
             </div>

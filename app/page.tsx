@@ -4,7 +4,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
 import {
@@ -58,51 +57,41 @@ export default async function DashboardPage() {
           className="max-w-[960px] mx-auto px-6 py-10"
           data-mount-stagger
         >
-          {/* HEADER */}
           <header data-mount-row className="mb-10">
-            <div className="flex items-baseline gap-2 mb-2 text-meta text-muted">
-              <span className="text-accent">$</span>
-              <span className="tracking-wider">bottleneck/console</span>
-              <span className="text-faint">/ {account.username}</span>
-            </div>
             <div className="flex items-baseline gap-3 flex-wrap mb-3">
-              <h1 className="text-[32px] tracking-tightest text-fg leading-none">
+              <h1 className="text-[32px] tracking-tight text-fg leading-none">
                 {account.firstName}
               </h1>
               <span className="text-faint text-[24px] leading-none">/</span>
-              <span className="text-[24px] text-secondary tracking-tightest leading-none">
+              <span className="text-[24px] text-secondary leading-none">
                 @{account.username}
               </span>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <Tag tone={statusTone(account.status)}>{account.status}</Tag>
               <Tag tone={account.telegramVerifiedAt ? "success" : "warning"}>
-                {account.telegramVerifiedAt ? "tg verified" : "tg unverified"}
+                {account.telegramVerifiedAt ? "Telegram verified" : "Telegram unverified"}
               </Tag>
-              <span className="text-meta text-faint">
-                · console session {current.session.id}
-              </span>
             </div>
           </header>
 
-          {/* STATS — rule-divided columns, no bordered boxes */}
           <div
             data-mount-row
-            className="rule-x border-y border-rule grid grid-cols-2 md:grid-cols-4 mb-12"
+            className="bg-card border border-rule rounded-lg grid grid-cols-2 md:grid-cols-4 mb-12 shadow-card"
           >
             {stats.map((stat, i) => (
               <div
                 key={stat.label}
                 className={`px-5 py-5 ${i > 0 ? "md:border-l border-rule" : ""}`}
               >
-                <div className="text-micro uppercase tracking-wider text-muted mb-1">
-                  {stat.label}
+                <div className="text-[12px] text-muted mb-1">
+                  {stat.label.charAt(0).toUpperCase() + stat.label.slice(1)}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[34px] text-accent tabular-nums tracking-tightest leading-none">
+                  <span className="text-[34px] text-accent tabular-nums leading-none">
                     {String(stat.value).padStart(2, "0")}
                   </span>
-                  <span className="text-meta text-faint">{stat.hint}</span>
+                  <span className="text-[13px] text-faint">{stat.hint}</span>
                 </div>
               </div>
             ))}
@@ -110,46 +99,46 @@ export default async function DashboardPage() {
 
           <div id="profile" />
           <div data-mount-row>
-            <Section title="profile" hint="account fields" index="1.0">
+            <Section title="Profile" hint="Account fields" index="1.0">
               <Row>
-                <RowLabel>first name</RowLabel>
+                <RowLabel>First name</RowLabel>
                 <RowValue>{account.firstName}</RowValue>
                 <span />
               </Row>
               <Row>
-                <RowLabel>username</RowLabel>
+                <RowLabel>Username</RowLabel>
                 <RowValue>@{account.username}</RowValue>
                 <span />
               </Row>
               <Row>
-                <RowLabel>bio</RowLabel>
-                <RowValue>{account.bio || "not set"}</RowValue>
-                <span className="text-micro uppercase tracking-wider text-ok">
-                  public
+                <RowLabel>Bio</RowLabel>
+                <RowValue>{account.bio || "Not set"}</RowValue>
+                <span className="text-[12px] text-ok">
+                  Public
                 </span>
               </Row>
               <Row>
-                <RowLabel>email</RowLabel>
+                <RowLabel>Email</RowLabel>
                 <RowValue privateField>{account.email}</RowValue>
                 <span />
               </Row>
               <Row>
-                <RowLabel>date of birth</RowLabel>
-                <RowValue privateField>{account.dob || "not set"}</RowValue>
+                <RowLabel>Date of birth</RowLabel>
+                <RowValue privateField>{account.dob || "Not set"}</RowValue>
                 <span />
               </Row>
               <Row>
-                <RowLabel>telegram</RowLabel>
+                <RowLabel>Telegram</RowLabel>
                 <RowValue>
                   {account.telegramUsername
                     ? `@${account.telegramUsername}`
-                    : account.telegramId || "not linked"}
+                    : account.telegramId || "Not linked"}
                 </RowValue>
                 <a
                   href="/relink"
-                  className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+                  className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
                 >
-                  relink
+                  Relink
                 </a>
               </Row>
             </Section>
@@ -158,12 +147,12 @@ export default async function DashboardPage() {
           <div id="subscriptions" />
           <div data-mount-row>
             <Section
-              title="subscriptions"
-              hint="products you pay for"
+              title="Subscriptions"
+              hint="Products you pay for"
               index="2.0"
             >
               {dashboard.subscriptions.length === 0 ? (
-                <Empty>no active subscriptions</Empty>
+                <Empty>No active subscriptions</Empty>
               ) : (
                 dashboard.subscriptions.map(subscription => (
                   <Row
@@ -178,9 +167,9 @@ export default async function DashboardPage() {
                       >
                         {subscription.status}
                       </Tag>
-                      <Glyph kind="dot" />
+                      <span className="text-muted">·</span>
                       <span className="text-secondary">
-                        expires {shortDate(subscription.expiresAt)}
+                        Expires {shortDate(subscription.expiresAt)}
                       </span>
                     </RowValue>
                     <form action={cancelSubscriptionAction}>
@@ -191,9 +180,9 @@ export default async function DashboardPage() {
                       />
                       <button
                         type="submit"
-                        className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors"
+                        className="text-[13px] text-secondary hover:text-danger transition-colors"
                       >
-                        cancel
+                        Cancel
                       </button>
                     </form>
                   </Row>
@@ -205,12 +194,12 @@ export default async function DashboardPage() {
           <div id="apps" />
           <div data-mount-row>
             <Section
-              title="connected apps"
-              hint="external apps with access"
+              title="Connected apps"
+              hint="External apps with access"
               index="3.0"
             >
               {dashboard.apps.length === 0 ? (
-                <Empty>no connected apps</Empty>
+                <Empty>No connected apps</Empty>
               ) : (
                 dashboard.apps.map(app => (
                   <Row key={app.appSlug}>
@@ -219,9 +208,9 @@ export default async function DashboardPage() {
                       <span className="text-secondary truncate">
                         {app.scopes.join(", ")}
                       </span>
-                      <Glyph kind="dot" />
+                      <span className="text-muted">·</span>
                       <span className="text-muted">
-                        since {shortDate(app.createdAt)}
+                        Since {shortDate(app.createdAt)}
                       </span>
                     </RowValue>
                     <form action={revokeAppAction}>
@@ -232,9 +221,9 @@ export default async function DashboardPage() {
                       />
                       <button
                         type="submit"
-                        className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors"
+                        className="text-[13px] text-secondary hover:text-danger transition-colors"
                       >
-                        revoke
+                        Revoke
                       </button>
                     </form>
                   </Row>
@@ -251,23 +240,23 @@ export default async function DashboardPage() {
           <div id="sessions" />
           <div data-mount-row>
             <Section
-              title="sessions"
-              hint="devices currently signed in"
+              title="Sessions"
+              hint="Devices currently signed in"
               index="4.0"
             >
               {dashboard.sessions.map(session => (
                 <Row key={session.id}>
-                  <RowLabel>{session.userAgent || "unknown browser"}</RowLabel>
+                  <RowLabel>{session.userAgent || "Unknown browser"}</RowLabel>
                   <RowValue>
                     <span className="text-secondary truncate">
-                      {session.ip || "unknown ip"}
+                      {session.ip || "Unknown IP"}
                     </span>
-                    <Glyph kind="dot" />
+                    <span className="text-muted">·</span>
                     <span className="text-muted">
                       {shortDate(session.lastSeenAt)}
                     </span>
                     {session.id === current.session.id && (
-                      <Tag tone="success">this device</Tag>
+                      <Tag tone="success">This device</Tag>
                     )}
                   </RowValue>
                   <form action={revokeSessionAction}>
@@ -278,10 +267,10 @@ export default async function DashboardPage() {
                     />
                     <button
                       type="submit"
-                      className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors disabled:text-faint disabled:hover:text-faint disabled:cursor-not-allowed"
+                      className="text-[13px] text-secondary hover:text-danger transition-colors disabled:text-faint disabled:hover:text-faint disabled:cursor-not-allowed"
                       disabled={session.id === current.session.id}
                     >
-                      revoke
+                      Revoke
                     </button>
                   </form>
                 </Row>
@@ -291,26 +280,26 @@ export default async function DashboardPage() {
 
           <div id="security" />
           <div data-mount-row>
-            <Section title="security" hint="authentication" index="5.0">
+            <Section title="Security" hint="Authentication" index="5.0">
               <Row>
-                <RowLabel>password</RowLabel>
-                <RowValue>enabled</RowValue>
-                <button className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors">
-                  change
+                <RowLabel>Password</RowLabel>
+                <RowValue>Enabled</RowValue>
+                <button className="text-[13px] text-secondary hover:text-accent-strong transition-colors">
+                  Change
                 </button>
               </Row>
               <Row>
-                <RowLabel>telegram 2fa</RowLabel>
+                <RowLabel>Telegram 2FA</RowLabel>
                 <RowValue>
                   {account.telegramVerifiedAt
-                    ? `enabled ${shortDate(account.telegramVerifiedAt)}`
-                    : "not linked"}
+                    ? `Enabled ${shortDate(account.telegramVerifiedAt)}`
+                    : "Not linked"}
                 </RowValue>
                 <a
                   href="/relink"
-                  className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+                  className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
                 >
-                  relink
+                  Relink
                 </a>
               </Row>
             </Section>
@@ -319,8 +308,8 @@ export default async function DashboardPage() {
           <div id="passkeys" />
           <div data-mount-row>
             <Section
-              title="passkeys"
-              hint="passwordless sign in"
+              title="Passkeys"
+              hint="Passwordless sign in"
               index="5.1"
             >
               <PasskeyManager
@@ -336,12 +325,12 @@ export default async function DashboardPage() {
           <div id="events" />
           <div data-mount-row>
             <Section
-              title="recent events"
-              hint="last security activity"
+              title="Recent events"
+              hint="Last security activity"
               index="6.0"
             >
               {dashboard.events.length === 0 ? (
-                <Empty>no recent events</Empty>
+                <Empty>No recent events</Empty>
               ) : (
                 <ul className="text-[12.5px]">
                   {dashboard.events.map((event, index) => (
@@ -353,7 +342,7 @@ export default async function DashboardPage() {
                         {event.created_at.slice(0, 16).replace("T", " ")}
                       </span>
                       <span className="text-fg">{event.event_type}</span>
-                      <span className="text-meta text-muted truncate max-w-[280px]">
+                      <span className="text-[12px] text-muted truncate max-w-[280px]">
                         {event.ip || event.result}
                       </span>
                     </li>
@@ -363,9 +352,9 @@ export default async function DashboardPage() {
             </Section>
           </div>
 
-          <footer className="mt-12 pt-5 border-t border-rule text-meta text-faint flex items-center justify-between">
-            <span>bnck-auth · console</span>
-            <span className="tabular-nums">eof.</span>
+          <footer className="mt-12 pt-5 border-t border-rule text-[13px] text-faint flex items-center justify-between">
+            <span>bottleneck</span>
+            <span className="tabular-nums">auth.bneck.com</span>
           </footer>
         </main>
       </div>

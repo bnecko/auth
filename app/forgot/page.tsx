@@ -19,11 +19,11 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell tag="auth/recovery">
-      <h1 className="text-[24px] tracking-tightest text-fg mb-1">
-        recover access
+      <h1 className="text-[24px] text-fg mb-1">
+        Recover access
       </h1>
-      <p className="text-meta text-muted mb-5">
-        enter your username or email and we will send a reset link to your linked Telegram account.
+      <p className="text-[13px] text-muted mb-5">
+        Enter your username or email and we will send a reset link to your linked Telegram account.
       </p>
 
       {state?.error && (
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
           </Alert>
           <Link href="/login" className="block mt-4">
             <Button variant="ghost" type="button">
-              return to sign in
+              Return to sign in
             </Button>
           </Link>
         </div>
@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
         <form action={formAction}>
           <div className="mb-5">
             <Field
-              label="Username or Email"
+              label="Username or email"
               name="identifier"
               type="text"
               required
@@ -57,12 +57,12 @@ export default function ForgotPasswordPage() {
           </div>
 
           <Button type="submit" disabled={pending}>
-            {pending ? "sending..." : "send reset link"}
+            {pending ? "Sending..." : "Send reset link"}
           </Button>
 
           <Link href="/login" className="block mt-3">
             <Button variant="ghost" type="button">
-              return to sign in
+              Return to sign in
             </Button>
           </Link>
         </form>

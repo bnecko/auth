@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
-import { Cursor } from "@/components/Glyph";
 
 type Status = "waiting" | "completed" | "failed";
 
@@ -64,7 +63,7 @@ export default function TelegramLoginPage() {
     }
 
     if (data.status === "expired") {
-      setError("verification expired. sign in again.");
+      setError("Verification expired. Sign in again.");
       setStatus("failed");
     }
   }
@@ -79,32 +78,27 @@ export default function TelegramLoginPage() {
 
   return (
     <AuthShell tag="auth/2fa">
-      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
-        verify login
+      <h1 className="text-[28px] text-fg mb-1 leading-none">
+        Verify login
       </h1>
       <p className="text-meta text-muted mb-7">
-        open telegram from the same account linked to bottleneck
+        Open Telegram from the same account linked to bottleneck
       </p>
 
-      <div className="border-t border-rule">
-        <div className="flex items-baseline justify-between py-2.5">
-          <span className="text-meta uppercase tracking-wider text-muted">
-            channel
-          </span>
-          <span className="text-meta text-fg">telegram 2fa</span>
+      <div className="bg-card border border-rule rounded-lg mb-4">
+        <div className="flex items-baseline justify-between px-4 py-2.5">
+          <span className="text-[13px] text-muted">Channel</span>
+          <span className="text-[13px] text-fg">Telegram 2FA</span>
         </div>
-        <div className="flex items-baseline justify-between py-2.5 border-t border-rule">
-          <span className="text-meta uppercase tracking-wider text-muted">
-            status
-          </span>
-          <span className="text-meta text-accent">required</span>
+        <div className="flex items-baseline justify-between px-4 py-2.5 border-t border-rule">
+          <span className="text-[13px] text-muted">Status</span>
+          <span className="text-[13px] text-accent-strong">Required</span>
         </div>
-        <div className="border-t border-rule" />
       </div>
 
-      <p className="text-meta text-secondary mt-3 mb-5">
-        the bot receives a one-time login token and confirms it belongs to your
-        linked telegram account.
+      <p className="text-meta text-secondary mb-5">
+        The bot receives a one-time login token and confirms it belongs to your
+        linked Telegram account.
       </p>
 
       <a
@@ -114,26 +108,23 @@ export default function TelegramLoginPage() {
         className="block mb-3"
       >
         <Button type="button" disabled={!botUrl}>
-          open telegram bot
+          Open Telegram bot
         </Button>
       </a>
 
       {!botUrl && (
         <div className="mb-4">
-          <Alert tone="warning">verification link missing — sign in again</Alert>
+          <Alert tone="warning">Verification link missing — sign in again</Alert>
         </div>
       )}
 
       {status === "waiting" && (
-        <div className="flex items-baseline gap-2 text-meta uppercase tracking-wider text-muted my-5">
-          <Cursor />
-          <span>waiting for telegram</span>
-        </div>
+        <p className="text-[13px] text-muted my-5">Waiting for Telegram…</p>
       )}
 
       {error && <Alert tone="danger">{error}</Alert>}
       {status === "completed" && (
-        <Alert tone="success">verified — redirecting</Alert>
+        <Alert tone="success">Verified — redirecting</Alert>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-3">
@@ -142,10 +133,10 @@ export default function TelegramLoginPage() {
           type="button"
           onClick={() => window.location.assign("/login")}
         >
-          start over
+          Start over
         </Button>
         <Button variant="ghost" type="button" onClick={checkStatus}>
-          check status
+          Check status
         </Button>
       </div>
     </AuthShell>

@@ -1,6 +1,5 @@
 import { Section, Empty, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { query } from "@/lib/server/db";
 import { getCurrentSession } from "@/lib/server/session";
 import { redirect } from "next/navigation";
@@ -71,26 +70,18 @@ export default async function AdminUsersPage({
       data-mount-stagger
     >
       <header className="mb-10" data-mount-row>
-        <div className="flex items-baseline gap-2 mb-2 text-meta">
-          <span className="text-danger">$</span>
-          <span className="uppercase tracking-wider text-muted">
-            admin.users
-          </span>
-          <span className="text-faint">·</span>
-          <span className="text-meta text-faint tabular-nums">
-            {String(users.length).padStart(2, "0")}
-          </span>
-        </div>
-        <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-5">
-          users
+        <p className="text-[12px] text-muted mb-2 tabular-nums">
+          Admin / Users &middot; {users.length} records
+        </p>
+        <h1 className="text-[32px] tracking-tight text-fg leading-none mb-5">
+          Users
         </h1>
-        <form method="GET" className="flex items-baseline gap-2 max-w-[420px]">
-          <span className="text-danger">$</span>
+        <form method="GET" className="max-w-[420px]">
           <input
             name="q"
             defaultValue={search}
-            placeholder="grep username|email"
-            className="flex-1 bg-transparent border-0 border-b border-rule px-1 h-8 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
+            placeholder="Search username or email"
+            className="w-full bg-card border border-rule rounded-md px-3 h-9 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors"
           />
         </form>
       </header>
@@ -98,7 +89,7 @@ export default async function AdminUsersPage({
       <div data-mount-row>
         <Section
           index="1.0"
-          title="users"
+          title="Users"
           hint={
             search
               ? `${users.length} matching "${search}"`
@@ -106,28 +97,26 @@ export default async function AdminUsersPage({
           }
         >
           {users.length === 0 ? (
-            <Empty>no users found</Empty>
+            <Empty>No users found</Empty>
           ) : (
             users.map(u => (
               <Row key={u.id}>
                 <RowLabel>
                   <span className="flex items-baseline gap-2">
-                    <span className="text-fg normal-case tracking-normal">
+                    <span className="text-fg">
                       @{u.username}
                     </span>
-                    {u.role === "admin" && <Tag tone="danger">admin</Tag>}
+                    {u.role === "admin" && <Tag tone="danger">Admin</Tag>}
                   </span>
                 </RowLabel>
                 <RowValue>
                   <Tag tone={statusTone[u.status] ?? "neutral"}>{u.status}</Tag>
-                  <Glyph kind="dot" />
                   <span className="text-muted truncate">{u.email}</span>
-                  <Glyph kind="dot" />
                   <span className="text-faint tabular-nums">
                     {u.created_at?.slice(0, 10)}
                   </span>
                 </RowValue>
-                <div className="text-meta uppercase tracking-wider">
+                <div className="text-[12px]">
                   {u.status !== "banned" ? (
                     <form action={banUserAction}>
                       <input type="hidden" name="userId" value={u.id} />
@@ -135,7 +124,7 @@ export default async function AdminUsersPage({
                         type="submit"
                         className="text-secondary hover:text-danger transition-colors"
                       >
-                        ban
+                        Ban
                       </button>
                     </form>
                   ) : (
@@ -143,9 +132,9 @@ export default async function AdminUsersPage({
                       <input type="hidden" name="userId" value={u.id} />
                       <button
                         type="submit"
-                        className="text-secondary hover:text-accent transition-colors"
+                        className="text-secondary hover:text-accent-strong transition-colors"
                       >
-                        unban
+                        Unban
                       </button>
                     </form>
                   )}

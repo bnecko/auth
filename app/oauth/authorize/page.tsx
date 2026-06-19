@@ -3,7 +3,6 @@ import { Alert } from "@/components/Alert";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import { mintAuthorizeCsrf } from "@/lib/server/oauthCsrf";
 import {
@@ -53,19 +52,16 @@ export default async function OAuthAuthorizePage({
     }
     return (
       <AuthShell tag="oauth/error">
-        <div className="flex items-baseline gap-3 mb-1">
-          <Glyph kind="error" />
-          <span className="text-meta uppercase tracking-wider text-danger">
-            oauth error
-          </span>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-[13px] text-danger font-medium">OAuth error</span>
         </div>
-        <h1 className="text-[28px] tracking-tightest text-fg mb-5 leading-none">
-          authorization failed
+        <h1 className="text-[28px] text-fg mb-5 leading-none">
+          Authorization failed
         </h1>
         <Alert tone="danger">
           {err instanceof OAuthError
             ? err.message
-            : "invalid authorization request"}
+            : "Invalid authorization request"}
         </Alert>
       </AuthShell>
     );
@@ -92,16 +88,16 @@ export default async function OAuthAuthorizePage({
     <AuthShell tag="oauth/authorize">
       <div className="flex items-start gap-4 mb-7">
         <div
-          className="h-12 w-12 border border-accent flex items-center justify-center text-accent text-meta uppercase tracking-wider shrink-0"
+          className="h-12 w-12 border border-accent rounded-md flex items-center justify-center text-accent-strong text-[13px] font-medium shrink-0"
           aria-hidden
         >
           {view.app.name.slice(0, 2)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-meta uppercase tracking-wider text-muted mb-1">
-            authorize app
+          <div className="text-[12px] text-muted mb-1">
+            Authorize app
           </div>
-          <h1 className="text-[26px] tracking-tightest text-fg truncate leading-none">
+          <h1 className="text-[26px] text-fg truncate leading-none">
             {view.app.name}
           </h1>
           <div className="mt-2 flex items-center gap-2">
@@ -140,8 +136,8 @@ export default async function OAuthAuthorizePage({
       </div>
 
       <div className="mb-5">
-        <div className="text-meta uppercase tracking-wider text-muted mb-2">
-          will share
+        <div className="text-[12px] text-muted mb-2">
+          Will share
         </div>
         <div className="border-t border-rule">
           {standardScopes.map((scope) => {
@@ -149,10 +145,10 @@ export default async function OAuthAuthorizePage({
             return (
               <div
                 key={scope}
-                className="flex items-baseline gap-3 py-2.5 border-b border-rule"
+                className="flex items-center gap-3 py-2.5 border-b border-rule"
               >
-                <Glyph kind="ok" />
-                <span className="text-meta text-fg flex-1">{item.label}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" aria-hidden />
+                <span className="text-[13px] text-fg flex-1">{item.label}</span>
                 <input
                   type="hidden"
                   name="scopes"
@@ -167,7 +163,7 @@ export default async function OAuthAuthorizePage({
             return (
               <label
                 key={scope}
-                className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"
+                className="flex items-center gap-3 py-2.5 border-b border-rule cursor-pointer group"
               >
                 <input
                   type="checkbox"
@@ -175,13 +171,13 @@ export default async function OAuthAuthorizePage({
                   value={scope}
                   defaultChecked
                   form="oauth-approve-form"
-                  className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+                  className="appearance-none w-4 h-4 border border-rule rounded bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0"
                 />
-                <span className="text-meta text-fg flex-1 group-hover:text-accent transition-colors">
+                <span className="text-[13px] text-fg flex-1 group-hover:text-accent-strong transition-colors">
                   {item.label}
                 </span>
-                <span className="text-micro uppercase tracking-wider text-accent">
-                  optional
+                <span className="text-[11px] text-accent-strong">
+                  Optional
                 </span>
               </label>
             );
@@ -192,7 +188,7 @@ export default async function OAuthAuthorizePage({
       {!view.subscriptionOk && view.requiredProduct && (
         <div className="mb-5">
           <Alert tone="warning">
-            active {view.requiredProduct} subscription required to approve
+            Active {view.requiredProduct} subscription required to approve
           </Alert>
         </div>
       )}
@@ -201,7 +197,7 @@ export default async function OAuthAuthorizePage({
         <form action="/api/oauth/authorize/deny" method="post">
           <HiddenOAuthFields view={view} csrfToken={csrfToken} />
           <Button variant="ghost" type="submit">
-            deny
+            Deny
           </Button>
         </form>
         <form
@@ -211,7 +207,7 @@ export default async function OAuthAuthorizePage({
         >
           <HiddenOAuthFields view={view} csrfToken={csrfToken} />
           <Button type="submit" disabled={!view.subscriptionOk}>
-            approve
+            Approve
           </Button>
         </form>
       </div>
@@ -254,10 +250,10 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-2 border-b border-rule last:border-b-0">
-      <span className="text-meta uppercase tracking-wider text-muted shrink-0">
+      <span className="text-[12px] text-muted shrink-0">
         {label}
       </span>
-      <span className="text-meta text-right truncate flex-1 flex items-center justify-end gap-2">
+      <span className="text-[13px] text-right truncate flex-1 flex items-center justify-end gap-2">
         <span className={`truncate ${mono ? "text-fg" : "text-fg"}`}>
           {value}
         </span>
