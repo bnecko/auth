@@ -35,10 +35,7 @@ export default async function AdminBansPage() {
   const revoked = bans.filter(b => b.revoked_at);
 
   return (
-    <main
-      className="flex-1 max-w-[960px] w-full mx-auto px-6 py-10"
-      data-mount-stagger
-    >
+    <>
       <header className="mb-10" data-mount-row>
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[13px] text-muted tabular-nums">
@@ -124,6 +121,6 @@ export default async function AdminBansPage() {
           </Section>
         </div>
       )}
-    </main>
+    </>
   );
 }

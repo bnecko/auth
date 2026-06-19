@@ -3,9 +3,8 @@ import { redirect } from "next/navigation";
 import { PasskeyManager } from "@/components/PasskeyManager";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
-import { Sidebar } from "@/components/Sidebar";
+import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
-import { TopNav } from "@/components/TopNav";
 import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauthn";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
@@ -35,19 +34,11 @@ export default async function SecurityCenterPage() {
   const hasTelegram = Boolean(current.user.telegramVerifiedAt);
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        user={{
-          name: current.user.firstName,
-          username: current.user.username,
-        }}
-      />
-      <div className="flex-1 min-w-0">
-        <TopNav trail="Security center" />
-        <main
-          className="max-w-[960px] mx-auto px-6 py-10"
-          data-mount-stagger
-        >
+    <AppShell
+      user={{ name: current.user.firstName, username: current.user.username }}
+      trail="Security center"
+      isAdmin={current.user.role === "admin"}
+    >
           <header className="mb-10" data-mount-row>
             <div className="flex items-baseline gap-2 mb-2">
               <Tag tone={hasTelegram ? "success" : "warning"}>
@@ -236,8 +227,6 @@ export default async function SecurityCenterPage() {
               )}
             </Section>
           </div>
-        </main>
-      </div>
-    </div>
+    </AppShell>
   );
 }

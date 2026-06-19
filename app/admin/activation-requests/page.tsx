@@ -45,10 +45,7 @@ export default async function AdminActivationRequestsPage() {
   const requests = await getActivationRequests();
 
   return (
-    <main
-      className="flex-1 max-w-[1040px] w-full mx-auto px-6 py-10"
-      data-mount-stagger
-    >
+    <>
       <header className="mb-10" data-mount-row>
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[13px] text-muted">admin.activations</span>
@@ -109,6 +106,6 @@ export default async function AdminActivationRequestsPage() {
           )}
         </Section>
       </div>
-    </main>
+    </>
   );
 }

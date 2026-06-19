@@ -5,8 +5,7 @@ import { useState } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
-import { Sidebar } from "@/components/Sidebar";
-import { TopNav } from "@/components/TopNav";
+import { AppShell } from "@/components/AppShell";
 
 type Status = "idle" | "submitting" | "submitted" | "error";
 
@@ -44,11 +43,8 @@ export default function RequestBearerPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar user={{ name: "you", username: "you" }} />
-      <div className="flex-1 min-w-0">
-        <TopNav trail="account / request bearer" />
-        <main className="max-w-[720px] mx-auto px-6 py-10">
+    <AppShell user={{ name: "you", username: "you" }} trail="Request bearer">
+      <div className="max-w-[640px]">
           <header className="mb-9">
             <p className="text-[12px] text-muted mb-2">Bearer request</p>
             <h1 className="text-[32px] tracking-tight text-fg leading-none mb-3">
@@ -125,8 +121,7 @@ export default function RequestBearerPage() {
               </div>
             </form>
           )}
-        </main>
       </div>
-    </div>
+    </AppShell>
   );
 }

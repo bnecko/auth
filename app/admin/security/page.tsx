@@ -46,10 +46,7 @@ export default async function AdminSecurityPage({
   }
 
   return (
-    <main
-      className="flex-1 max-w-[1120px] w-full mx-auto px-6 py-10"
-      data-mount-stagger
-    >
+    <>
       <header
         className="mb-10 flex items-end justify-between gap-4"
         data-mount-row
@@ -137,6 +134,6 @@ export default async function AdminSecurityPage({
           )}
         </Section>
       </div>
-    </main>
+    </>
   );
 }

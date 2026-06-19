@@ -1,6 +1,6 @@
-// A titled settings group: a heading with optional hint and action, then a
-// white card holding rows divided by hairlines. Replaces the prior RFC-style
-// rule-line subsection.
+// A settings card: a white surface lifted by a hairline ring and a faint
+// shadow, with the title in an elevated header strip across the top and rows
+// beneath it. `data-mount-row` lets it ride the page-load stagger.
 
 export function Section({
   title,
@@ -16,8 +16,11 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-8">
-      <header className="flex items-baseline justify-between mb-3 gap-4">
+    <section
+      data-mount-row
+      className="mb-6 rounded-lg bg-card ring-1 ring-rule shadow-xs overflow-hidden"
+    >
+      <header className="h-14 px-4 flex items-center justify-between gap-3 bg-elevated border-b border-rule">
         <div className="flex items-baseline gap-2 min-w-0">
           {index && (
             <span className="text-[13px] text-faint tabular-nums shrink-0">
@@ -31,9 +34,7 @@ export function Section({
         </div>
         {action}
       </header>
-      <div className="bg-card border border-rule rounded-lg overflow-hidden">
-        {children}
-      </div>
+      <div>{children}</div>
     </section>
   );
 }

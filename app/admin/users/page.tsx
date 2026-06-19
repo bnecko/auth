@@ -65,10 +65,7 @@ export default async function AdminUsersPage({
   const users = await getUsers(search);
 
   return (
-    <main
-      className="flex-1 max-w-[1040px] w-full mx-auto px-6 py-10"
-      data-mount-stagger
-    >
+    <>
       <header className="mb-10" data-mount-row>
         <p className="text-[12px] text-muted mb-2 tabular-nums">
           Admin / Users &middot; {users.length} records
@@ -144,6 +141,6 @@ export default async function AdminUsersPage({
           )}
         </Section>
       </div>
-    </main>
+    </>
   );
 }
