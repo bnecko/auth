@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
-import { TopNav } from "@/components/TopNav";
+import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { CodeTabs } from "./CodeTabs";
@@ -16,16 +15,13 @@ export default async function OAuthDocsPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        user={{
-          name: current.user.firstName,
-          username: current.user.username,
-        }}
-      />
-      <div className="flex-1 min-w-0">
-        <TopNav trail="Developers / OAuth docs" />
-        <main className="max-w-[1080px] mx-auto px-6 py-10">
+    <AppShell
+      user={{
+        name: current.user.firstName,
+        username: current.user.username,
+      }}
+      trail="OAuth docs"
+    >
           <header className="mb-10">
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-[13px] text-muted">docs / oauth</span>
@@ -1011,9 +1007,7 @@ if result['status'] == 'approved':
               </nav>
             </aside>
           </div>
-        </main>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 

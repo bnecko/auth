@@ -27,10 +27,7 @@ export default function AdminKeysPage() {
   }));
 
   return (
-    <main
-      className="flex-1 max-w-[1040px] w-full mx-auto px-6 py-10"
-      data-mount-stagger
-    >
+    <>
       <header className="mb-10" data-mount-row>
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[13px] text-muted">admin.keys</span>
@@ -107,6 +104,6 @@ export default function AdminKeysPage() {
           ))}
         </Section>
       </div>
-    </main>
+    </>
   );
 }

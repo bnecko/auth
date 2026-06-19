@@ -1,8 +1,19 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AdminSidebar } from "@/components/AdminSidebar";
+import { AppShell } from "@/components/AppShell";
 import { isAdminStepUpVerified } from "@/lib/server/adminStepUp";
 import { getCurrentSession } from "@/lib/server/session";
+
+const TRAILS: Record<string, string> = {
+  "/admin": "Overview",
+  "/admin/users": "Users",
+  "/admin/oauth-clients": "OAuth clients",
+  "/admin/keys": "Signing keys",
+  "/admin/activation-requests": "Activation requests",
+  "/admin/webhooks": "Webhook deliveries",
+  "/admin/bans": "Bans",
+  "/admin/security": "Security events",
+};
 
 export default async function AdminLayout({
   children,
@@ -17,19 +28,27 @@ export default async function AdminLayout({
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "";
 
-  if (pathname !== "/admin/verify") {
-    const verified = await isAdminStepUpVerified(current.user.id);
-    if (!verified) {
-      redirect("/admin/verify");
-    }
+  // The step-up gate renders its own minimal shell; everything else gets the
+  // admin app shell once the live Telegram step-up is verified.
+  if (pathname === "/admin/verify") {
+    return <>{children}</>;
+  }
+
+  const verified = await isAdminStepUpVerified(current.user.id);
+  if (!verified) {
+    redirect("/admin/verify");
   }
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      {pathname !== "/admin/verify" && (
-        <AdminSidebar username={current.user.username} />
-      )}
-      <div className="flex-1 min-w-0 flex flex-col">{children}</div>
-    </div>
+    <AppShell
+      variant="admin"
+      user={{
+        name: current.user.firstName || current.user.username,
+        username: current.user.username,
+      }}
+      trail={TRAILS[pathname] ?? "Admin"}
+    >
+      {children}
+    </AppShell>
   );
 }

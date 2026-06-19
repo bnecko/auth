@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { BearerSection } from "@/components/BearerSection";
-import { Sidebar } from "@/components/Sidebar";
-import { TopNav } from "@/components/TopNav";
+import { AppShell } from "@/components/AppShell";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
@@ -49,15 +48,12 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar user={{ name: account.firstName, username: account.username }} />
-      <div className="flex-1 min-w-0">
-        <TopNav trail="account" isAdmin={current.user.role === "admin"} />
-        <main
-          className="max-w-[960px] mx-auto px-6 py-10"
-          data-mount-stagger
-        >
-          <header data-mount-row className="mb-10">
+    <AppShell
+      user={{ name: account.firstName, username: account.username }}
+      trail="Account"
+      isAdmin={current.user.role === "admin"}
+    >
+          <header data-mount-row className="mb-8">
             <div className="flex items-baseline gap-3 flex-wrap mb-3">
               <h1 className="text-[32px] tracking-tight text-fg leading-none">
                 {account.firstName}
@@ -77,7 +73,7 @@ export default async function DashboardPage() {
 
           <div
             data-mount-row
-            className="bg-card border border-rule rounded-lg grid grid-cols-2 md:grid-cols-4 mb-12 shadow-card"
+            className="bg-card ring-1 ring-rule shadow-xs rounded-lg grid grid-cols-2 md:grid-cols-4 mb-6"
           >
             {stats.map((stat, i) => (
               <div
@@ -88,7 +84,7 @@ export default async function DashboardPage() {
                   {stat.label.charAt(0).toUpperCase() + stat.label.slice(1)}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[34px] text-accent tabular-nums leading-none">
+                  <span className="text-[34px] text-accent-strong tabular-nums leading-none">
                     {String(stat.value).padStart(2, "0")}
                   </span>
                   <span className="text-[13px] text-faint">{stat.hint}</span>
@@ -356,8 +352,6 @@ export default async function DashboardPage() {
             <span>bottleneck</span>
             <span className="tabular-nums">auth.bneck.com</span>
           </footer>
-        </main>
-      </div>
-    </div>
+    </AppShell>
   );
 }

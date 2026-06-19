@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
-import { TopNav } from "@/components/TopNav";
+import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
@@ -47,102 +46,92 @@ export default async function AppSettingsPage({
   const initials = app.name.slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        user={{
-          name: current.user.firstName,
-          username: current.user.username,
-        }}
-      />
-      <div className="flex-1 min-w-0 flex flex-col">
-        <TopNav
-          trail={`developers / apps / ${app.name}`}
-          isAdmin={current.user.role === "admin"}
-        />
-        <main
-          className="flex-1 p-6 lg:p-10 max-w-[860px] mx-auto w-full"
-          data-mount-stagger
+    <AppShell
+      user={{
+        name: current.user.firstName,
+        username: current.user.username,
+      }}
+      trail={app.name}
+      isAdmin={current.user.role === "admin"}
+    >
+      <header
+        className="flex items-start gap-5 mb-10"
+        data-mount-row
+      >
+        <div
+          className="h-16 w-16 rounded-lg border border-rule bg-bg-soft flex items-center justify-center text-accent-strong text-[20px] font-semibold shrink-0"
+          aria-hidden
         >
-          <header
-            className="flex items-start gap-5 mb-10"
-            data-mount-row
-          >
-            <div
-              className="h-16 w-16 rounded-lg border border-rule bg-bg-soft flex items-center justify-center text-accent-strong text-[20px] font-semibold shrink-0"
-              aria-hidden
-            >
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[12px] text-muted">App settings</span>
-                {app.status === "disabled" && (
-                  <Tag tone="danger">Disabled</Tag>
-                )}
-              </div>
-              <h1 className="text-[32px] tracking-tight text-fg leading-none mb-2 truncate">
-                {app.name}
-              </h1>
-              <p className="text-[13px] text-muted">
-                Client ID: <CopyValue value={app.public_id} label="client id" />
-              </p>
-            </div>
-          </header>
-
-          <div data-mount-row>
-            <Section
-              index="1.0"
-              title="Identifiers"
-              hint="Immutable OAuth credentials"
-            >
-              <Row>
-                <RowLabel>Client ID</RowLabel>
-                <RowValue>
-                  <CopyValue value={app.public_id} label="client id" />
-                </RowValue>
-                <span />
-              </Row>
-              <Row>
-                <RowLabel>Slug</RowLabel>
-                <RowValue>
-                  <span className="text-fg">{slug}</span>
-                </RowValue>
-                <span />
-              </Row>
-              <Row>
-                <RowLabel>Created</RowLabel>
-                <RowValue>
-                  <span className="text-muted tabular-nums">
-                    {app.created_at.slice(0, 16).replace("T", " ")}
-                  </span>
-                </RowValue>
-                <span />
-              </Row>
-            </Section>
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[12px] text-muted">App settings</span>
+            {app.status === "disabled" && (
+              <Tag tone="danger">Disabled</Tag>
+            )}
           </div>
+          <h1 className="text-[32px] tracking-tight text-fg leading-none mb-2 truncate">
+            {app.name}
+          </h1>
+          <p className="text-[13px] text-muted">
+            Client ID: <CopyValue value={app.public_id} label="client id" />
+          </p>
+        </div>
+      </header>
 
-          <div data-mount-row>
-            <AppSettingsForm
-              appId={app.id}
-              redirectUris={app.allowed_redirect_urls}
-              oauthProfileVersion={app.oauth_profile_version}
-            />
-          </div>
-
-          <div data-mount-row>
-            <WebhookEndpointsSection
-              appId={app.id}
-              endpoints={webhookEndpoints.map(e => ({
-                publicId: e.publicId,
-                url: e.url,
-                eventTypes: e.eventTypes,
-                status: e.status,
-                createdAt: e.createdAt,
-              }))}
-            />
-          </div>
-        </main>
+      <div data-mount-row>
+        <Section
+          index="1.0"
+          title="Identifiers"
+          hint="Immutable OAuth credentials"
+        >
+          <Row>
+            <RowLabel>Client ID</RowLabel>
+            <RowValue>
+              <CopyValue value={app.public_id} label="client id" />
+            </RowValue>
+            <span />
+          </Row>
+          <Row>
+            <RowLabel>Slug</RowLabel>
+            <RowValue>
+              <span className="text-fg">{slug}</span>
+            </RowValue>
+            <span />
+          </Row>
+          <Row>
+            <RowLabel>Created</RowLabel>
+            <RowValue>
+              <span className="text-muted tabular-nums">
+                {app.created_at.slice(0, 16).replace("T", " ")}
+              </span>
+            </RowValue>
+            <span />
+          </Row>
+        </Section>
       </div>
-    </div>
+
+      <div data-mount-row>
+        <AppSettingsForm
+          appId={app.id}
+          redirectUris={app.allowed_redirect_urls}
+          oauthProfileVersion={app.oauth_profile_version}
+        />
+      </div>
+
+      <div data-mount-row>
+        <WebhookEndpointsSection
+          appId={app.id}
+          endpoints={webhookEndpoints.map(e => ({
+            publicId: e.publicId,
+            url: e.url,
+            eventTypes: e.eventTypes,
+            status: e.status,
+            createdAt: e.createdAt,
+          }))}
+        />
+      </div>
+    </AppShell>
   );
 }

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
-import { TopNav } from "@/components/TopNav";
+import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { TestLab } from "./test-lab";
@@ -14,34 +13,29 @@ export default async function TestLabPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        user={{
-          name: current.user.firstName,
-          username: current.user.username,
-        }}
-      />
-      <div className="flex-1 min-w-0">
-        <TopNav trail="Developers / Test field lab" />
-        <main className="max-w-[1120px] mx-auto px-6 py-10">
-          <header className="mb-10">
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-[13px] text-muted">OAuth lab</span>
-              <Tag tone="info">API lab</Tag>
-            </div>
-            <h1 className="text-[36px] leading-none tracking-tight text-fg mb-3">
-              Test field lab
-            </h1>
-            <p className="text-[14px] text-muted leading-6 max-w-[680px]">
-              Build an authorization URL, generate PKCE values, inspect
-              discovery metadata, and test token endpoints against this auth
-              server.
-            </p>
-          </header>
+    <AppShell
+      user={{
+        name: current.user.firstName,
+        username: current.user.username,
+      }}
+      trail="Test field lab"
+    >
+      <header className="mb-10">
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-[13px] text-muted">OAuth lab</span>
+          <Tag tone="info">API lab</Tag>
+        </div>
+        <h1 className="text-[36px] leading-none tracking-tight text-fg mb-3">
+          Test field lab
+        </h1>
+        <p className="text-[14px] text-muted leading-6 max-w-[680px]">
+          Build an authorization URL, generate PKCE values, inspect
+          discovery metadata, and test token endpoints against this auth
+          server.
+        </p>
+      </header>
 
-          <TestLab />
-        </main>
-      </div>
-    </div>
+      <TestLab />
+    </AppShell>
   );
 }
