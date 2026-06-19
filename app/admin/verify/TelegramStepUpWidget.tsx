@@ -57,8 +57,8 @@ export function TelegramStepUpWidget({
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-meta text-secondary">
-        a one-time code will be sent to your linked telegram account.
+      <p className="text-[13px] text-secondary">
+        A one-time code will be sent to your linked Telegram account.
       </p>
 
       {error && (
@@ -69,12 +69,12 @@ export function TelegramStepUpWidget({
 
       {step === "send" ? (
         <Button onClick={sendCode} loading={loading}>
-          send code via telegram
+          Send code via Telegram
         </Button>
       ) : (
         <form onSubmit={submitCode} className="flex flex-col gap-4">
           <Field
-            label="verification code"
+            label="Verification code"
             name="code"
             type="text"
             autoComplete="one-time-code"
@@ -86,7 +86,7 @@ export function TelegramStepUpWidget({
             required
           />
           <Button type="submit" loading={loading}>
-            verify
+            Verify
           </Button>
           <button
             type="button"
@@ -95,9 +95,9 @@ export function TelegramStepUpWidget({
               setCode("");
               setError("");
             }}
-            className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+            className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
           >
-            resend code
+            Resend code
           </button>
         </form>
       )}

@@ -5,7 +5,6 @@ import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import {
   createWebhookEndpointAction,
@@ -23,10 +22,10 @@ type Endpoint = {
 };
 
 const EVENT_OPTIONS = [
-  { value: "activation.approved", label: "activation approved" },
-  { value: "activation.denied", label: "activation denied" },
-  { value: "activation.cancelled", label: "activation cancelled" },
-  { value: "activation.expired", label: "activation expired" },
+  { value: "activation.approved", label: "Activation approved" },
+  { value: "activation.denied", label: "Activation denied" },
+  { value: "activation.cancelled", label: "Activation cancelled" },
+  { value: "activation.expired", label: "Activation expired" },
 ];
 
 export function WebhookEndpointsSection({
@@ -77,12 +76,11 @@ export function WebhookEndpointsSection({
       {revealedSecret && (
         <Alert tone="warning">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <Glyph kind="warn" />
-            <span className="uppercase tracking-wider">
-              signing secret — shown once
+            <span className="text-[13px] font-medium text-muted">
+              Signing secret — shown once
             </span>
           </div>
-          <code className="block font-mono select-all text-accent break-all">
+          <code className="block font-mono select-all text-accent-strong break-all">
             {revealedSecret}
           </code>
         </Alert>
@@ -90,11 +88,11 @@ export function WebhookEndpointsSection({
 
       <Section
         index="3.0"
-        title="webhook endpoints"
-        hint="event delivery targets"
+        title="Webhook endpoints"
+        hint="Event delivery targets"
       >
         {endpoints.length === 0 ? (
-          <Empty>no webhook endpoints</Empty>
+          <Empty>No webhook endpoints</Empty>
         ) : (
           endpoints.map((ep) => (
             <Row key={ep.publicId}>
@@ -105,23 +103,22 @@ export function WebhookEndpointsSection({
               </RowLabel>
               <RowValue>
                 <Tag tone={ep.status === "active" ? "success" : "neutral"}>
-                  {ep.status}
+                  {ep.status === "active" ? "Active" : "Disabled"}
                 </Tag>
-                <Glyph kind="dot" />
-                <span className="text-muted text-meta truncate">
-                  {ep.eventTypes.join(", ") || "no events"}
+                <span className="text-muted text-[13px] truncate">
+                  {ep.eventTypes.join(", ") || "No events"}
                 </span>
               </RowValue>
-              <div className="flex items-baseline gap-3 text-meta uppercase tracking-wider">
+              <div className="flex items-baseline gap-3 text-[13px]">
                 {ep.status === "active" && (
                   <form action={rotate}>
                     <input type="hidden" name="app_id" value={appId} />
                     <input type="hidden" name="endpoint_id" value={ep.publicId} />
                     <button
                       type="submit"
-                      className="text-secondary hover:text-accent transition-colors"
+                      className="text-secondary hover:text-accent-strong transition-colors"
                     >
-                      rotate secret
+                      Rotate secret
                     </button>
                   </form>
                 )}
@@ -131,9 +128,9 @@ export function WebhookEndpointsSection({
                     <input type="hidden" name="endpoint_id" value={ep.publicId} />
                     <button
                       type="submit"
-                      className="text-secondary hover:text-accent transition-colors"
+                      className="text-secondary hover:text-accent-strong transition-colors"
                     >
-                      disable
+                      Disable
                     </button>
                   </form>
                 )}
@@ -144,7 +141,7 @@ export function WebhookEndpointsSection({
                     type="submit"
                     className="text-secondary hover:text-danger transition-colors"
                   >
-                    delete
+                    Delete
                   </button>
                 </form>
               </div>
@@ -153,11 +150,11 @@ export function WebhookEndpointsSection({
         )}
       </Section>
 
-      <Section index="3.1" title="add endpoint" hint="register new target">
+      <Section index="3.1" title="Add endpoint" hint="Register new target">
         <form action={create} className="space-y-5 py-3 px-1">
           <input type="hidden" name="app_id" value={appId} />
           <Field
-            label="endpoint url"
+            label="Endpoint URL"
             name="url"
             type="url"
             required
@@ -165,8 +162,8 @@ export function WebhookEndpointsSection({
             hint="https required (or http://localhost in development)"
           />
           <div>
-            <label className="block text-meta uppercase tracking-wider text-muted mb-2">
-              events
+            <label className="block text-[13px] text-muted mb-2">
+              Events
             </label>
             <div className="border-t border-rule">
               {EVENT_OPTIONS.map((opt) => (
@@ -179,9 +176,9 @@ export function WebhookEndpointsSection({
                     name="event_types"
                     value={opt.value}
                     defaultChecked
-                    className="appearance-none w-4 h-4 border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
+                    className="appearance-none w-4 h-4 rounded border border-rule bg-transparent checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5"
                   />
-                  <span className="text-meta text-fg group-hover:text-accent transition-colors">
+                  <span className="text-[13px] text-fg group-hover:text-accent-strong transition-colors">
                     {opt.label}
                   </span>
                 </label>
@@ -189,7 +186,7 @@ export function WebhookEndpointsSection({
             </div>
           </div>
           <Button type="submit" loading={busy}>
-            add endpoint
+            Add endpoint
           </Button>
         </form>
       </Section>

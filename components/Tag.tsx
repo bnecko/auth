@@ -1,18 +1,14 @@
-// Bracketed status marker. Square, hairline-bordered, uppercase. The
-// bracket characters are part of the glyph; they sit in faint type so
-// the body of the tag carries the tone. The `bracket` prop is kept
-// for prop-compatibility with existing call sites but no longer
-// changes the visual — both modes render the same way so callers
-// don't drift apart.
+// Small status badge: a tinted, rounded pill carrying the tone. The `bracket`
+// prop is kept for call-site compatibility but no longer affects the visual.
 
 type Tone = "neutral" | "success" | "danger" | "warning" | "info";
 
 const toneClass: Record<Tone, string> = {
-  neutral: "text-secondary",
-  success: "text-ok",
-  danger: "text-danger",
-  warning: "text-accent",
-  info: "text-secondary",
+  neutral: "bg-hover text-secondary",
+  success: "bg-[#e9f7ec] text-[#1c6b2b]",
+  danger: "bg-[#fdecec] text-[#9f1c25]",
+  warning: "bg-[#fff6e0] text-[#7a5200]",
+  info: "bg-[#eaf2ff] text-[#0b4ea8]",
 };
 
 export function Tag({
@@ -27,11 +23,9 @@ export function Tag({
 }) {
   return (
     <span
-      className={`inline-flex items-center text-micro uppercase tracking-wider ${toneClass[tone]}`}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${toneClass[tone]}`}
     >
-      <span className="text-faint">[</span>
-      <span className="px-1">{children}</span>
-      <span className="text-faint">]</span>
+      {children}
     </span>
   );
 }

@@ -1,6 +1,5 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { query } from "@/lib/server/db";
 import { getCurrentSession } from "@/lib/server/session";
 import { redirect } from "next/navigation";
@@ -41,25 +40,20 @@ export default async function AdminBansPage() {
       data-mount-stagger
     >
       <header className="mb-10" data-mount-row>
-        <div className="flex items-baseline gap-2 mb-2 text-meta">
-          <span className="text-danger">$</span>
-          <span className="uppercase tracking-wider text-muted">
-            admin.bans
-          </span>
-          <span className="text-faint">·</span>
-          <span className="text-meta text-faint tabular-nums">
-            {String(active.length).padStart(2, "0")} active
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-[13px] text-muted tabular-nums">
+            {active.length} active
           </span>
         </div>
-        <h1 className="text-[32px] tracking-tightest text-fg leading-none">
-          bans
+        <h1 className="text-[32px] tracking-tight text-fg leading-none">
+          Bans
         </h1>
       </header>
 
       <div data-mount-row>
-        <Section index="1.0" title="active bans" hint="enforced now">
+        <Section index="1.0" title="Active bans" hint="Enforced now">
           {active.length === 0 ? (
-            <Empty>no active bans</Empty>
+            <Empty>No active bans</Empty>
           ) : (
             active.map(ban => (
               <div
@@ -76,13 +70,11 @@ export default async function AdminBansPage() {
                   {ban.reason && (
                     <div className="text-muted mt-1">{ban.reason}</div>
                   )}
-                  <div className="text-faint mt-1 flex items-baseline gap-2">
-                    <span className="tabular-nums">
-                      {ban.created_at?.slice(0, 10)}
-                    </span>
+                  <div className="text-faint mt-1 flex items-baseline gap-2 tabular-nums">
+                    <span>{ban.created_at?.slice(0, 10)}</span>
                     {ban.expires_at && (
                       <>
-                        <Glyph kind="dot" />
+                        <span aria-hidden>·</span>
                         <span>expires {ban.expires_at.slice(0, 10)}</span>
                       </>
                     )}
@@ -92,9 +84,9 @@ export default async function AdminBansPage() {
                   <input type="hidden" name="banId" value={ban.id} />
                   <button
                     type="submit"
-                    className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+                    className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
                   >
-                    revoke
+                    Revoke
                   </button>
                 </form>
               </div>
@@ -105,7 +97,7 @@ export default async function AdminBansPage() {
 
       {revoked.length > 0 && (
         <div data-mount-row>
-          <Section index="2.0" title="revoked bans" hint="historical">
+          <Section index="2.0" title="Revoked bans" hint="Historical">
             {revoked.map(ban => (
               <div
                 key={ban.id}
@@ -123,7 +115,7 @@ export default async function AdminBansPage() {
                   )}
                   <div className="text-faint mt-1 flex items-baseline gap-2 tabular-nums">
                     <span>{ban.created_at?.slice(0, 10)}</span>
-                    <Glyph kind="dot" />
+                    <span aria-hidden>·</span>
                     <span>revoked {ban.revoked_at?.slice(0, 10)}</span>
                   </div>
                 </div>

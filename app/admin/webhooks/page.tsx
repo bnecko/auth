@@ -1,6 +1,5 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import {
   listRecentWebhookDeliveries,
@@ -23,10 +22,10 @@ const statusTone: Record<
 };
 
 const FILTERS: { label: string; value: WebhookDeliveryStatus | "all" }[] = [
-  { label: "all", value: "all" },
-  { label: "pending", value: "pending" },
-  { label: "delivered", value: "delivered" },
-  { label: "failed", value: "failed" },
+  { label: "All", value: "all" },
+  { label: "Pending", value: "pending" },
+  { label: "Delivered", value: "delivered" },
+  { label: "Failed", value: "failed" },
 ];
 
 export default async function AdminWebhooksPage({
@@ -57,21 +56,17 @@ export default async function AdminWebhooksPage({
         data-mount-row
       >
         <div>
-          <div className="flex items-baseline gap-2 mb-2 text-meta">
-            <span className="text-danger">$</span>
-            <span className="uppercase tracking-wider text-muted">
-              admin.webhooks
+          <p className="text-[13px] text-muted mb-2">
+            admin / webhooks
+            <span className="ml-2 tabular-nums text-faint">
+              {deliveries.length}
             </span>
-            <span className="text-faint">·</span>
-            <span className="text-meta text-faint tabular-nums">
-              {String(deliveries.length).padStart(2, "0")}
-            </span>
-          </div>
-          <h1 className="text-[32px] tracking-tightest text-fg leading-none">
-            webhook deliveries
+          </p>
+          <h1 className="text-[32px] tracking-tight text-fg leading-none">
+            Webhook deliveries
           </h1>
         </div>
-        <nav className="flex items-baseline gap-1 text-meta uppercase tracking-wider">
+        <nav className="flex items-baseline gap-1 text-[13px]">
           {FILTERS.map(f => (
             <Link
               key={f.value}
@@ -80,13 +75,12 @@ export default async function AdminWebhooksPage({
                   ? "/admin/webhooks"
                   : `/admin/webhooks?status=${f.value}`
               }
-              className={`px-2 h-7 leading-7 transition-colors flex items-baseline gap-1.5 ${
+              className={`px-2.5 h-7 leading-7 rounded-md transition-colors flex items-center gap-1.5 ${
                 filter === f.value
-                  ? "text-accent"
+                  ? "bg-hover text-fg font-medium"
                   : "text-secondary hover:text-fg"
               }`}
             >
-              {filter === f.value && <span className="text-accent">■</span>}
               <span>{f.label}</span>
             </Link>
           ))}
@@ -96,11 +90,11 @@ export default async function AdminWebhooksPage({
       <div data-mount-row>
         <Section
           index="1.0"
-          title="deliveries"
+          title="Deliveries"
           hint={filter === "all" ? "most recent" : `filtered: ${filter}`}
         >
           {deliveries.length === 0 ? (
-            <Empty>no deliveries</Empty>
+            <Empty>No deliveries</Empty>
           ) : (
             deliveries.map(d => (
               <div
@@ -118,17 +112,17 @@ export default async function AdminWebhooksPage({
                   </div>
                   <div className="text-muted mt-0.5 truncate">
                     <span className="text-faint">{d.eventType}</span>
-                    <Glyph kind="dot" className="mx-2" />
-                    attempt {d.attemptCount}
+                    <span className="mx-2 text-faint">·</span>
+                    Attempt {d.attemptCount}
                     {d.responseStatus !== null && (
                       <>
-                        <Glyph kind="dot" className="mx-2" />
-                        http {d.responseStatus}
+                        <span className="mx-2 text-faint">·</span>
+                        HTTP {d.responseStatus}
                       </>
                     )}
                     {d.lastError && (
                       <>
-                        <Glyph kind="dot" className="mx-2" />
+                        <span className="mx-2 text-faint">·</span>
                         <span className="text-danger">
                           {d.lastError.slice(0, 80)}
                         </span>
@@ -149,9 +143,9 @@ export default async function AdminWebhooksPage({
                       />
                       <button
                         type="submit"
-                        className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+                        className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
                       >
-                        retry
+                        Retry
                       </button>
                     </form>
                   )}

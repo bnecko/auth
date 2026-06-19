@@ -27,17 +27,11 @@ export default async function NewAppPage() {
           data-mount-stagger
         >
           <header className="mb-10" data-mount-row>
-            <div className="flex items-baseline gap-2 mb-2 text-meta">
-              <span className="text-accent">$</span>
-              <span className="uppercase tracking-wider text-muted">
-                app.create
-              </span>
-            </div>
-            <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-3">
-              new application
+            <h1 className="text-[32px] text-fg leading-none mb-3">
+              New application
             </h1>
-            <p className="text-meta text-muted max-w-prose">
-              register a new oauth client to authenticate users and access apis.
+            <p className="text-[15px] text-muted max-w-prose">
+              Register a new OAuth client to authenticate users and access APIs.
             </p>
           </header>
 

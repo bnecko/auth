@@ -5,28 +5,42 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   loading?: boolean;
 };
 
-// Square, single hairline, one accent. Primary is amber bg + black
-// fg — the only place the accent is filled rather than outlined.
-// Secondary / ghost are rule-bordered. Danger is text-only with a
-// muted rule until hover.
+// Primary is the one filled control: the accent on a dark label. Secondary is
+// a bordered white surface, ghost is borderless until hover, danger reads in
+// red and only commits its border on intent.
 const styles: Record<Variant, string> = {
   primary:
-    "bg-accent text-bg border border-accent " +
-    "hover:bg-fg hover:border-fg " +
-    "disabled:bg-faint disabled:border-faint disabled:text-muted",
+    "bg-accent text-fg hover:brightness-95 " +
+    "disabled:bg-faint disabled:text-muted disabled:brightness-100",
   secondary:
-    "bg-transparent text-fg border border-rule " +
-    "hover:border-rule-strong hover:text-accent " +
-    "disabled:text-muted disabled:border-rule",
+    "bg-card text-fg border border-rule " +
+    "hover:bg-hover hover:border-rule-strong " +
+    "disabled:text-muted disabled:bg-card",
   ghost:
-    "bg-transparent text-secondary border border-transparent " +
-    "hover:text-fg hover:border-rule " +
+    "bg-transparent text-secondary " +
+    "hover:bg-hover hover:text-fg " +
     "disabled:text-muted",
   danger:
     "bg-transparent text-danger border border-rule " +
-    "hover:border-danger " +
+    "hover:border-danger hover:bg-danger/5 " +
     "disabled:text-muted",
 };
+
+function Spinner() {
+  return (
+    <svg
+      className="animate-spin"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export function Button({
   variant = "primary",
@@ -39,8 +53,8 @@ export function Button({
   return (
     <button
       className={[
-        "w-full h-10 px-4 text-[13px] uppercase tracking-wider",
-        "transition-colors disabled:cursor-not-allowed",
+        "w-full h-10 px-4 text-[14px] font-medium rounded-md",
+        "transition disabled:cursor-not-allowed",
         "inline-flex items-center justify-center gap-2",
         styles[variant],
         className,
@@ -48,14 +62,8 @@ export function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <span className="inline-flex items-center gap-2">
-          <span className="cursor-blink">▌</span>
-          <span>running</span>
-        </span>
-      ) : (
-        children
-      )}
+      {loading && <Spinner />}
+      {children}
     </button>
   );
 }

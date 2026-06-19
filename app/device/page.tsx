@@ -3,7 +3,6 @@ import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
-import { Glyph } from "@/components/Glyph";
 import { getCurrentSession } from "@/lib/server/session";
 import {
   findDeviceCodeByUserCode,
@@ -57,16 +56,13 @@ export default async function DevicePage({
     return (
       <AuthShell tag="auth/device / linked">
         <div className="flex items-baseline gap-3 mb-1">
-          <Glyph kind="ok" />
-          <span className="text-meta uppercase tracking-wider text-ok">
-            connected
-          </span>
+          <span className="text-[13px] text-ok">Connected</span>
         </div>
-        <h1 className="text-[28px] tracking-tightest text-fg mb-2 leading-none">
-          device connected
+        <h1 className="text-[28px] text-fg mb-2 leading-none">
+          Device connected
         </h1>
-        <p className="text-meta text-muted">
-          you can close this window and return to your device.
+        <p className="text-[14px] text-muted">
+          You can close this window and return to your device.
         </p>
       </AuthShell>
     );
@@ -77,10 +73,10 @@ export default async function DevicePage({
     if (!deviceCode || deviceCode.status !== "pending") {
       return (
         <AuthShell tag="auth/device / invalid">
-          <Alert tone="danger">invalid or expired code</Alert>
+          <Alert tone="danger">Invalid or expired code</Alert>
           <Link href="/device" className="block mt-5">
             <Button variant="ghost" type="button">
-              try again
+              Try again
             </Button>
           </Link>
         </AuthShell>
@@ -90,43 +86,36 @@ export default async function DevicePage({
     return (
       <AuthShell tag="auth/device / consent">
         <div className="flex items-baseline gap-3 mb-1">
-          <span className="text-meta uppercase tracking-wider text-accent">
-            connect device
+          <span className="text-[13px] text-accent-strong">
+            Connect device
           </span>
         </div>
-        <h1 className="text-[28px] tracking-tightest text-fg mb-2 leading-none">
+        <h1 className="text-[28px] text-fg mb-2 leading-none">
           {deviceCode.appName}
         </h1>
-        <p className="text-meta text-secondary mb-5">
-          this device is requesting access with the following scopes:
+        <p className="text-[14px] text-secondary mb-5">
+          This device is requesting access with the following scopes:
         </p>
 
-        <div className="border-t border-rule mb-6">
-          {deviceCode.scopes.map((scope, i) => (
-            <div
-              key={scope}
-              className={`flex items-baseline gap-3 py-2.5 ${
-                i > 0 ? "border-t border-rule" : ""
-              }`}
-            >
-              <Glyph kind="ok" />
-              <span className="text-meta text-fg">{scope}</span>
+        <div className="bg-card border border-rule rounded-lg mb-6 divide-y divide-rule">
+          {deviceCode.scopes.map((scope) => (
+            <div key={scope} className="flex items-center gap-3 px-4 py-3">
+              <span className="text-[13px] text-fg">{scope}</span>
             </div>
           ))}
-          <div className="border-t border-rule" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <form action={denyCode}>
             <input type="hidden" name="user_code" value={user_code} />
             <Button variant="ghost" type="submit" className="w-full">
-              deny
+              Deny
             </Button>
           </form>
           <form action={approveCode}>
             <input type="hidden" name="user_code" value={user_code} />
             <Button type="submit" className="w-full">
-              approve
+              Approve
             </Button>
           </form>
         </div>
@@ -136,25 +125,25 @@ export default async function DevicePage({
 
   return (
     <AuthShell tag="auth/device / enter code">
-      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
-        enter code
+      <h1 className="text-[28px] text-fg mb-1 leading-none">
+        Enter code
       </h1>
-      <p className="text-meta text-muted mb-7">
-        the code is displayed on your device screen
+      <p className="text-[14px] text-muted mb-7">
+        The code is displayed on your device screen
       </p>
 
       <form action={submitCode} className="space-y-5">
-        <div className="border-b border-rule">
+        <div className="border border-rule rounded-md bg-card">
           <input
             name="user_code"
             placeholder="ABCD-EFGH"
             required
             autoFocus
-            className="w-full bg-transparent border-0 px-1 py-2 text-fg focus:outline-hidden text-center uppercase tracking-[0.3em] text-[24px] tabular-nums placeholder:text-faint"
+            className="w-full bg-transparent border-0 px-3 py-3 text-fg focus:outline-hidden text-center uppercase tracking-[0.3em] text-[24px] tabular-nums placeholder:text-faint"
           />
         </div>
         <Button type="submit" className="w-full">
-          continue
+          Continue
         </Button>
       </form>
     </AuthShell>

@@ -1,18 +1,16 @@
 import Link from "next/link";
 
-// Auth pages drop the bordered-card panel. The form sits on the bare
-// page surrounded by rule lines and the scanline texture, framed by
-// the monogram up top and the navigation strip at the bottom — the
-// shape of a single page in a hardcover technical manual.
+// Auth pages center a single white card on the light canvas: brand mark above,
+// the form inside the card lifted by a soft shadow, a quiet footer below. One
+// focused object on the page, nothing competing with it.
 
 function Monogram() {
-  // Custom mark: two narrow bars converging into one wider bar — a
-  // bottleneck silhouette in monospaced glyph form. Drawn inline so
-  // there's no extra HTTP request and the colors stay accent-driven.
+  // Two narrow bars converging into one wider bar — a bottleneck silhouette.
+  // Drawn inline so there's no extra request and the color stays accent-driven.
   return (
     <svg
-      width="20"
-      height="20"
+      width="22"
+      height="22"
       viewBox="0 0 20 20"
       fill="none"
       aria-hidden="true"
@@ -27,61 +25,42 @@ function Monogram() {
 
 export function AuthShell({
   children,
-  tag,
   account,
 }: {
   children: React.ReactNode;
+  // Pages may still pass a `tag` breadcrumb; it is intentionally not rendered
+  // in the light layout. Kept off the type via rest props so call sites compile.
   tag?: string;
   // When the page already has a signed-in user (e.g. the authorize screen),
-  // pass it so the header reflects that instead of offering sign in / register.
+  // pass it so the header reflects that.
   account?: { username: string } | null;
 }) {
   return (
-    <main className="scanlines min-h-screen flex flex-col">
-      <header className="w-full max-w-[880px] mx-auto px-5 pt-6 pb-5 flex items-center justify-between">
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 text-fg select-none group"
-        >
-          <Monogram />
-          <span className="text-[14px] tracking-tightest group-hover:text-accent transition-colors">
-            bottleneck
-          </span>
-          <span className="text-meta text-muted">/ auth</span>
-        </Link>
-        <nav className="flex items-center gap-5 text-meta text-secondary">
-          {account ? (
-            <Link href="/" className="hover:text-accent transition-colors">
-              {account.username}
-            </Link>
-          ) : (
-            <>
-              <Link href="/login" className="hover:text-accent transition-colors">
-                sign in
-              </Link>
-              <Link href="/register" className="hover:text-accent transition-colors">
-                register
-              </Link>
-            </>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-canvas px-4 py-12">
+      <div className="w-full max-w-[400px]">
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <Link
+            href="/"
+            className="flex items-center gap-2 select-none group"
+          >
+            <Monogram />
+            <span className="text-[16px] font-semibold tracking-tight text-fg">
+              bottleneck
+            </span>
+          </Link>
+          {account && (
+            <span className="text-[13px] text-muted">
+              Signed in as {account.username}
+            </span>
           )}
-        </nav>
-      </header>
+        </div>
 
-      <div className="rule-x border-b border-rule" />
+        <div className="bg-card border border-rule rounded-lg shadow-card p-7">
+          {children}
+        </div>
 
-      <div className="flex-1 flex items-start justify-center px-5 pt-12 pb-16">
-        <div className="w-full max-w-[440px]">
-          {tag && (
-            <div className="mb-5 text-meta text-muted flex items-baseline gap-2">
-              <span className="text-accent">$</span>
-              <span className="tracking-wider">{tag}</span>
-            </div>
-          )}
-          <div className="rule-x border-b border-rule py-7">{children}</div>
-          <div className="mt-5 text-meta text-faint flex items-center justify-between">
-            <span>bnck-auth · {new Date().getFullYear()}</span>
-            <span>tls / cf-tunnel</span>
-          </div>
+        <div className="mt-6 text-center text-[12px] text-faint">
+          bottleneck · {new Date().getFullYear()}
         </div>
       </div>
     </main>

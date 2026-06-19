@@ -6,7 +6,6 @@ import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Sidebar } from "@/components/Sidebar";
 import { Tag } from "@/components/Tag";
 import { TopNav } from "@/components/TopNav";
-import { Glyph } from "@/components/Glyph";
 import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauthn";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
@@ -44,51 +43,46 @@ export default async function SecurityCenterPage() {
         }}
       />
       <div className="flex-1 min-w-0">
-        <TopNav trail="security center" />
+        <TopNav trail="Security center" />
         <main
           className="max-w-[960px] mx-auto px-6 py-10"
           data-mount-stagger
         >
           <header className="mb-10" data-mount-row>
-            <div className="flex items-baseline gap-2 mb-2 text-meta">
-              <span className="text-accent">$</span>
-              <span className="uppercase tracking-wider text-muted">
-                security.center
-              </span>
-              <span className="text-faint">·</span>
+            <div className="flex items-baseline gap-2 mb-2">
               <Tag tone={hasTelegram ? "success" : "warning"}>
-                {hasTelegram ? "2fa enabled" : "2fa missing"}
+                {hasTelegram ? "2FA enabled" : "2FA missing"}
               </Tag>
             </div>
-            <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-3">
-              security center
+            <h1 className="text-[32px] tracking-tight text-fg leading-none mb-3">
+              Security center
             </h1>
-            <p className="text-meta text-muted max-w-prose">
-              sessions, oauth grants, passkeys, telegram 2fa, and recent
+            <p className="text-[14px] text-muted max-w-prose">
+              Sessions, OAuth grants, passkeys, Telegram 2FA, and recent
               security activity.
             </p>
           </header>
 
           <div
-            className="grid grid-cols-2 md:grid-cols-4 border-t border-b border-rule mb-12"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 bg-card border border-rule rounded-lg"
             data-mount-row
           >
             {[
-              { label: "sessions", value: dashboard.sessions.length },
-              { label: "oauth grants", value: dashboard.apps.length },
-              { label: "passkeys", value: passkeys.length },
-              { label: "events", value: dashboard.events.length },
+              { label: "Sessions", value: dashboard.sessions.length },
+              { label: "OAuth grants", value: dashboard.apps.length },
+              { label: "Passkeys", value: passkeys.length },
+              { label: "Events", value: dashboard.events.length },
             ].map((item, i) => (
               <div
                 key={item.label}
-                className={`px-1 py-4 ${
+                className={`px-4 py-4 ${
                   i > 0 ? "border-l border-rule" : ""
                 }`}
               >
-                <div className="text-meta uppercase tracking-wider text-muted mb-1">
+                <div className="text-[12px] text-muted mb-1">
                   {item.label}
                 </div>
-                <div className="text-[34px] text-accent tabular-nums tracking-tightest leading-none">
+                <div className="text-[34px] text-accent-strong tabular-nums leading-none">
                   {String(item.value).padStart(2, "0")}
                 </div>
               </div>
@@ -98,29 +92,29 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="1.0"
-              title="sessions"
-              hint="signed-in browsers"
+              title="Sessions"
+              hint="Signed-in browsers"
               action={
                 <form action={revokeOtherSessionsAction}>
-                  <button className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors">
-                    revoke others
+                  <button className="text-[13px] text-secondary hover:text-danger transition-colors">
+                    Revoke others
                   </button>
                 </form>
               }
             >
               {dashboard.sessions.map(session => (
                 <Row key={session.id}>
-                  <RowLabel>{session.userAgent || "unknown browser"}</RowLabel>
+                  <RowLabel>{session.userAgent || "Unknown browser"}</RowLabel>
                   <RowValue>
                     <span className="text-secondary">
-                      {session.ip || "unknown ip"}
+                      {session.ip || "Unknown IP"}
                     </span>
-                    <Glyph kind="dot" />
+                    <span className="text-faint">·</span>
                     <span className="text-muted">
                       {shortDate(session.lastSeenAt)}
                     </span>
                     {session.id === current.session.id && (
-                      <Tag tone="success">this device</Tag>
+                      <Tag tone="success">This device</Tag>
                     )}
                   </RowValue>
                   <span />
@@ -132,24 +126,24 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="2.0"
-              title="oauth grants"
-              hint="apps with account access"
+              title="OAuth grants"
+              hint="Apps with account access"
               action={
                 <form action={revokeAllOAuthGrantsAction}>
-                  <button className="text-meta uppercase tracking-wider text-secondary hover:text-danger transition-colors">
-                    revoke all
+                  <button className="text-[13px] text-secondary hover:text-danger transition-colors">
+                    Revoke all
                   </button>
                 </form>
               }
             >
               {dashboard.apps.length === 0 ? (
-                <Empty>no connected apps</Empty>
+                <Empty>No connected apps</Empty>
               ) : (
                 dashboard.apps.map(app => (
                   <Row key={app.appSlug}>
                     <RowLabel>{app.appName}</RowLabel>
                     <RowValue>{app.scopes.join(", ")}</RowValue>
-                    <span className="text-meta text-muted">
+                    <span className="text-[13px] text-muted">
                       {shortDate(app.createdAt)}
                     </span>
                   </Row>
@@ -161,31 +155,31 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="3.0"
-              title="telegram 2fa"
-              hint="linked recovery channel"
+              title="Telegram 2FA"
+              hint="Linked recovery channel"
             >
               <Row>
-                <RowLabel>status</RowLabel>
+                <RowLabel>Status</RowLabel>
                 <RowValue>
                   {hasTelegram ? (
                     <span className="flex items-baseline gap-2">
-                      <Glyph kind="ok" />
+                      <span className="inline-block w-2 h-2 rounded-full bg-success" />
                       <span>
-                        enabled {shortDate(current.user.telegramVerifiedAt)}
+                        Enabled {shortDate(current.user.telegramVerifiedAt)}
                       </span>
                     </span>
                   ) : (
                     <span className="flex items-baseline gap-2">
-                      <Glyph kind="warn" />
-                      <span className="text-accent">not linked</span>
+                      <span className="inline-block w-2 h-2 rounded-full bg-warning" />
+                      <span className="text-accent-strong">Not linked</span>
                     </span>
                   )}
                 </RowValue>
                 <Link
                   href="/relink"
-                  className="text-meta uppercase tracking-wider text-secondary hover:text-accent transition-colors"
+                  className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
                 >
-                  relink
+                  Relink
                 </Link>
               </Row>
             </Section>
@@ -194,8 +188,8 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="4.0"
-              title="passkeys"
-              hint="passwordless credentials"
+              title="Passkeys"
+              hint="Passwordless credentials"
             >
               <PasskeyManager
                 passkeys={passkeys.map(item => ({
@@ -210,8 +204,8 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="5.0"
-              title="password"
-              hint="rotate your account password"
+              title="Password"
+              hint="Rotate your account password"
             >
               <ChangePasswordForm action={changePasswordAction} />
             </Section>
@@ -220,21 +214,21 @@ export default async function SecurityCenterPage() {
           <div data-mount-row>
             <Section
               index="6.0"
-              title="recent activity"
-              hint="security events"
+              title="Recent activity"
+              hint="Security events"
             >
               {dashboard.events.length === 0 ? (
-                <Empty>no recent events</Empty>
+                <Empty>No recent events</Empty>
               ) : (
                 dashboard.events.map((event, index) => (
                   <Row key={`${event.created_at}-${index}`}>
                     <RowLabel>
-                      <span className="tabular-nums normal-case tracking-normal text-faint">
+                      <span className="tabular-nums text-faint">
                         {shortDate(event.created_at)}
                       </span>
                     </RowLabel>
                     <RowValue>{event.event_type}</RowValue>
-                    <span className="text-meta uppercase tracking-wider text-muted">
+                    <span className="text-[13px] text-muted">
                       {event.result}
                     </span>
                   </Row>

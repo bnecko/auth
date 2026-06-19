@@ -1,7 +1,6 @@
 import { createHash, createPrivateKey, createPublicKey } from "crypto";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
-import { Glyph } from "@/components/Glyph";
 import { oauthProfileVersions, oidcSigningKeys } from "@/lib/server/config";
 
 export const dynamic = "force-dynamic";
@@ -33,27 +32,23 @@ export default function AdminKeysPage() {
       data-mount-stagger
     >
       <header className="mb-10" data-mount-row>
-        <div className="flex items-baseline gap-2 mb-2 text-meta">
-          <span className="text-danger">$</span>
-          <span className="uppercase tracking-wider text-muted">
-            admin.keys
-          </span>
-          <span className="text-faint">·</span>
-          <span className="text-meta text-faint tabular-nums">
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-[13px] text-muted">admin.keys</span>
+          <span className="text-[13px] text-faint tabular-nums">
             {String(keys.length).padStart(2, "0")}
           </span>
         </div>
-        <h1 className="text-[32px] tracking-tightest text-fg leading-none mb-3">
-          signing keys
+        <h1 className="text-[32px] tracking-tight text-fg leading-none mb-3">
+          Signing keys
         </h1>
-        <p className="text-meta text-muted max-w-prose">
-          oidc keys are environment-backed. active keys sign new tokens, retired
-          keys stay in jwks, and revoked keys are removed from jwks.
+        <p className="text-[14px] text-muted max-w-prose">
+          OIDC keys are environment-backed. Active keys sign new tokens, retired
+          keys stay in JWKS, and revoked keys are removed from JWKS.
         </p>
       </header>
 
       <div data-mount-row>
-        <Section index="1.0" title="keys" hint="oidc signing keys">
+        <Section index="1.0" title="Keys" hint="OIDC signing keys">
           {keys.map(key => (
             <Row key={key.kid}>
               <RowLabel>
@@ -63,7 +58,6 @@ export default function AdminKeysPage() {
               </RowLabel>
               <RowValue>
                 <span className="text-muted truncate">{key.fingerprint}</span>
-                <Glyph kind="dot" />
                 <Tag tone={tone(key.status)}>{key.status}</Tag>
               </RowValue>
               <span />
@@ -73,23 +67,23 @@ export default function AdminKeysPage() {
       </div>
 
       <div data-mount-row>
-        <Section index="2.0" title="rotation path" hint="env driven">
+        <Section index="2.0" title="Rotation path" hint="Env driven">
           <Row>
-            <RowLabel>add</RowLabel>
+            <RowLabel>Add</RowLabel>
             <RowValue>
-              append a new active entry to OIDC_SIGNING_KEYS_JSON
+              Append a new active entry to OIDC_SIGNING_KEYS_JSON
             </RowValue>
             <span />
           </Row>
           <Row>
-            <RowLabel>retire</RowLabel>
-            <RowValue>mark the previous key retired after deploy</RowValue>
+            <RowLabel>Retire</RowLabel>
+            <RowValue>Mark the previous key retired after deploy</RowValue>
             <span />
           </Row>
           <Row>
-            <RowLabel>revoke</RowLabel>
+            <RowLabel>Revoke</RowLabel>
             <RowValue>
-              mark compromised keys revoked and redeploy immediately
+              Mark compromised keys revoked and redeploy immediately
             </RowValue>
             <span />
           </Row>
@@ -97,7 +91,7 @@ export default function AdminKeysPage() {
       </div>
 
       <div data-mount-row>
-        <Section index="3.0" title="oauth profiles" hint="compatibility">
+        <Section index="3.0" title="OAuth profiles" hint="Compatibility">
           {oauthProfileVersions.map(profile => (
             <Row key={profile.version}>
               <RowLabel>

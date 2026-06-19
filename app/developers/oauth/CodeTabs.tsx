@@ -37,13 +37,12 @@ export function CodeTabs({ tabs }: { tabs: { label: string; code: string }[] }) 
           <button
             key={tab.label}
             onClick={() => setActive(idx)}
-            className={`px-3 h-8 text-meta uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-hidden ${
+            className={`px-3 h-8 text-[13px] transition-colors whitespace-nowrap focus:outline-hidden ${
               active === idx
-                ? "text-accent"
+                ? "text-accent-strong border-b-2 border-accent"
                 : "text-secondary hover:text-fg"
             }`}
           >
-            {active === idx && <span className="text-accent mr-1.5">▸</span>}
             {tab.label}
           </button>
         ))}

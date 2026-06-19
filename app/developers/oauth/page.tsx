@@ -24,24 +24,20 @@ export default async function OAuthDocsPage() {
         }}
       />
       <div className="flex-1 min-w-0">
-        <TopNav trail="developers / oauth docs" />
+        <TopNav trail="Developers / OAuth docs" />
         <main className="max-w-[1080px] mx-auto px-6 py-10">
           <header className="mb-10">
-            <div className="flex items-baseline gap-2 mb-2 text-meta">
-              <span className="text-accent">$</span>
-              <span className="uppercase tracking-wider text-muted">
-                docs.oauth
-              </span>
-              <span className="text-faint">·</span>
-              <Tag tone="success">oauth 2.1</Tag>
-              <Tag tone="info">oidc</Tag>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-[13px] text-muted">docs / oauth</span>
+              <Tag tone="success">OAuth 2.1</Tag>
+              <Tag tone="info">OIDC</Tag>
             </div>
-            <h1 className="text-[36px] leading-none tracking-tightest text-fg mb-3">
-              bottleneck oauth
+            <h1 className="text-[36px] leading-none tracking-tight text-fg mb-3">
+              Bottleneck OAuth
             </h1>
-            <p className="text-meta text-muted leading-6 max-w-[680px]">
-              bottleneck acts as an authorization server for your applications.
-              it supports oauth 2.1 with pkce, openid connect, pushed
+            <p className="text-[14px] text-muted leading-6 max-w-[680px]">
+              Bottleneck acts as an authorization server for your applications.
+              It supports OAuth 2.1 with PKCE, OpenID Connect, pushed
               authorization requests, device authorization grant, restricted
               dynamic client registration, and a proprietary bearer key system
               for server-to-server access.
@@ -50,10 +46,10 @@ export default async function OAuthDocsPage() {
 
           <div className="grid lg:grid-cols-[1fr_220px] gap-10 items-start">
             <article>
-              <DocSection id="discovery" index="1.0" title="discovery">
+              <DocSection id="discovery" index="1.0" title="Discovery">
                 <p>
-                  the server publishes a standard oidc discovery document. point
-                  any oidc-compatible library here and all endpoint urls,
+                  The server publishes a standard OIDC discovery document. Point
+                  any OIDC-compatible library here and all endpoint URLs,
                   signing key locations, and supported features are resolved
                   automatically.
                 </p>
@@ -84,16 +80,16 @@ config = requests.get(
                   ]}
                 />
                 <p>
-                  the oauth 2.0 authorization server metadata is also available
+                  The OAuth 2.0 authorization server metadata is also available
                   at <code>{base}/.well-known/oauth-authorization-server</code>.
                 </p>
               </DocSection>
 
-              <DocSection id="dcr" index="2.0" title="dynamic client registration (rfc 7591)">
+              <DocSection id="dcr" index="2.0" title="Dynamic client registration (RFC 7591)">
                 <p>
-                  register a client programmatically with a registration bearer
-                  token. new clients enter admin review first. poll the returned
-                  registration uri with the registration access token; approved
+                  Register a client programmatically with a registration bearer
+                  token. New clients enter admin review first. Poll the returned
+                  registration URI with the registration access token; approved
                   confidential clients reveal <code>client_secret</code> once.
                 </p>
                 <CodeTabs
@@ -152,14 +148,14 @@ client_secret = approved.json().get('client_secret')`,
                 />
               </DocSection>
 
-              <DocSection id="pkce" index="3.0" title="pkce requirement">
+              <DocSection id="pkce" index="3.0" title="PKCE requirement">
                 <p>
-                  <strong className="text-accent">
-                    pkce s256 is mandatory on every authorization request.
+                  <strong className="text-accent-strong">
+                    PKCE S256 is mandatory on every authorization request.
                   </strong>{" "}
-                  the server rejects any code exchange that omits{" "}
+                  The server rejects any code exchange that omits{" "}
                   <code>code_verifier</code> or uses the <code>plain</code>{" "}
-                  method. generate a cryptographically random verifier and
+                  method. Generate a cryptographically random verifier and
                   derive the challenge before sending the user to the
                   authorization endpoint.
                 </p>
@@ -192,12 +188,12 @@ challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
                 />
               </DocSection>
 
-              <DocSection id="authorize" index="4.0" title="standard authorization">
+              <DocSection id="authorize" index="4.0" title="Standard authorization">
                 <p>
-                  redirect the user&apos;s browser to the authorization
-                  endpoint. include <code>code_challenge</code> and{" "}
-                  <code>code_challenge_method=S256</code> (required). use{" "}
-                  <code>state</code> to prevent csrf in your callback handler.
+                  Redirect the user&apos;s browser to the authorization
+                  endpoint. Include <code>code_challenge</code> and{" "}
+                  <code>code_challenge_method=S256</code> (required). Use{" "}
+                  <code>state</code> to prevent CSRF in your callback handler.
                 </p>
                 <CodeTabs
                   tabs={[
@@ -216,10 +212,10 @@ challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
                 />
               </DocSection>
 
-              <DocSection id="par" index="5.0" title="pushed authorization requests (rfc 9126)">
+              <DocSection id="par" index="5.0" title="Pushed authorization requests (RFC 9126)">
                 <p>
-                  par lets confidential clients push the full authorization
-                  payload directly to the server before the redirect. the
+                  PAR lets confidential clients push the full authorization
+                  payload directly to the server before the redirect. The
                   response is a short-lived <code>request_uri</code> you use in
                   place of inline query parameters.
                 </p>
@@ -286,11 +282,11 @@ url = f"${base}/oauth/authorize?client_id=app_xxx&request_uri={quote(par['reques
                 />
               </DocSection>
 
-              <DocSection id="device" index="6.0" title="device authorization grant (rfc 8628)">
+              <DocSection id="device" index="6.0" title="Device authorization grant (RFC 8628)">
                 <p>
-                  for headless devices (clis, smart tvs, embedded systems) that
-                  cannot open a browser. the device displays a short user code;
-                  the user approves it on a separate device. poll the token
+                  For headless devices (CLIs, smart TVs, embedded systems) that
+                  cannot open a browser. The device displays a short user code;
+                  the user approves it on a separate device. Poll the token
                   endpoint using the returned <code>interval</code>.
                 </p>
                 <CodeTabs
@@ -352,12 +348,12 @@ const tokens = await new Promise((resolve, reject) => {
                 />
               </DocSection>
 
-              <DocSection id="client-credentials" index="7.0" title="client credentials grant">
+              <DocSection id="client-credentials" index="7.0" title="Client credentials grant">
                 <p>
-                  for machine-to-machine flows where no user is involved. the
-                  client authenticates directly with its credentials. the
+                  For machine-to-machine flows where no user is involved. The
+                  client authenticates directly with its credentials. The
                   resulting access token carries no user context:{" "}
-                  <code>sub</code> is the app&apos;s public id.
+                  <code>sub</code> is the app&apos;s public ID.
                 </p>
                 <CodeTabs
                   tabs={[
@@ -394,9 +390,9 @@ tokens = requests.post('${base}/api/oauth/token', data={
                 />
               </DocSection>
 
-              <DocSection id="token" index="8.0" title="token exchange">
+              <DocSection id="token" index="8.0" title="Token exchange">
                 <p>
-                  exchange the authorization code for tokens. include the{" "}
+                  Exchange the authorization code for tokens. Include the{" "}
                   <code>code_verifier</code> that matches the{" "}
                   <code>code_challenge</code> from the authorization request.
                 </p>
@@ -447,14 +443,14 @@ tokens = res.json()`,
                 />
               </DocSection>
 
-              <DocSection id="refresh" index="9.0" title="refresh tokens">
+              <DocSection id="refresh" index="9.0" title="Refresh tokens">
                 <p>
-                  refresh tokens rotate on every use: the server returns a new
+                  Refresh tokens rotate on every use: the server returns a new
                   refresh token with each response.{" "}
-                  <strong className="text-accent">
-                    always replace your stored refresh token with the new one.
+                  <strong className="text-accent-strong">
+                    Always replace your stored refresh token with the new one.
                   </strong>{" "}
-                  replaying a consumed refresh token is treated as a compromise
+                  Replaying a consumed refresh token is treated as a compromise
                   signal: the server immediately revokes all access and refresh
                   tokens for that client/user pair.
                 </p>
@@ -504,10 +500,10 @@ tokens = res.json()
                 />
               </DocSection>
 
-              <DocSection id="userinfo" index="10.0" title="userinfo">
+              <DocSection id="userinfo" index="10.0" title="Userinfo">
                 <p>
-                  returns claims about the authenticated user. pass the access
-                  token as a bearer header. claims included depend on the
+                  Returns claims about the authenticated user. Pass the access
+                  token as a bearer header. Claims included depend on the
                   scopes that were granted.
                 </p>
                 <CodeTabs
@@ -564,10 +560,10 @@ profile = requests.get(
                 />
               </DocSection>
 
-              <DocSection id="introspect" index="11.0" title="token introspection (rfc 7662)">
+              <DocSection id="introspect" index="11.0" title="Token introspection (RFC 7662)">
                 <p>
-                  check whether a token is currently active. only confidential
-                  clients can call this endpoint. revoked, expired, or unknown
+                  Check whether a token is currently active. Only confidential
+                  clients can call this endpoint. Revoked, expired, or unknown
                   tokens return <code>{`{ "active": false }`}</code>.
                 </p>
                 <CodeTabs
@@ -626,9 +622,9 @@ if intro['active']:
                 />
               </DocSection>
 
-              <DocSection id="revoke" index="12.0" title="token revocation (rfc 7009)">
+              <DocSection id="revoke" index="12.0" title="Token revocation (RFC 7009)">
                 <p>
-                  revoke an access or refresh token immediately. revoking a
+                  Revoke an access or refresh token immediately. Revoking a
                   refresh token also invalidates all access tokens issued from
                   it.
                 </p>
@@ -667,10 +663,10 @@ requests.post('${base}/api/oauth/revoke', data={
                 />
               </DocSection>
 
-              <DocSection id="jwks" index="13.0" title="jwks and id token verification">
+              <DocSection id="jwks" index="13.0" title="JWKS and ID token verification">
                 <p>
-                  access tokens and id tokens are rs256-signed jwts. the public
-                  signing keys are available at the jwks endpoint.
+                  Access tokens and ID tokens are RS256-signed JWTs. The public
+                  signing keys are available at the JWKS endpoint.
                 </p>
                 <CodeTabs
                   tabs={[
@@ -707,31 +703,31 @@ claims = jwt.decode(
                 />
               </DocSection>
 
-              <DocSection id="bearer" index="14.0" title="bearer key system">
+              <DocSection id="bearer" index="14.0" title="Bearer key system">
                 <p>
-                  the bearer key system provides server-to-server api access
-                  without a user session. a bearer key is a long-lived secret
+                  The bearer key system provides server-to-server API access
+                  without a user session. A bearer key is a long-lived secret
                   tied to an external app registered in the system.
                 </p>
 
-                <h3 className="text-meta uppercase tracking-wider text-accent mt-6 mb-2">
-                  &gt; requesting a key
+                <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
+                  Requesting a key
                 </h3>
                 <p>
-                  visit{" "}
+                  Visit{" "}
                   <a
                     href="/request-bearer"
-                    className="text-accent hover:text-fg transition-colors"
+                    className="text-accent-strong hover:text-fg transition-colors"
                   >
                     /request-bearer
                   </a>{" "}
-                  and describe your application. an admin reviews and approves
-                  the request via telegram. once approved, the plaintext key is
+                  and describe your application. An admin reviews and approves
+                  the request via Telegram. Once approved, the plaintext key is
                   available once from your dashboard.
                 </p>
 
-                <h3 className="text-meta uppercase tracking-wider text-accent mt-6 mb-2">
-                  &gt; using the key
+                <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
+                  Using the key
                 </h3>
                 <CodeTabs
                   tabs={[
@@ -762,16 +758,16 @@ const { id, activationUrl } = await res.json();
                 />
               </DocSection>
 
-              <DocSection id="activation" index="15.0" title="activation flow">
+              <DocSection id="activation" index="15.0" title="Activation flow">
                 <p>
-                  activations are the mechanism by which an external app links
-                  a bottleneck user to its own system. the flow is user-driven:
+                  Activations are the mechanism by which an external app links
+                  a Bottleneck user to its own system. The flow is user-driven:
                   your server creates an activation request, the user approves
-                  it on bottleneck, and your server polls for the result.
+                  it on Bottleneck, and your server polls for the result.
                 </p>
 
-                <h3 className="text-meta uppercase tracking-wider text-accent mt-6 mb-2">
-                  &gt; step 1 — create request
+                <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
+                  Step 1: create request
                 </h3>
                 <CodeTabs
                   tabs={[
@@ -834,16 +830,16 @@ res = requests.post('${base}/api/activation-requests',
                   ]}
                 />
 
-                <h3 className="text-meta uppercase tracking-wider text-accent mt-6 mb-2">
-                  &gt; step 2 — redirect your user
+                <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
+                  Step 2: redirect your user
                 </h3>
                 <p>
-                  send your user to the <code>activationUrl</code>. they see a
+                  Send your user to the <code>activationUrl</code>. They see a
                   consent screen listing the requested scopes.
                 </p>
 
-                <h3 className="text-meta uppercase tracking-wider text-accent mt-6 mb-2">
-                  &gt; step 3 — poll for result
+                <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
+                  Step 3: poll for result
                 </h3>
                 <CodeTabs
                   tabs={[
@@ -883,15 +879,15 @@ if result['status'] == 'approved':
                 />
 
                 <p>
-                  possible statuses: <code>pending</code>, <code>approved</code>
+                  Possible statuses: <code>pending</code>, <code>approved</code>
                   , <code>denied</code>, <code>expired</code>,{" "}
                   <code>cancelled</code>.
                 </p>
               </DocSection>
 
-              <DocSection id="errors" index="16.0" title="error responses">
+              <DocSection id="errors" index="16.0" title="Error responses">
                 <p>
-                  all api errors follow the oauth 2.0 error format. http status
+                  All API errors follow the OAuth 2.0 error format. HTTP status
                   codes: 400 for client errors, 401 for authentication
                   failures, 403 for forbidden, 429 for rate limiting.
                 </p>
@@ -918,7 +914,7 @@ if result['status'] == 'approved':
                 />
               </DocSection>
 
-              <DocSection id="lifetimes" index="17.0" title="token lifetimes">
+              <DocSection id="lifetimes" index="17.0" title="Token lifetimes">
                 <DataGrid
                   cols="200px 120px 1fr"
                   headers={["type", "ttl", "note"]}
@@ -934,9 +930,9 @@ if result['status'] == 'approved':
                 />
               </DocSection>
 
-              <DocSection id="scopes" index="18.0" title="scopes">
+              <DocSection id="scopes" index="18.0" title="Scopes">
                 <p>
-                  legacy aliases are accepted for backwards compatibility but
+                  Legacy aliases are accepted for backwards compatibility but
                   the canonical names below are preferred.
                 </p>
                 <DataGrid
@@ -952,7 +948,7 @@ if result['status'] == 'approved':
                 />
               </DocSection>
 
-              <DocSection id="endpoints" index="19.0" title="endpoints">
+              <DocSection id="endpoints" index="19.0" title="Endpoints">
                 <DataGrid
                   cols="56px 290px 1fr"
                   headers={["method", "path", "description"]}
@@ -978,9 +974,8 @@ if result['status'] == 'approved':
             </article>
 
             <aside className="sticky top-16">
-              <div className="text-meta uppercase tracking-wider text-faint mb-3 flex items-baseline gap-2">
-                <span className="text-accent">$</span>
-                <span>contents</span>
+              <div className="text-[12px] text-muted mb-3">
+                Contents
               </div>
               <nav className="space-y-0 border-t border-rule">
                 {[
@@ -1007,7 +1002,7 @@ if result['status'] == 'approved':
                   <a
                     key={href}
                     href={href}
-                    className="grid grid-cols-[32px_1fr] gap-2 h-7 leading-7 text-meta border-b border-rule text-secondary hover:text-accent transition-colors"
+                    className="grid grid-cols-[32px_1fr] gap-2 h-7 leading-7 text-[13px] border-b border-rule text-secondary hover:text-accent-strong transition-colors"
                   >
                     <span className="text-faint tabular-nums">{index}</span>
                     <span>{label}</span>
@@ -1036,14 +1031,14 @@ function DocSection({
   return (
     <section id={id} className="mb-12 scroll-mt-16">
       <header className="flex items-baseline gap-3 mb-4 pb-2 border-b border-rule">
-        <span className="text-meta text-faint tabular-nums shrink-0">
+        <span className="text-[13px] text-faint tabular-nums shrink-0">
           {index}
         </span>
-        <h2 className="text-[16px] uppercase tracking-wider text-fg">
+        <h2 className="text-[16px] text-fg font-medium">
           {title}
         </h2>
       </header>
-      <div className="space-y-4 text-meta leading-6 text-secondary">
+      <div className="space-y-4 text-[14px] leading-6 text-secondary">
         {children}
       </div>
     </section>
@@ -1066,7 +1061,7 @@ function DataGrid({
   return (
     <div className="border-t border-rule">
       <div
-        className="grid gap-3 px-1 py-2 text-meta uppercase tracking-wider text-faint border-b border-rule"
+        className="grid gap-3 px-1 py-2 text-[12px] text-faint border-b border-rule"
         style={{ gridTemplateColumns: cols }}
       >
         {headers.map(h => (
@@ -1076,7 +1071,7 @@ function DataGrid({
       {rows.map((row, i) => (
         <div
           key={i}
-          className="grid gap-3 px-1 py-2.5 text-meta items-baseline border-b border-rule"
+          className="grid gap-3 px-1 py-2.5 text-[13px] items-baseline border-b border-rule"
           style={{ gridTemplateColumns: cols }}
         >
           {row.map((cell, j) => {
@@ -1084,8 +1079,8 @@ function DataGrid({
             const isMiddle = j === 1;
             let toneClass = "text-fg";
             if (j === row.length - 1) toneClass = "text-muted";
-            if (isFirst && firstTone === "accent") toneClass = "text-accent";
-            if (isMiddle && middleTone === "accent") toneClass = "text-accent tabular-nums";
+            if (isFirst && firstTone === "accent") toneClass = "text-accent-strong";
+            if (isMiddle && middleTone === "accent") toneClass = "text-accent-strong tabular-nums";
             if (isMiddle && !middleTone) toneClass = "text-faint";
             return (
               <span key={j} className={`${toneClass} break-all`}>

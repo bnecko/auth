@@ -66,11 +66,11 @@ export default function RegisterPage() {
 
   return (
     <AuthShell tag="auth/register">
-      <h1 className="text-[28px] tracking-tightest text-fg mb-1 leading-none">
-        create account
+      <h1 className="text-[28px] tracking-tight text-fg mb-1 leading-none">
+        Create account
       </h1>
-      <p className="text-meta text-muted mb-7">
-        telegram verification is required to complete sign-up
+      <p className="text-[13px] text-muted mb-7">
+        Telegram verification is required to complete sign-up
       </p>
 
       {errors.form && (
@@ -81,22 +81,22 @@ export default function RegisterPage() {
 
       <form className="space-y-5" onSubmit={onSubmit} noValidate>
         <Field
-          label="first name"
+          label="First name"
           name="first_name"
           autoComplete="given-name"
           error={errors.firstName}
           required
         />
         <Field
-          label="username"
+          label="Username"
           name="username"
           autoComplete="username"
           error={errors.username}
           required
         />
-        <Field label="bio" name="bio" hint="shown publicly" optional />
+        <Field label="Bio" name="bio" hint="Shown publicly" optional />
         <Field
-          label="email"
+          label="Email"
           name="email"
           type="email"
           autoComplete="email"
@@ -104,15 +104,15 @@ export default function RegisterPage() {
           required
         />
         <Field
-          label="date of birth"
+          label="Date of birth"
           name="dob"
           type="date"
-          hint="may be shared with apps when you approve them"
+          hint="May be shared with apps when you approve them"
           error={errors.dob}
           optional
         />
         <Field
-          label="password"
+          label="Password"
           name="password"
           type="password"
           autoComplete="new-password"
@@ -121,17 +121,17 @@ export default function RegisterPage() {
         />
         <TurnstileField />
         <Button type="submit" loading={loading}>
-          verify with telegram
+          Verify with Telegram
         </Button>
       </form>
 
-      <p className="text-meta uppercase tracking-wider text-muted mt-5">
-        already have an account?{" "}
+      <p className="text-[13px] text-muted mt-5">
+        Already have an account?{" "}
         <Link
           href="/login"
-          className="text-accent hover:text-fg transition-colors"
+          className="text-accent-strong hover:text-fg transition-colors"
         >
-          sign in
+          Sign in
         </Link>
       </p>
     </AuthShell>

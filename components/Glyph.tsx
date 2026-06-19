@@ -1,8 +1,6 @@
-// Typographic glyph vocabulary. Field error states, Alert prefixes,
-// Tag dots, Empty-state cursors, and Section bullets all reach into
-// this list rather than embedding their own ad-hoc characters. The
-// single source of truth keeps the terminal idiom legible: when a
-// user sees `×` once, they see `×` every time.
+// Small glyph vocabulary for status marks. Tones are tuned to read on the
+// light surface; the bright accent is reserved for fills, so accent-toned
+// glyphs use the readable deeper amber.
 
 type Kind = "prompt" | "ok" | "error" | "warn" | "active" | "inactive" | "dot";
 
@@ -17,13 +15,13 @@ const glyphs: Record<Kind, string> = {
 };
 
 const tones: Record<Kind, string> = {
-  prompt: "text-accent",
+  prompt: "text-muted",
   ok: "text-ok",
   error: "text-danger",
-  warn: "text-accent",
-  active: "text-accent",
+  warn: "text-accent-strong",
+  active: "text-accent-strong",
   inactive: "text-faint",
-  dot: "text-faint",
+  dot: "text-muted",
 };
 
 export function Glyph({
@@ -53,7 +51,7 @@ export function Cursor({ className = "" }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-block leading-none cursor-blink text-accent ${className}`}
+      className={`inline-block leading-none cursor-blink text-accent-strong ${className}`}
     >
       ▌
     </span>
