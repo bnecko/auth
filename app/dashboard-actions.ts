@@ -25,7 +25,7 @@ export async function revokeSessionAction(formData: FormData) {
   if (isNaN(sessionId)) return;
 
   await revokeSessionById(sessionId, current.user.id);
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 export async function revokeAppAction(formData: FormData) {
@@ -41,7 +41,7 @@ export async function revokeAppAction(formData: FormData) {
   await revokeAuthorization(current.user.id, app.id);
   await revokeAccessTokensForRefreshGrant({ appId: app.id, userId: current.user.id });
   await revokeRefreshTokensByUserAndApp({ appId: app.id, userId: current.user.id });
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 export async function revokePasskeyAction(formData: FormData) {
@@ -61,7 +61,7 @@ export async function revokePasskeyAction(formData: FormData) {
       metadata: { credentialId },
     });
   }
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 export async function cancelSubscriptionAction(formData: FormData) {
@@ -72,5 +72,5 @@ export async function cancelSubscriptionAction(formData: FormData) {
   if (typeof product !== "string") return;
 
   await cancelSubscription(current.user.id, product);
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }

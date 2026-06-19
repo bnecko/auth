@@ -11,7 +11,7 @@ import {
   MonitorSmartphone,
   ShieldCheck,
   History,
-  Shield,
+  House,
   Boxes,
   BookOpen,
   FlaskConical,
@@ -39,19 +39,19 @@ const USER_NAV: NavGroup[] = [
   {
     label: "Account",
     items: [
-      { href: "/#profile", label: "Profile", icon: User },
-      { href: "/#subscriptions", label: "Subscriptions", icon: CreditCard },
-      { href: "/#apps", label: "Connected apps", icon: LayoutGrid },
-      { href: "/#bearers", label: "API bearers", icon: KeyRound },
+      { href: "/", label: "Account home", icon: House },
+      { href: "/profile", label: "Profile", icon: User },
+      { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
+      { href: "/apps", label: "Connected apps", icon: LayoutGrid },
+      { href: "/bearers", label: "API bearers", icon: KeyRound },
     ],
   },
   {
     label: "Security",
     items: [
-      { href: "/#sessions", label: "Sessions", icon: MonitorSmartphone },
-      { href: "/#security", label: "Password & 2FA", icon: ShieldCheck },
-      { href: "/#events", label: "Recent events", icon: History },
-      { href: "/security", label: "Security center", icon: Shield },
+      { href: "/sessions", label: "Sessions", icon: MonitorSmartphone },
+      { href: "/security", label: "Password & 2FA", icon: ShieldCheck },
+      { href: "/events", label: "Recent events", icon: History },
     ],
   },
   {
