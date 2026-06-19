@@ -10,6 +10,7 @@ const fakeRedis = {
   counts: new Map<string, number>(),
   expires: new Map<string, number>(),
   failNextMulti: false,
+  alwaysFailMulti: false,
   pttlOf(key: string): number {
     const exp = this.expires.get(key);
     if (exp === undefined) return -1;
@@ -29,6 +30,9 @@ const fakeRedis = {
         return chain;
       },
       async exec(): Promise<[unknown, number][] | null> {
+        if (self.alwaysFailMulti) {
+          return null;
+        }
         if (self.failNextMulti) {
           self.failNextMulti = false;
           return null;
@@ -52,6 +56,7 @@ const fakeRedis = {
     this.counts.clear();
     this.expires.clear();
     this.failNextMulti = false;
+    this.alwaysFailMulti = false;
   },
 };
 
@@ -100,11 +105,37 @@ describe('rateLimit', () => {
     expect(overflow.remaining).toBe(0);
   });
 
-  it('fails open when multi.exec() returns null (transient redis error)', async () => {
+  it('falls back to the in-process limiter on a transient redis error', async () => {
     fakeRedis.failNextMulti = true;
     const result = await rateLimit('rl:test:transient', 5, 1000);
+    // The fallback still counts the request rather than failing fully open.
     expect(result.success).toBe(true);
-    expect(result.remaining).toBe(5);
+    expect(result.remaining).toBe(4);
+  });
+
+  it('enforces the limit in-process while redis is unavailable', async () => {
+    fakeRedis.alwaysFailMulti = true;
+    const key = 'rl:test:fallback-enforce';
+    for (let i = 0; i < 3; i++) {
+      expect((await rateLimit(key, 3, 10_000)).success).toBe(true);
+    }
+    const overflow = await rateLimit(key, 3, 10_000);
+    expect(overflow.success).toBe(false);
+    expect(overflow.remaining).toBe(0);
+  });
+
+  it('resets the in-process window after it expires', async () => {
+    vi.useFakeTimers();
+    try {
+      fakeRedis.alwaysFailMulti = true;
+      const key = 'rl:test:fallback-reset';
+      expect((await rateLimit(key, 1, 1000)).success).toBe(true);
+      expect((await rateLimit(key, 1, 1000)).success).toBe(false);
+      vi.advanceTimersByTime(1001);
+      expect((await rateLimit(key, 1, 1000)).success).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('isolates buckets by key', async () => {
