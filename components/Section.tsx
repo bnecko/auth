@@ -36,11 +36,10 @@ export function Section({
         </div>
         {action}
       </header>
-      {/* Inner rounded panel sits below the header, inset from the card edge. */}
-      <div className="p-1.5 pt-0">
-        <div className="rounded-lg ring-1 ring-rule bg-card overflow-hidden">
-          {children}
-        </div>
+      {/* Full-width rounded body panel below the header (matches the reference:
+          flush to the card edges, its own hairline ring). */}
+      <div className="rounded-xl ring-1 ring-rule bg-card overflow-hidden">
+        {children}
       </div>
     </section>
   );
