@@ -26,6 +26,9 @@ import {
   Webhook,
   Ban,
   ShieldAlert,
+  LifeBuoy,
+  MessagesSquare,
+  Headset,
   type LucideIcon,
 } from "lucide-react";
 import { Kbd } from "./Kbd";
@@ -65,6 +68,8 @@ const USER_NAV: NavGroup[] = [
   {
     label: "Support",
     items: [
+      { href: "/support", label: "Community support", icon: LifeBuoy },
+      { href: "/support/mine", label: "My threads", icon: MessagesSquare },
       { href: "https://t.me/bottleneck_help", label: "Telegram", icon: Send, newWindow: true },
       { href: "/faq", label: "FAQ", icon: CircleHelp },
     ],
@@ -83,6 +88,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: "/admin/webhooks", label: "Webhook deliveries", icon: Webhook },
       { href: "/admin/bans", label: "Bans", icon: Ban },
       { href: "/admin/security", label: "Security events", icon: ShieldAlert },
+      { href: "/admin/supporters", label: "Supporters", icon: Headset },
     ],
   },
 ];
