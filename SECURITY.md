@@ -36,10 +36,17 @@ within a few days.
 - Access tokens expire after 15 minutes. Refresh tokens rotate on every use.
   Presenting an already-rotated refresh token is treated as a compromise and
   revokes every token for that (user, app) pair.
-- Sessions are server-side records keyed by a hashed random token. The cookie
-  is `HttpOnly`, `Secure` in production, `SameSite=Lax`, scoped to `/`.
-  Default lifetime is 30 days, or 12 hours for non-remembered logins. Logout
-  revokes the session server-side, not just the cookie.
+- Sessions are server-side records keyed by a hashed 256-bit random token. The
+  cookie is `HttpOnly`, `Secure` in production, `SameSite=Lax`, scoped to `/`.
+  Absolute lifetime is 30 days, or 12 hours for non-remembered logins, and a
+  separate idle timeout (`SESSION_IDLE_TIMEOUT_SECONDS`, default 7 days) expires
+  sessions left unused even inside the absolute window; `last_seen_at` is
+  refreshed on each authenticated request. Logout revokes the session
+  server-side, not just the cookie.
+- Telegram second-factor flows — new-device sign-in, account relink, and
+  registration — never complete on contact. The bot sends an Approve/Deny
+  prompt (showing the account and originating IP) scoped to the owning Telegram
+  account, and the sign-in or link only proceeds once the owner taps Approve.
 - `private_key_jwt` client assertions are single-use (jti replay is
   rejected), must target the token endpoint as `aud`, and may not be dated
   more than 5 minutes ahead.

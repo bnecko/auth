@@ -62,11 +62,10 @@ export default async function AdminSecurityPage({
             Audit console
           </h1>
         </div>
-        <a
-          href={`/admin/security/export?${exportParams.toString()}`}
-          className="text-[13px] text-accent-strong hover:underline transition-colors"
-        >
-          Export CSV
+        <a href={`/admin/security/export?${exportParams.toString()}`}>
+          <Button variant="secondary" size="sm">
+            Export CSV
+          </Button>
         </a>
       </header>
 
@@ -107,26 +106,26 @@ export default async function AdminSecurityPage({
             events.map((ev, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[180px_90px_1fr_140px] gap-4 items-baseline border-t border-rule first:border-t-0 py-2.5 px-1 text-[13px]"
+                className="grid grid-cols-[1fr_auto] gap-3 items-start border-t border-rule first:border-t-0 py-3 px-4 text-[13px]"
               >
-                <div className="text-fg truncate">{ev.event_type}</div>
-                <Tag tone={resultTone[ev.result] ?? "neutral"}>{ev.result}</Tag>
-                <div className="min-w-0 text-muted truncate flex items-baseline gap-2">
-                  {ev.username && (
-                    <span className="text-secondary">@{ev.username}</span>
-                  )}
-                  {ev.username && ev.ip && <span className="text-faint">·</span>}
-                  {ev.ip && <span>{ev.ip}</span>}
-                  {Object.keys(ev.metadata || {}).length > 0 && (
-                    <>
-                      <span className="text-faint">·</span>
-                      <code className="text-faint truncate">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-fg truncate">{ev.event_type}</span>
+                    <Tag tone={resultTone[ev.result] ?? "neutral"}>{ev.result}</Tag>
+                  </div>
+                  <div className="min-w-0 truncate text-[12px] text-muted">
+                    {ev.username && <span className="text-secondary">@{ev.username}</span>}
+                    {ev.username && ev.ip && <span className="text-faint"> · </span>}
+                    {ev.ip && <span>{ev.ip}</span>}
+                    {Object.keys(ev.metadata || {}).length > 0 && (
+                      <span className="text-faint" title={JSON.stringify(ev.metadata)}>
+                        {" · "}
                         {JSON.stringify(ev.metadata)}
-                      </code>
-                    </>
-                  )}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-faint tabular-nums text-right">
+                <div className="text-faint tabular-nums text-[12px] whitespace-nowrap shrink-0 pt-0.5">
                   {ev.created_at?.slice(0, 16).replace("T", " ")}
                 </div>
               </div>

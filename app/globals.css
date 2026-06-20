@@ -127,6 +127,14 @@ input:-webkit-autofill:focus {
   outline-offset: 2px;
 }
 
+/* Form fields manage their own focus (border + ring), so suppress the generic
+   accent outline on them — e.g. the search palette input. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

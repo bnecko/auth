@@ -1,16 +1,19 @@
 import { type NextRequest } from "next/server";
 import { env } from "@/lib/server/config";
-import { hashToken, safeEqual } from "@/lib/server/crypto";
-import { badRequest, forbidden, json, requestBody, requestContext } from "@/lib/server/http";
+import { safeEqual } from "@/lib/server/crypto";
+import { badRequest, forbidden, json, requestBody } from "@/lib/server/http";
 import {
   requestTelegramLoginApproval,
-  verifyRegistrationByTelegram,
+  requestTelegramRegistrationApproval,
+  requestTelegramRelinkApproval,
 } from "@/lib/server/services/auth";
-import { completeRelinkByTelegram } from "@/lib/server/relinkChallenge";
-import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export const runtime = "nodejs";
 
+// The bot calls this when a user opens it with a /start token. Every flow now
+// asks the user to Approve/Deny in Telegram rather than completing on contact,
+// so this endpoint only *sends the prompt* and reports which flow matched. The
+// actual link/sign-in happens later via /api/telegram/confirm/decision.
 export async function POST(req: NextRequest) {
   const secret = env("TELEGRAM_BOT_WEBHOOK_SECRET");
   const provided = req.headers.get("x-bottleneck-bot-secret") || "";
@@ -31,25 +34,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const relink = await completeRelinkByTelegram(startToken, telegram);
+    const relink = await requestTelegramRelinkApproval(startToken, telegram, req);
     if (relink) {
-      await recordSecurityEvent({
-        userId: relink.userId,
-        eventType: "telegram_2fa_relink",
-        result: relink.linked ? "success" : "failure",
-        context: requestContext(req),
-        metadata: { telegramId: telegram.id },
-      });
-      return json({ kind: "relink", linked: relink.linked });
+      return json({ kind: "relink_pending" });
     }
 
-    const loginChallenge = await requestTelegramLoginApproval(
-      startToken,
-      telegram,
-      req,
-    );
+    const loginChallenge = await requestTelegramLoginApproval(startToken, telegram, req);
     if (loginChallenge) {
-      // We sent the user an approve/deny prompt; the login is not verified yet.
       return json({
         challengeId: loginChallenge.publicId,
         status: loginChallenge.status,
@@ -57,13 +48,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const request = await verifyRegistrationByTelegram(startToken, telegram, req);
-    return json({
-      verificationId: request.publicId,
-      verificationHash: hashToken(request.publicId),
-      status: request.status,
-      kind: "registration",
-    });
+    const registration = await requestTelegramRegistrationApproval(
+      startToken,
+      telegram,
+      req,
+    );
+    if (registration) {
+      return json({
+        verificationId: registration.publicId,
+        status: registration.status,
+        kind: "registration_pending",
+      });
+    }
+
+    return badRequest("this verification link is invalid or expired");
   } catch (err) {
     return badRequest(err instanceof Error ? err.message : "verification failed");
   }

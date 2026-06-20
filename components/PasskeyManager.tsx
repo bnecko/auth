@@ -50,7 +50,7 @@ export function PasskeyManager({
   return (
     <>
       {error && (
-        <div className="border-t border-rule first:border-t-0 px-1 py-2.5 text-[13px] flex items-baseline gap-2">
+        <div className="border-t border-rule first:border-t-0 px-4 py-2.5 text-[13px] flex items-baseline gap-2">
           <span className="text-danger">{error}</span>
         </div>
       )}
@@ -78,7 +78,7 @@ export function PasskeyManager({
         ))
       )}
 
-      <div className="border-t border-rule px-1 py-3">
+      <div className="border-t border-rule px-4 py-3">
         <Button
           type="button"
           variant="secondary"

@@ -101,14 +101,13 @@ export function ClientForm() {
         hint="Where users are sent after authorizing — https required (except localhost)"
       />
 
-      <div className="pt-4 border-t border-rule flex items-center justify-end gap-4">
-        <Link
-          href="/developers/apps"
-          className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
-        >
-          Cancel
+      <div className="pt-4 border-t border-rule flex items-center justify-end gap-3">
+        <Link href="/developers/apps">
+          <Button type="button" variant="secondary" size="sm">
+            Cancel
+          </Button>
         </Link>
-        <Button type="submit" loading={loading}>
+        <Button type="submit" size="sm" loading={loading}>
           Create app
         </Button>
       </div>

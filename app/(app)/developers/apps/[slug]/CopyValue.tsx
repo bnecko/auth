@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/Button";
 
 export function CopyValue({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -19,14 +20,15 @@ export function CopyValue({ value, label }: { value: string; label?: string }) {
   return (
     <span className="inline-flex items-baseline gap-2">
       <span className="text-accent-strong">{value}</span>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={copy}
-        className="text-[12px] text-secondary hover:text-accent-strong transition-colors"
         aria-label={`copy ${label || "value"}`}
       >
         {copied ? "Copied" : "Copy"}
-      </button>
+      </Button>
     </span>
   );
 }
