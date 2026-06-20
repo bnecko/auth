@@ -31,7 +31,10 @@ export async function updateProfileAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "could not save profile" };
   }
-  revalidatePath("/profile");
+  // Intentionally no revalidatePath here: the form already reflects the saved
+  // values, and skipping the route refresh lets useActionState settle
+  // immediately so the "Profile saved" confirmation reliably appears (the
+  // avatar/name elsewhere refresh on the next navigation).
   return { ok: true };
 }
 

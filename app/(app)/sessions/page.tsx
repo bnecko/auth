@@ -8,10 +8,12 @@ import {
 } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { Alert } from "@/components/Alert";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { getCurrentSession } from "@/lib/server/session";
 import { listSessionsForUser } from "@/lib/server/repositories/sessions";
 import { parseUserAgent, type DeviceType } from "@/lib/userAgentDisplay";
+import { canRevokeOtherSessions } from "@/lib/sessionPolicy";
 import { revokeSessionAction } from "@/app/dashboard-actions";
 import { revokeOtherSessionsAction } from "@/app/security/actions";
 
@@ -43,6 +45,7 @@ export default async function SessionsPage() {
   if (!current) redirect("/login");
   const u = current.user;
   const sessions = await listSessionsForUser(u.id);
+  const canRevokeOthers = canRevokeOtherSessions(current.session.id, sessions);
 
   return (
     <>
@@ -51,20 +54,31 @@ export default async function SessionsPage() {
         <p className="text-[13px] text-muted">Devices currently signed in</p>
       </header>
 
+      {!canRevokeOthers && (
+        <div className="mb-4">
+          <Alert tone="info">
+            For your security, you can revoke other sessions once this session is 24 hours
+            old (or from your oldest signed-in session).
+          </Alert>
+        </div>
+      )}
+
       <Section
         title="Sessions"
         icon={MonitorSmartphone}
         hint="Signed-in devices"
         action={
-          <ConfirmButton
-            action={revokeOtherSessionsAction}
-            label="Revoke others"
-            triggerVariant="danger"
-            tone="danger"
-            title="Revoke all other sessions?"
-            message="Every signed-in device except this one is signed out immediately."
-            confirmLabel="Revoke others"
-          />
+          canRevokeOthers ? (
+            <ConfirmButton
+              action={revokeOtherSessionsAction}
+              label="Revoke others"
+              triggerVariant="danger"
+              tone="danger"
+              title="Revoke all other sessions?"
+              message="Every signed-in device except this one is signed out immediately."
+              confirmLabel="Revoke others"
+            />
+          ) : undefined
         }
       >
         {sessions.map(session => {
@@ -92,7 +106,7 @@ export default async function SessionsPage() {
               </RowValue>
               {isCurrent ? (
                 <span className="text-[12px] text-faint">Current</span>
-              ) : (
+              ) : canRevokeOthers ? (
                 <ConfirmButton
                   action={revokeSessionAction}
                   fields={{ sessionId: session.id }}
@@ -111,6 +125,8 @@ export default async function SessionsPage() {
                   }
                   confirmLabel="Revoke session"
                 />
+              ) : (
+                <span />
               )}
             </Row>
           );
