@@ -1,12 +1,13 @@
 import { type NextRequest } from "next/server";
 import { env } from "@/lib/server/config";
 import { safeEqual } from "@/lib/server/crypto";
-import { badRequest, forbidden, json, requestBody } from "@/lib/server/http";
+import { badRequest, forbidden, json, requestBody, requestContext } from "@/lib/server/http";
 import {
   decideTelegramLogin,
   decideTelegramRegistration,
   decideTelegramRelink,
 } from "@/lib/server/services/auth";
+import { decideProfileChange } from "@/lib/server/services/profile";
 
 export const runtime = "nodejs";
 
@@ -69,6 +70,19 @@ export async function POST(req: NextRequest) {
       return badRequest("registration not found or already handled");
     }
     return json({ kind: "registration_decision", status: request.status, decision });
+  }
+
+  if (kind === "profile") {
+    const result = await decideProfileChange({
+      apprId: id,
+      decision,
+      telegram,
+      context: requestContext(req),
+    });
+    if (!result) {
+      return badRequest("change request not found or already handled");
+    }
+    return json({ kind: "profile_decision", status: result.status, decision });
   }
 
   return badRequest("unknown decision kind");

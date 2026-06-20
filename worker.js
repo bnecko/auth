@@ -422,6 +422,15 @@ async function sweepHygiene() {
         where status in ('approved', 'denied', 'expired', 'cancelled')
           and expires_at < now() - interval '7 days'`,
     );
+    // Profile change requests: pending ones hold a proposed username/email
+    // until Telegram approval; drop dead pending rows after a day and terminal
+    // rows after a week.
+    await pool.query(
+      `delete from profile_change_requests
+        where (status = 'pending' and expires_at < now() - interval '1 day')
+           or (status in ('approved', 'denied', 'expired', 'cancelled')
+               and expires_at < now() - interval '7 days')`,
+    );
     // Security events: 90-day audit retention, bounded per sweep so a large
     // backlog drains over several hourly runs instead of one long transaction.
     await pool.query(

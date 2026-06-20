@@ -14,11 +14,32 @@ create table users (
   telegram_id text unique,
   telegram_username text,
   telegram_verified_at timestamptz,
+  avatar_preset smallint,
   role text not null default 'user' check (role in ('user', 'admin')),
   status text not null default 'active' check (status in ('pending', 'active', 'limited', 'banned')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table profile_change_requests (
+  id bigserial primary key,
+  public_id text not null unique,
+  user_id bigint not null references users(id) on delete cascade,
+  field text not null check (field in ('username', 'email')),
+  new_value text not null,
+  new_value_normalized text not null,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'denied', 'expired', 'cancelled')),
+  ip text,
+  user_agent text,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  decided_at timestamptz
+);
+
+create index profile_change_requests_user_idx on profile_change_requests(user_id);
+create index profile_change_requests_status_idx on profile_change_requests(status);
+create index profile_change_requests_expires_idx on profile_change_requests(expires_at);
 
 create table sessions (
   id bigserial primary key,

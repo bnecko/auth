@@ -130,10 +130,11 @@ async function handleCallbackQuery(query) {
   const data = query.data || "";
   const fromId = query.from && query.from.id ? String(query.from.id) : "";
 
-  // login_/relink_/reg_ (approve|deny) - the user confirming a sign-in or a
-  // Telegram link. The decision is scoped server-side to the Telegram account
-  // the prompt belongs to, so we forward the tapping user's identity.
-  const confirmMatch = data.match(/^(login|relink|reg)_(approve|deny):(\S+)$/);
+  // login_/relink_/reg_/profile_ (approve|deny) - the user confirming a
+  // sign-in, a Telegram link, or an account change. The decision is scoped
+  // server-side to the Telegram account the prompt belongs to, so we forward
+  // the tapping user's identity.
+  const confirmMatch = data.match(/^(login|relink|reg|profile)_(approve|deny):(\S+)$/);
   if (confirmMatch) {
     const kind = confirmMatch[1] === "reg" ? "registration" : confirmMatch[1];
     const decision = confirmMatch[2];

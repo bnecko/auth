@@ -79,6 +79,51 @@ export function parseRegistrationInput(body: Record<string, unknown>) {
   };
 }
 
+export type ProfileEditInput = {
+  firstName: string;
+  bio: string | null;
+  avatarPreset: number | null;
+};
+
+// Validates the ungated profile fields, reusing the registration rules.
+export function parseProfileEdit(body: Record<string, unknown>) {
+  const firstName = asString(body.firstName || body.first_name);
+  const bio = optionalString(body.bio);
+  const presetRaw = asString(body.avatarPreset);
+  const avatarPreset = presetRaw === "" ? null : Number(presetRaw);
+
+  const errors: Record<string, string> = {};
+  if (!firstName || firstName.length > 80) {
+    errors.firstName = "first name is required (max 80 characters)";
+  }
+  if (bio && bio.length > 240) {
+    errors.bio = "bio must be 240 characters or fewer";
+  }
+  if (
+    avatarPreset !== null &&
+    (!Number.isInteger(avatarPreset) || avatarPreset < 0 || avatarPreset > 99)
+  ) {
+    errors.avatarPreset = "invalid avatar selection";
+  }
+
+  const input: ProfileEditInput = { firstName, bio, avatarPreset };
+  return { input, errors };
+}
+
+// Validates a single identity field for a change request. Returns an error
+// string, or null when valid.
+export function validateIdentityField(field: "username" | "email", value: string) {
+  const v = value.trim();
+  if (field === "username") {
+    return /^[a-zA-Z0-9_]{3,32}$/.test(v)
+      ? null
+      : "username must be 3-32 letters, numbers, or underscores";
+  }
+  return v.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+    ? null
+    : "email is invalid";
+}
+
 export function parseLoginInput(body: Record<string, unknown>) {
   const input: LoginInput = {
     identifier: normalizeIdentifier(asString(body.identifier)),
