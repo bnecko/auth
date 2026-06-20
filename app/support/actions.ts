@@ -8,8 +8,12 @@ import { requestContextFromHeaders } from "@/lib/server/http";
 import {
   claimThread,
   createThread,
+  deleteMessage,
+  deleteThread,
+  editThread,
   inviteSupporter,
   postReply,
+  publishThread,
   setStatus,
   toggleStar,
   unclaimThread,
@@ -59,6 +63,58 @@ export async function createThreadAction(
   }
 
   redirect(`/support/${thread.publicId}`);
+}
+
+export async function editThreadAction(
+  _prev: { error?: string; ok?: boolean },
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean }> {
+  const id = String(formData.get("threadId") || "");
+  const current = await getCurrentSession();
+  if (!current) redirect(`/login?next=${encodeURIComponent(threadPath(id))}`);
+  try {
+    await editThread({
+      threadPublicId: id,
+      user: current.user,
+      title: String(formData.get("title") || ""),
+      body: String(formData.get("body") || ""),
+      context: await ctx(),
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "could not save changes" };
+  }
+  revalidatePath(threadPath(id));
+  return { ok: true };
+}
+
+export async function deleteThreadAction(formData: FormData) {
+  const id = String(formData.get("threadId") || "");
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  await deleteThread({ threadPublicId: id, user: current.user, context: await ctx() });
+  redirect("/support/mine");
+}
+
+export async function deleteMessageAction(formData: FormData) {
+  const id = String(formData.get("threadId") || "");
+  const messageId = String(formData.get("messageId") || "");
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  await deleteMessage({
+    threadPublicId: id,
+    messagePublicId: messageId,
+    user: current.user,
+    context: await ctx(),
+  });
+  revalidatePath(threadPath(id));
+}
+
+export async function publishThreadAction(formData: FormData) {
+  const id = String(formData.get("threadId") || "");
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  await publishThread({ threadPublicId: id, user: current.user, context: await ctx() });
+  revalidatePath(threadPath(id));
 }
 
 export async function starAction(formData: FormData) {

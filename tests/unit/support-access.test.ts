@@ -218,6 +218,62 @@ describe("support access — commenting and stars", () => {
     expect(privateSignedIn.canStar).toBe(false);
   });
 
+  it("edit/delete are author-or-admin; publish only for private threads", () => {
+    const author = computeAccess({
+      thread: makeThread({ visibility: "private", authorUserId: 10 }),
+      viewer: viewer(10),
+      isStaff: false,
+      isAdmin: false,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(author.canEditThread).toBe(true);
+    expect(author.canDeleteThread).toBe(true);
+    expect(author.canPublish).toBe(true); // private -> can publish
+
+    const authorPublic = computeAccess({
+      thread: makeThread({ visibility: "public", authorUserId: 10 }),
+      viewer: viewer(10),
+      isStaff: false,
+      isAdmin: false,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(authorPublic.canPublish).toBe(false); // already public
+
+    const stranger = computeAccess({
+      thread: makeThread({ visibility: "public", authorUserId: 10 }),
+      viewer: viewer(50),
+      isStaff: false,
+      isAdmin: false,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(stranger.canEditThread).toBe(false);
+    expect(stranger.canDeleteThread).toBe(false);
+
+    const supporterNotAuthor = computeAccess({
+      thread: makeThread({ visibility: "private", authorUserId: 10, claimedByUserId: 20 }),
+      viewer: viewer(20),
+      isStaff: true,
+      isAdmin: false,
+      isClaimer: true,
+      isInvited: false,
+    });
+    expect(supporterNotAuthor.canEditThread).toBe(false); // claimer != author
+
+    const admin = computeAccess({
+      thread: makeThread({ visibility: "private", authorUserId: 10 }),
+      viewer: viewer(1),
+      isStaff: true,
+      isAdmin: true,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(admin.canEditThread).toBe(true);
+    expect(admin.canDeleteThread).toBe(true);
+  });
+
   it("internal notes are restricted to staff", () => {
     const staff = computeAccess({
       thread: makeThread({ visibility: "private", claimedByUserId: null }),

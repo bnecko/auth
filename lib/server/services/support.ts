@@ -1,6 +1,7 @@
 import { authBaseUrl } from "../config";
 import { publicId } from "../crypto";
 import { type RequestContext } from "../http";
+import { rateLimit } from "../rateLimit";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { getTelegramQueue } from "../queue";
 import { escapeHtml } from "../telegramSend";
@@ -11,6 +12,8 @@ import {
   claimSupportThread,
   createSupportMessage,
   createSupportThread,
+  deleteSupportMessage,
+  deleteSupportThread,
   findSupportThreadByPublicId,
   hasStarred,
   isSupportTeamMember,
@@ -22,17 +25,23 @@ import {
   listSupportQueue,
   listSupportTeam,
   listSupportThreadsForAuthor,
+  listThreadRevisions,
   listThreadSupporters,
   removeSupportStar,
   removeSupportTeamMember,
   setSupportThreadStatus,
+  setSupportThreadVisibility,
   unclaimSupportThread,
+  updateSupportThread,
   type SupportThread,
   type SupportThreadKind,
   type SupportThreadStatus,
   type SupportThreadVisibility,
 } from "../repositories/support";
 import type { User } from "../types";
+
+const THREAD_RATE = { limit: 5, windowMs: 60 * 60 * 1000 };
+const REPLY_RATE = { limit: 20, windowMs: 60 * 60 * 1000 };
 
 const TITLE_MAX = 120;
 const BODY_MAX = 4000;
@@ -45,6 +54,9 @@ export type SupportAccess = {
   canStar: boolean;
   canClaim: boolean;
   canManage: boolean;
+  canEditThread: boolean;
+  canDeleteThread: boolean;
+  canPublish: boolean;
 };
 
 // Single source of truth for who can do what on a thread. `viewer` may be null
@@ -71,6 +83,7 @@ export function computeAccess(input: {
   const canView = thread.visibility === "public" ? true : privateViewable;
 
   const open = thread.status !== "closed";
+  const authorOrAdmin = isAuthor || isAdmin;
   return {
     canView,
     canComment: canView && signedIn && (open || isStaff),
@@ -83,6 +96,9 @@ export function computeAccess(input: {
       thread.claimedByUserId === null &&
       (thread.status === "open" || thread.status === "in_progress"),
     canManage: canView && (isAdmin || (isStaff && isClaimer)),
+    canEditThread: canView && authorOrAdmin,
+    canDeleteThread: canView && authorOrAdmin,
+    canPublish: canView && authorOrAdmin && thread.visibility === "private",
   };
 }
 
@@ -103,8 +119,8 @@ async function resolveAccess(thread: SupportThread, viewer: User | null) {
   };
 }
 
-export async function listPublicThreads() {
-  return listPublicSupportThreads();
+export async function listPublicThreads(status?: "open" | "resolved" | "closed") {
+  return listPublicSupportThreads(status);
 }
 
 export async function listMyThreads(userId: number) {
@@ -137,6 +153,21 @@ export async function createThread(input: {
   }
   if (!body || body.length > BODY_MAX) {
     throw new Error(`description must be 1-${BODY_MAX} characters`);
+  }
+
+  const rl = await rateLimit(
+    `rl:support:thread:user:${input.user.id}`,
+    THREAD_RATE.limit,
+    THREAD_RATE.windowMs,
+  );
+  if (!rl.success) {
+    await recordSecurityEvent({
+      userId: input.user.id,
+      eventType: "support_rate_limited",
+      result: "thread",
+      context: input.context,
+    });
+    throw new Error("you are creating threads too quickly - try again later");
   }
 
   const thread = await createSupportThread({
@@ -211,20 +242,29 @@ export async function getThreadView(input: {
     return null;
   }
 
-  const { isStaff, access } = await resolveAccess(thread, input.viewer);
+  const { isAdmin, isStaff, access } = await resolveAccess(thread, input.viewer);
   if (!access.canView) {
     return null;
   }
 
-  const [messages, supporters, starred] = await Promise.all([
+  const [rawMessages, supporters, starred, revisions] = await Promise.all([
     listSupportMessages({ threadId: thread.id, includeInternal: access.canInternalNote }),
     isStaff ? listThreadSupporters(thread.id) : Promise.resolve([]),
     input.viewer && thread.visibility === "public"
       ? hasStarred(thread.id, input.viewer.id)
       : Promise.resolve(false),
+    // The edit history is public to anyone who can view the thread.
+    listThreadRevisions(thread.id),
   ]);
 
-  return { thread, access, messages, supporters, starred, isStaff };
+  // A message can be deleted by its author or an admin.
+  const viewerId = input.viewer?.id ?? null;
+  const messages = rawMessages.map(m => ({
+    ...m,
+    canDelete: isAdmin || (viewerId !== null && m.authorUserId === viewerId),
+  }));
+
+  return { thread, access, messages, supporters, starred, revisions, isStaff };
 }
 
 async function loadForAction(threadPublicId: string, viewer: User) {
@@ -254,6 +294,21 @@ export async function postReply(input: {
     throw new Error("forbidden");
   }
 
+  const rl = await rateLimit(
+    `rl:support:reply:user:${input.user.id}`,
+    REPLY_RATE.limit,
+    REPLY_RATE.windowMs,
+  );
+  if (!rl.success) {
+    await recordSecurityEvent({
+      userId: input.user.id,
+      eventType: "support_rate_limited",
+      result: "reply",
+      context: input.context,
+    });
+    throw new Error("you are replying too quickly - try again later");
+  }
+
   await createSupportMessage({
     publicId: publicId("smg"),
     threadId: thread.id,
@@ -266,6 +321,110 @@ export async function postReply(input: {
     userId: input.user.id,
     eventType: "support_message_posted",
     result: internal ? "internal" : "ok",
+    context: input.context,
+    metadata: { threadId: thread.publicId },
+  });
+}
+
+export async function editThread(input: {
+  threadPublicId: string;
+  user: User;
+  title: string;
+  body: string;
+  context: RequestContext;
+}) {
+  const { thread, access } = await loadForAction(input.threadPublicId, input.user);
+  if (!access.canEditThread) {
+    throw new Error("forbidden");
+  }
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (!title || title.length > TITLE_MAX) {
+    throw new Error(`title must be 1-${TITLE_MAX} characters`);
+  }
+  if (!body || body.length > BODY_MAX) {
+    throw new Error(`description must be 1-${BODY_MAX} characters`);
+  }
+  // No-op edits should not create empty history entries.
+  if (title === thread.title && body === thread.body) {
+    return thread;
+  }
+  const updated = await updateSupportThread({
+    publicId: thread.publicId,
+    revisionPublicId: publicId("srev"),
+    editedByUserId: input.user.id,
+    title,
+    body,
+  });
+  await recordSecurityEvent({
+    userId: input.user.id,
+    eventType: "support_thread_edited",
+    result: "ok",
+    context: input.context,
+    metadata: { threadId: thread.publicId },
+  });
+  return updated;
+}
+
+export async function deleteThread(input: {
+  threadPublicId: string;
+  user: User;
+  context: RequestContext;
+}) {
+  const { thread, access } = await loadForAction(input.threadPublicId, input.user);
+  if (!access.canDeleteThread) {
+    throw new Error("forbidden");
+  }
+  await deleteSupportThread(thread.publicId);
+  await recordSecurityEvent({
+    userId: input.user.id,
+    eventType: "support_thread_deleted",
+    result: "ok",
+    context: input.context,
+    metadata: { threadId: thread.publicId },
+  });
+}
+
+export async function deleteMessage(input: {
+  threadPublicId: string;
+  messagePublicId: string;
+  user: User;
+  context: RequestContext;
+}) {
+  const { thread, isAdmin } = await loadForAction(input.threadPublicId, input.user);
+  // Find the message to check authorship (admins may delete any).
+  const messages = await listSupportMessages({ threadId: thread.id, includeInternal: true });
+  const message = messages.find(m => m.publicId === input.messagePublicId);
+  if (!message) {
+    throw new Error("message not found");
+  }
+  if (!isAdmin && message.authorUserId !== input.user.id) {
+    throw new Error("forbidden");
+  }
+  await deleteSupportMessage(input.messagePublicId);
+  await recordSecurityEvent({
+    userId: input.user.id,
+    eventType: "support_message_deleted",
+    result: "ok",
+    context: input.context,
+    metadata: { threadId: thread.publicId, messageId: input.messagePublicId },
+  });
+}
+
+export async function publishThread(input: {
+  threadPublicId: string;
+  user: User;
+  context: RequestContext;
+}) {
+  const { thread, access } = await loadForAction(input.threadPublicId, input.user);
+  if (!access.canPublish) {
+    throw new Error("forbidden");
+  }
+  await setSupportThreadVisibility({ publicId: thread.publicId, visibility: "public" });
+  await recordSecurityEvent({
+    userId: input.user.id,
+    eventType: "support_thread_published",
+    result: "ok",
     context: input.context,
     metadata: { threadId: thread.publicId },
   });

@@ -4,12 +4,17 @@ import { Star, Lock, ArrowLeft } from "lucide-react";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { SupportThreadEditor } from "@/components/SupportThreadEditor";
+import { SupportEditHistory } from "@/components/SupportEditHistory";
 import { getCurrentSession } from "@/lib/server/session";
 import { getThreadView } from "@/lib/server/services/support";
 import { kindTone, statusTone, statusLabel } from "@/lib/supportDisplay";
 import {
   claimAction,
+  deleteMessageAction,
+  deleteThreadAction,
   inviteAction,
+  publishThreadAction,
   replyAction,
   starAction,
   statusAction,
@@ -36,7 +41,7 @@ export default async function SupportThreadPage({
   });
   if (!view) notFound();
 
-  const { thread, access, messages, supporters, starred } = view;
+  const { thread, access, messages, supporters, starred, revisions } = view;
 
   return (
     <>
@@ -85,11 +90,45 @@ export default async function SupportThreadPage({
         </p>
       </header>
 
-      <div className="rounded-xl ring-1 ring-rule bg-card px-4 py-4 mb-5">
+      <div className="rounded-xl ring-1 ring-rule bg-card px-4 py-4 mb-3">
         <div className="text-[14px] text-fg whitespace-pre-wrap leading-relaxed">
           {thread.body}
         </div>
       </div>
+
+      {(access.canEditThread || access.canPublish || access.canDeleteThread) && (
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {access.canEditThread && (
+            <SupportThreadEditor threadId={thread.publicId} title={thread.title} body={thread.body} />
+          )}
+          {access.canPublish && (
+            <ConfirmButton
+              action={publishThreadAction}
+              fields={{ threadId: thread.publicId }}
+              label="Publish"
+              triggerVariant="secondary"
+              tone="warning"
+              title="Make this thread public?"
+              message="Anyone will be able to read this thread and its full edit history. This cannot be undone from here."
+              confirmLabel="Publish"
+            />
+          )}
+          {access.canDeleteThread && (
+            <ConfirmButton
+              action={deleteThreadAction}
+              fields={{ threadId: thread.publicId }}
+              label="Delete"
+              triggerVariant="danger"
+              tone="danger"
+              title="Delete this thread?"
+              message="The thread and all of its replies are permanently removed. This cannot be undone."
+              confirmLabel="Delete thread"
+            />
+          )}
+        </div>
+      )}
+
+      <SupportEditHistory revisions={revisions} />
 
       {(access.canClaim || access.canManage) && (
         <div className="rounded-xl ring-1 ring-rule bg-elevated p-3 mb-5">
@@ -206,6 +245,20 @@ export default async function SupportThreadPage({
                   {m.createdAt.slice(0, 16).replace("T", " ")}
                 </span>
                 {m.internal && <Tag tone="warning">internal note</Tag>}
+                {m.canDelete && (
+                  <span className="ml-auto">
+                    <ConfirmButton
+                      action={deleteMessageAction}
+                      fields={{ threadId: thread.publicId, messageId: m.publicId }}
+                      label="Delete"
+                      triggerVariant="ghost"
+                      tone="danger"
+                      title="Delete this reply?"
+                      message="This reply is permanently removed."
+                      confirmLabel="Delete reply"
+                    />
+                  </span>
+                )}
               </div>
               <div className="text-[14px] text-fg whitespace-pre-wrap leading-relaxed">
                 {m.body}
