@@ -27,7 +27,7 @@ export async function POST(
   try {
     const { id } = await params;
     const result = await completeTelegramLoginChallenge(id, browserToken, code, req);
-    const res = NextResponse.json({ redirectTo: "/" });
+    const res = NextResponse.json({ redirectTo: "/account" });
     clearLoginChallengeCookie(res);
     await createUserSession(result.user.id, req, res, {
       remember: result.remember,

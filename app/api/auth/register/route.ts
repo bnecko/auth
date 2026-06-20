@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const res = NextResponse.json({ redirectTo: "/" }, { status: 201 });
+    const res = NextResponse.json({ redirectTo: "/account" }, { status: 201 });
     await createUserSession(result.user.id, req, res);
     return res;
   } catch (err) {

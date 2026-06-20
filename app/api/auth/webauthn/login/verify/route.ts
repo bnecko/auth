@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
         ip: requestContext(req).ip || undefined,
       });
 
-      const res = NextResponse.json({ success: true, redirectTo: "/" });
+      const res = NextResponse.json({ success: true, redirectTo: "/account" });
       await createUserSession(user.id, req, res, { remember: true });
       return res;
     }

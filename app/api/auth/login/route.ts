@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
-    const res = NextResponse.json({ redirectTo: "/" });
+    const res = NextResponse.json({ redirectTo: "/account" });
     await createUserSession(user.id, req, res, { remember: input.remember });
     return res;
   } catch (err) {
