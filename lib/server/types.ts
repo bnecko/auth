@@ -13,6 +13,7 @@ export type User = {
   telegramId: string | null;
   telegramUsername: string | null;
   telegramVerifiedAt: string | null;
+  avatarPreset: number | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string;

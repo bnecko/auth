@@ -14,6 +14,7 @@ type UserRow = {
   telegram_id: string | null;
   telegram_username: string | null;
   telegram_verified_at: string | null;
+  avatar_preset: number | null;
   role: UserRole;
   status: UserStatus;
   created_at: string;
@@ -43,6 +44,7 @@ function mapUser(row: UserRow): User {
     telegramId: row.telegram_id,
     telegramUsername: row.telegram_username,
     telegramVerifiedAt: row.telegram_verified_at,
+    avatarPreset: row.avatar_preset,
     role: row.role,
     status: row.status,
     createdAt: row.created_at,
@@ -61,6 +63,7 @@ const userSelect = `
   telegram_id,
   telegram_username,
   telegram_verified_at::text,
+  avatar_preset,
   role,
   status,
   created_at::text
@@ -72,6 +75,80 @@ export async function findUserById(id: number) {
     [id],
   );
   return row ? mapUser(row) : null;
+}
+
+export async function findUserByPublicId(publicId: string) {
+  const row = await queryOne<UserRow>(
+    `select ${userSelect} from users where public_id = $1`,
+    [publicId],
+  );
+  return row ? mapUser(row) : null;
+}
+
+// Ungated profile fields (no Telegram/uniqueness gate). Only the provided
+// fields are updated.
+export async function updateUserProfile(
+  userId: number,
+  input: { firstName?: string; bio?: string | null; avatarPreset?: number | null },
+) {
+  const row = await queryOne<UserRow>(
+    `update users
+        set first_name = coalesce($2, first_name),
+            bio = case when $3::boolean then $4 else bio end,
+            avatar_preset = case when $5::boolean then $6 else avatar_preset end,
+            updated_at = now()
+      where id = $1
+      returning ${userSelect}`,
+    [
+      userId,
+      input.firstName ?? null,
+      input.bio !== undefined,
+      input.bio ?? null,
+      input.avatarPreset !== undefined,
+      input.avatarPreset ?? null,
+    ],
+  );
+  return row ? mapUser(row) : null;
+}
+
+// Apply a username change, re-checking uniqueness atomically (23505 -> null so
+// the caller can report a conflict). new value is already validated.
+export async function applyUsernameChange(userId: number, username: string) {
+  try {
+    const row = await queryOne<UserRow>(
+      `update users
+          set username = $2, username_normalized = $3, updated_at = now()
+        where id = $1
+        returning ${userSelect}`,
+      [userId, username, normalizeIdentifier(username)],
+    );
+    return row ? mapUser(row) : null;
+  } catch (err) {
+    if (err instanceof Error && (err as Error & { code?: string }).code === "23505") {
+      return null;
+    }
+    throw err;
+  }
+}
+
+// Apply an email change. The new email is treated as unverified (there is no
+// email-verification flow yet), so email_verified_at is cleared.
+export async function applyEmailChange(userId: number, email: string) {
+  try {
+    const row = await queryOne<UserRow>(
+      `update users
+          set email = $2, email_normalized = $3, email_verified_at = null, updated_at = now()
+        where id = $1
+        returning ${userSelect}`,
+      [userId, email, normalizeIdentifier(email)],
+    );
+    return row ? mapUser(row) : null;
+  } catch (err) {
+    if (err instanceof Error && (err as Error & { code?: string }).code === "23505") {
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function findUserByIdentifier(identifier: string) {
@@ -101,6 +178,22 @@ export async function usernameOrEmailExists(username: string, email: string) {
         where username_normalized = $1 or email_normalized = $2
      )`,
     [normalizeIdentifier(username), normalizeIdentifier(email)],
+  );
+  return row?.exists === true;
+}
+
+export async function usernameExists(username: string) {
+  const row = await queryOne<{ exists: boolean }>(
+    `select exists(select 1 from users where username_normalized = $1)`,
+    [normalizeIdentifier(username)],
+  );
+  return row?.exists === true;
+}
+
+export async function emailExists(email: string) {
+  const row = await queryOne<{ exists: boolean }>(
+    `select exists(select 1 from users where email_normalized = $1)`,
+    [normalizeIdentifier(email)],
   );
   return row?.exists === true;
 }

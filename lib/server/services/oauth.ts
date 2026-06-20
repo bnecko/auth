@@ -219,10 +219,12 @@ const OAUTH_SCOPES = new Set([
   "profile",
   "email",
   "birthdate",
+  "telegram",
   "profile:read",
   "email:read",
   "dob:read",
   "subscription:read",
+  "telegram:read",
 ]);
 
 export function parseOAuthScopes(scope: string) {
@@ -1227,6 +1229,15 @@ export async function oauthUserInfo(accessToken: string) {
       .map(s => ({ product: s.product, status: s.status, expiresAt: s.expiresAt }));
   }
 
+  // The raw Telegram ID is sensitive; it is only disclosed to apps that hold the
+  // explicit telegram scope, so an integrator can permanently ban a user by
+  // their Telegram identity even after account recreation.
+  if (hasScope(scopes, "telegram", "telegram:read")) {
+    result.telegram_id = user.telegramId;
+    result.telegram_username = user.telegramUsername;
+    result.telegram_verified = Boolean(user.telegramVerifiedAt);
+  }
+
   return result;
 }
 
@@ -1329,10 +1340,12 @@ export function oauthServerMetadata() {
       "profile",
       "email",
       "birthdate",
+      "telegram",
       "profile:read",
       "email:read",
       "dob:read",
       "subscription:read",
+      "telegram:read",
     ],
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["RS256"],
@@ -1350,6 +1363,9 @@ export function oauthServerMetadata() {
       "email",
       "email_verified",
       "birthdate",
+      "telegram_id",
+      "telegram_username",
+      "telegram_verified",
     ],
   };
 
