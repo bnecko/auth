@@ -30,6 +30,14 @@ export function sessionShortAgeSeconds() {
   return Number(env("SESSION_SHORT_AGE_SECONDS") || 60 * 60 * 12);
 }
 
+// Inactivity ceiling: a session becomes invalid if it hasn't been used within
+// this window, independent of the absolute max age. Active users never hit it
+// (last_seen_at updates on every request); abandoned sessions stop working.
+// Standard idle timeout alongside the absolute one. Default 7 days.
+export function sessionIdleTimeoutSeconds() {
+  return Number(env("SESSION_IDLE_TIMEOUT_SECONDS") || 60 * 60 * 24 * 7);
+}
+
 export function login2faTtlMinutes() {
   return Number(env("LOGIN_2FA_TTL_MINUTES") || 5);
 }

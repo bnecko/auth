@@ -55,6 +55,9 @@ export default function VerifyPage() {
 
     if (data.status === "verified") {
       await complete(verificationId);
+    } else if (data.status === "cancelled") {
+      setError("This sign-up was denied in Telegram. Start over to try again.");
+      setStatus("failed");
     }
   }
 
@@ -80,7 +83,7 @@ export default function VerifyPage() {
         Verify with Telegram
       </h1>
       <p className="text-meta text-muted mb-7">
-        Open the bot to finish signing up
+        Open the bot and tap Approve to finish signing up
       </p>
 
       <div className="border-t border-rule">

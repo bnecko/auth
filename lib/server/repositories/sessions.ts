@@ -1,5 +1,6 @@
 import { query, queryOne } from "../db";
 import { hashToken } from "../crypto";
+import { sessionIdleTimeoutSeconds } from "../config";
 import type { Session, SessionWithUser, UserRole, UserStatus } from "../types";
 
 type SessionRow = {
@@ -83,6 +84,7 @@ export async function findSessionByToken(token: string) {
         and s.session_hash = $1
         and s.revoked_at is null
         and s.expires_at > $2
+        and s.last_seen_at > now() - make_interval(secs => $3)
       returning
         s.id as session_id,
         s.user_id,
@@ -104,7 +106,7 @@ export async function findSessionByToken(token: string) {
         u.role,
         u.status,
         u.created_at::text as user_created_at`,
-    [hashToken(token), new Date().toISOString()],
+    [hashToken(token), new Date().toISOString(), sessionIdleTimeoutSeconds()],
   );
 
   if (!row) {

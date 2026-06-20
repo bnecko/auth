@@ -8,6 +8,9 @@ const TTL = 600; // 10 minutes
 const OTP_KEY = (userId: number) => `relink:otp:${userId}`;
 const TOKEN_KEY = (startHash: string) => `relink:tok:${startHash}`;
 const STATUS_KEY = (browserHash: string) => `relink:sta:${browserHash}`;
+// Short opaque handle for an approval prompt — small enough to ride in a
+// Telegram callback_data payload, unlike the 64-char start-token hash.
+const APPR_KEY = (apprId: string) => `relink:appr:${apprId}`;
 
 // Unambiguous uppercase alphanumeric — no O/0/I/1
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -53,10 +56,12 @@ export async function getRelinkStatus(browserToken: string) {
   return await redis.get(STATUS_KEY(browserHash));
 }
 
-export async function completeRelinkByTelegram(
+// Step 1 of the relink: the bot saw a valid /start token. Don't link yet —
+// mint a short approval handle and return the owner so the caller can send an
+// Approve/Deny prompt. Returns null if the token is unknown or expired.
+export async function beginRelinkApproval(
   startToken: string,
-  telegram: { id: string; firstName: string; username: string | null },
-): Promise<{ userId: number; linked: boolean } | null> {
+): Promise<{ userId: number; apprId: string } | null> {
   const startHash = hashToken(startToken);
   const value = await redis.get(TOKEN_KEY(startHash));
   if (!value) return null;
@@ -66,10 +71,45 @@ export async function completeRelinkByTelegram(
   const browserHash = value.slice(colonIdx + 1);
   if (!userId || !browserHash) return null;
 
-  const linked = await relinkTelegram(userId, telegram);
+  const apprId = randomToken(12);
+  await redis.setex(APPR_KEY(apprId), TTL, startHash);
 
-  await redis.setex(STATUS_KEY(browserHash), TTL, linked ? "verified" : "conflict");
+  return { userId, apprId };
+}
+
+// Step 2: the owner tapped Approve or Deny. On approve we perform the actual
+// link; on deny (or a link conflict) the waiting browser sees a terminal
+// status. Returns null if the approval handle is unknown or expired.
+export async function decideRelink(input: {
+  apprId: string;
+  decision: "approve" | "deny";
+  telegram: { id: string; firstName: string; username: string | null };
+}): Promise<{ userId: number; status: "verified" | "conflict" | "denied" } | null> {
+  const startHash = await redis.get(APPR_KEY(input.apprId));
+  if (!startHash) return null;
+
+  const value = await redis.get(TOKEN_KEY(startHash));
+  if (!value) {
+    await redis.del(APPR_KEY(input.apprId));
+    return null;
+  }
+
+  const colonIdx = value.indexOf(":");
+  const userId = Number(value.slice(0, colonIdx));
+  const browserHash = value.slice(colonIdx + 1);
+  if (!userId || !browserHash) return null;
+
+  let status: "verified" | "conflict" | "denied";
+  if (input.decision === "deny") {
+    status = "denied";
+  } else {
+    const linked = await relinkTelegram(userId, input.telegram);
+    status = linked ? "verified" : "conflict";
+  }
+
+  await redis.setex(STATUS_KEY(browserHash), TTL, status);
   await redis.del(TOKEN_KEY(startHash));
+  await redis.del(APPR_KEY(input.apprId));
 
-  return { userId, linked: !!linked };
+  return { userId, status };
 }

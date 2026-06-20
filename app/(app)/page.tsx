@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Tag } from "@/components/Tag";
+import { Button } from "@/components/Button";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
 import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauthn";
@@ -26,11 +27,10 @@ function Card({
       <header className="h-11 px-3.5 flex items-center justify-between">
         <h3 className="text-[14px] font-medium text-fg">{title}</h3>
         {href && (
-          <Link
-            href={href}
-            className="text-[12px] text-secondary hover:text-accent-strong transition-colors inline-flex items-center gap-1"
-          >
-            View <ArrowRight size={12} />
+          <Link href={href}>
+            <Button variant="ghost" size="sm">
+              View <ArrowRight size={12} />
+            </Button>
           </Link>
         )}
       </header>

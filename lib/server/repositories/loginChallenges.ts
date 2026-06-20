@@ -14,6 +14,9 @@ export type LoginChallenge = {
   remember: boolean;
   status: LoginChallengeStatus;
   ip: string | null;
+  // Only populated by the queries that join `users` (the alias selects);
+  // null for the bare-table selects that never look at the account.
+  username: string | null;
   expiresAt: string;
 };
 
@@ -24,6 +27,7 @@ type LoginChallengeRow = {
   remember_me: boolean;
   status: LoginChallengeStatus;
   ip: string | null;
+  username?: string | null;
   expires_at: string;
 };
 
@@ -44,6 +48,7 @@ const challengeSelectWithAlias = `
   tlc.remember_me,
   tlc.status,
   tlc.ip,
+  u.username,
   tlc.expires_at::text
 `;
 
@@ -55,6 +60,7 @@ function mapChallenge(row: LoginChallengeRow): LoginChallenge {
     remember: row.remember_me,
     status: row.status,
     ip: row.ip,
+    username: row.username ?? null,
     expiresAt: row.expires_at,
   };
 }

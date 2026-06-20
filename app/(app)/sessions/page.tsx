@@ -10,8 +10,18 @@ import { revokeOtherSessionsAction } from "@/app/security/actions";
 
 export const dynamic = "force-dynamic";
 
-function shortDate(value: string | null) {
-  return value ? value.slice(0, 10) : "never";
+function relativeTime(value: string | null) {
+  if (!value) return "never";
+  const then = Date.parse(value);
+  if (Number.isNaN(then)) return "never";
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return value.slice(0, 10);
 }
 
 export default async function SessionsPage() {
@@ -45,7 +55,9 @@ export default async function SessionsPage() {
             <RowValue>
               <span className="text-secondary truncate">{session.ip || "Unknown IP"}</span>
               <span className="text-muted">·</span>
-              <span className="text-muted">{shortDate(session.lastSeenAt)}</span>
+              <span className="text-muted" title={session.lastSeenAt || undefined}>
+                Last active {relativeTime(session.lastSeenAt)}
+              </span>
               {session.id === current.session.id && <Tag tone="success">This device</Tag>}
             </RowValue>
             <form action={revokeSessionAction}>

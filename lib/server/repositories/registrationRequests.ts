@@ -14,6 +14,7 @@ export type RegistrationRequest = {
   status: "pending" | "verified" | "completed" | "expired" | "cancelled";
   telegramId: string | null;
   telegramUsername: string | null;
+  ip: string | null;
   userId: number | null;
   expiresAt: string;
 };
@@ -30,6 +31,7 @@ type RegistrationRequestRow = {
   status: RegistrationRequest["status"];
   telegram_id: string | null;
   telegram_username: string | null;
+  ip: string | null;
   user_id: string | null;
   expires_at: string;
 };
@@ -47,6 +49,7 @@ function mapRegistrationRequest(row: RegistrationRequestRow): RegistrationReques
     status: row.status,
     telegramId: row.telegram_id,
     telegramUsername: row.telegram_username,
+    ip: row.ip,
     userId: row.user_id ? Number(row.user_id) : null,
     expiresAt: row.expires_at,
   };
@@ -64,6 +67,7 @@ const registrationSelect = `
   status,
   telegram_id,
   telegram_username,
+  ip,
   user_id,
   expires_at::text
 `;
@@ -133,8 +137,24 @@ export async function findRegistrationRequest(publicId: string) {
   return row ? mapRegistrationRequest(row) : null;
 }
 
-export async function verifyRegistrationRequest(
-  startTokenHash: string,
+// Find the pending request a /start token refers to. Does NOT change status —
+// the user still has to approve via the inline buttons.
+export async function findPendingRegistrationByStartToken(startTokenHash: string) {
+  const row = await queryOne<RegistrationRequestRow>(
+    `select ${registrationSelect}
+       from registration_requests
+      where verification_code_hash = $1
+        and status = 'pending'
+        and expires_at > $2`,
+    [startTokenHash, new Date().toISOString()],
+  );
+  return row ? mapRegistrationRequest(row) : null;
+}
+
+// Approve: mark the pending request verified and record which Telegram account
+// confirmed it (the same account is later linked when the user is created).
+export async function markRegistrationVerified(
+  publicId: string,
   telegram: TelegramIdentity,
 ) {
   const row = await queryOne<RegistrationRequestRow>(
@@ -143,11 +163,24 @@ export async function verifyRegistrationRequest(
             telegram_id = $2,
             telegram_username = $3,
             verified_at = now()
-      where verification_code_hash = $1
+      where public_id = $1
         and status = 'pending'
         and expires_at > $4
       returning ${registrationSelect}`,
-    [startTokenHash, telegram.id, telegram.username, new Date().toISOString()],
+    [publicId, telegram.id, telegram.username, new Date().toISOString()],
+  );
+  return row ? mapRegistrationRequest(row) : null;
+}
+
+// Deny: cancel the pending request so the waiting browser stops polling.
+export async function markRegistrationDenied(publicId: string) {
+  const row = await queryOne<RegistrationRequestRow>(
+    `update registration_requests
+        set status = 'cancelled'
+      where public_id = $1
+        and status = 'pending'
+      returning ${registrationSelect}`,
+    [publicId],
   );
   return row ? mapRegistrationRequest(row) : null;
 }

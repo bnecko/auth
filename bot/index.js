@@ -59,9 +59,9 @@ async function main() {
     for (const update of updates) {
       // Process the update before advancing the offset so that a crash
       // in handleUpdate doesn't acknowledge the update to Telegram and
-      // drop it. Re-processing on restart is safe: registrationRequests
-      // verifyRegistrationRequest only marks a pending request once,
-      // and replies are idempotent at the user-facing layer.
+      // drop it. Re-processing on restart is safe: /start only re-sends an
+      // approval prompt (no state change until the user taps a button), and
+      // decisions are scoped to a single pending request server-side.
       try {
         await handleUpdate(update);
       } catch (err) {
@@ -122,19 +122,23 @@ async function handleUpdate(update) {
   await reply(message.chat.id, result.message);
 }
 
-// Inline-button presses arrive as callback_query updates. We handle the
-// bearer_approve / bearer_reject callbacks here. Telegram requires us
-// to answerCallbackQuery within ~30s to dismiss the loading spinner; we
-// always answer, even on failure paths.
+// Inline-button presses arrive as callback_query updates: the login/relink/
+// registration approve-deny prompts and the bearer admin approve/reject.
+// Telegram requires us to answerCallbackQuery within ~30s to dismiss the
+// loading spinner; we always answer, even on failure paths.
 async function handleCallbackQuery(query) {
   const data = query.data || "";
   const fromId = query.from && query.from.id ? String(query.from.id) : "";
 
-  const loginMatch = data.match(/^login_(approve|deny):(\S+)$/);
-  if (loginMatch) {
-    const decision = loginMatch[1];
-    const challengeId = loginMatch[2];
-    const result = await callLoginDecision(challengeId, decision, fromId);
+  // login_/relink_/reg_ (approve|deny) — the user confirming a sign-in or a
+  // Telegram link. The decision is scoped server-side to the Telegram account
+  // the prompt belongs to, so we forward the tapping user's identity.
+  const confirmMatch = data.match(/^(login|relink|reg)_(approve|deny):(\S+)$/);
+  if (confirmMatch) {
+    const kind = confirmMatch[1] === "reg" ? "registration" : confirmMatch[1];
+    const decision = confirmMatch[2];
+    const id = confirmMatch[3];
+    const result = await callConfirmDecision(kind, id, decision, query.from);
     if (!result.ok) {
       await answerCallback(query.id, result.message || "Could not record your decision.", true);
       return;
@@ -224,15 +228,22 @@ async function callBearerDecision(requestId, decision, fromId) {
   }
 }
 
-async function callLoginDecision(challengeId, decision, fromId) {
+async function callConfirmDecision(kind, id, decision, from) {
   try {
-    const response = await fetch(`${authBaseUrl}/api/telegram/login/decision`, {
+    const response = await fetch(`${authBaseUrl}/api/telegram/confirm/decision`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-bottleneck-bot-secret": webhookSecret,
       },
-      body: JSON.stringify({ challengeId, decision, telegramId: fromId }),
+      body: JSON.stringify({
+        kind,
+        id,
+        decision,
+        telegramId: from && from.id ? String(from.id) : "",
+        telegramFirstName: (from && from.first_name) || "",
+        telegramUsername: (from && from.username) || null,
+      }),
     });
     if (!response.ok) {
       const data = await safeJson(response);
@@ -286,10 +297,15 @@ async function callVerify(startToken, from) {
 
   if (response.ok) {
     const data = await safeJson(response);
-    if (data && data.kind === "login_pending") {
+    const pending =
+      data &&
+      (data.kind === "login_pending" ||
+        data.kind === "relink_pending" ||
+        data.kind === "registration_pending");
+    if (pending) {
       return {
         message:
-          "We sent you an approval request above. Tap Approve to finish signing in.",
+          "We sent you an approval request above. Tap Approve to continue, or Deny if this wasn't you.",
       };
     }
     return { message: "Verified. Return to the browser to finish signing in." };

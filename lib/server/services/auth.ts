@@ -20,9 +20,12 @@ import { notifyUser } from "../notifications";
 import {
   completeRegistrationRequest,
   createRegistrationRequest,
+  findPendingRegistrationByStartToken,
   findRegistrationRequest,
-  verifyRegistrationRequest,
+  markRegistrationDenied,
+  markRegistrationVerified,
 } from "../repositories/registrationRequests";
+import { beginRelinkApproval, decideRelink } from "../relinkChallenge";
 import {
   completeLoginChallenge,
   createLoginChallenge,
@@ -426,10 +429,14 @@ export async function requestTelegramLoginApproval(
   await sendTelegramMessage({
     chatId: telegram.id,
     text: [
-      "<b>New login attempt</b>",
+      "🔐 <b>New login attempt</b>",
+      "",
+      `User: <b>${escapeHtml(challenge.username || "your account")}</b>`,
       `IP: <code>${escapeHtml(challenge.ip || "unknown")}</code>`,
       "",
       "Do you want to approve this sign-in?",
+      "",
+      "⚠️ Only approve if this is you. Never approve a sign-in — or a Telegram link — for anyone else.",
     ].join("\n"),
     inlineButtons: [
       [
@@ -523,30 +530,150 @@ export async function completeTelegramLoginChallenge(
   };
 }
 
-export async function verifyRegistrationByTelegram(
+// Registration via Telegram now mirrors login: the bot seeing a valid /start
+// token does NOT create the account. We send the user an Approve/Deny prompt
+// and only mark the request verified once they confirm. Returns null when the
+// token doesn't match a pending registration (so the route can try other flows
+// or report the link invalid).
+export async function requestTelegramRegistrationApproval(
   startToken: string,
   telegram: TelegramIdentity,
   req: NextRequest,
 ) {
   const context = requestContext(req);
-  const request = await verifyRegistrationRequest(hashToken(startToken), telegram);
+  const request = await findPendingRegistrationByStartToken(hashToken(startToken));
   if (!request) {
-    await recordSecurityEvent({
-      eventType: "telegram_verify_failure",
-      result: "invalid_start_token",
-      context,
-    });
-    throw new Error("invalid verification token");
+    return null;
   }
 
+  await sendTelegramMessage({
+    chatId: telegram.id,
+    text: [
+      "🔗 <b>Complete registration</b>",
+      "",
+      `User: <b>${escapeHtml(request.username)}</b>`,
+      `IP: <code>${escapeHtml(request.ip || "unknown")}</code>`,
+      "",
+      "Do you want to link this Telegram account and finish signing up?",
+      "",
+      "⚠️ Only approve if this is you. Never link your Telegram to someone else's account.",
+    ].join("\n"),
+    inlineButtons: [
+      [
+        { text: "Approve", callbackData: `reg_approve:${request.publicId}` },
+        { text: "Deny", callbackData: `reg_deny:${request.publicId}` },
+      ],
+    ],
+  });
+
   await recordSecurityEvent({
-    eventType: "telegram_verify_success",
-    result: "ok",
+    eventType: "telegram_verify_prompt",
+    result: "sent",
     context,
     metadata: { requestId: request.publicId, telegramId: telegram.id },
   });
 
   return request;
+}
+
+export async function decideTelegramRegistration(input: {
+  publicId: string;
+  decision: "approve" | "deny";
+  telegram: TelegramIdentity;
+  req: NextRequest;
+}) {
+  const context = requestContext(input.req);
+  const request =
+    input.decision === "approve"
+      ? await markRegistrationVerified(input.publicId, input.telegram)
+      : await markRegistrationDenied(input.publicId);
+
+  if (!request) {
+    return null;
+  }
+
+  await recordSecurityEvent({
+    eventType: "telegram_verify_decision",
+    result: input.decision === "approve" ? "verified" : "denied",
+    context,
+    metadata: { requestId: request.publicId, telegramId: input.telegram.id },
+  });
+
+  return request;
+}
+
+// Relink via Telegram, same approve/deny shape. beginRelinkApproval validates
+// the /start token and mints a short handle; the decision endpoint completes or
+// cancels the relink via decideRelink. Returns null for an unknown token.
+export async function requestTelegramRelinkApproval(
+  startToken: string,
+  telegram: TelegramIdentity,
+  req: NextRequest,
+) {
+  const context = requestContext(req);
+  const approval = await beginRelinkApproval(startToken);
+  if (!approval) {
+    return null;
+  }
+
+  const user = await findUserById(approval.userId);
+
+  await sendTelegramMessage({
+    chatId: telegram.id,
+    text: [
+      "🔗 <b>Link Telegram account</b>",
+      "",
+      `Account: <b>${escapeHtml(user?.username || "your account")}</b>`,
+      "",
+      "Do you want to link this Telegram account?",
+      "",
+      "⚠️ Only approve if this is your account. Never link your Telegram to someone else's account.",
+    ].join("\n"),
+    inlineButtons: [
+      [
+        { text: "Approve", callbackData: `relink_approve:${approval.apprId}` },
+        { text: "Deny", callbackData: `relink_deny:${approval.apprId}` },
+      ],
+    ],
+  });
+
+  await recordSecurityEvent({
+    userId: approval.userId,
+    eventType: "telegram_relink_prompt",
+    result: "sent",
+    context,
+    metadata: { telegramId: telegram.id },
+  });
+
+  return approval;
+}
+
+export async function decideTelegramRelink(input: {
+  apprId: string;
+  decision: "approve" | "deny";
+  telegram: TelegramIdentity;
+  req: NextRequest;
+}) {
+  const context = requestContext(input.req);
+  const result = await decideRelink({
+    apprId: input.apprId,
+    decision: input.decision,
+    telegram: input.telegram,
+  });
+
+  if (!result) {
+    return null;
+  }
+
+  await recordSecurityEvent({
+    userId: result.userId,
+    eventType: "telegram_2fa_relink",
+    result: result.status,
+    context,
+    metadata: { telegramId: input.telegram.id },
+  });
+
+  return result;
 }
 
 export async function completeVerifiedRegistration(

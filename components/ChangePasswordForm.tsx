@@ -14,7 +14,7 @@ export function ChangePasswordForm({
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-md py-2">
+    <form action={formAction} className="flex flex-col gap-4 max-w-md px-4 py-4">
       {state?.error && <Alert tone="danger">{state.error}</Alert>}
       {state?.success && (
         <Alert tone="success">

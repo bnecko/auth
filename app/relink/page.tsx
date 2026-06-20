@@ -65,6 +65,9 @@ export default function RelinkPage() {
     if (data.status === "verified") {
       setStep("success");
       setTimeout(() => { window.location.href = "/"; }, 1500);
+    } else if (data.status === "denied") {
+      setError("This relink request was denied in Telegram.");
+      setStep("error");
     } else if (data.status === "conflict") {
       setError("That Telegram account is already linked to a different Bottleneck account.");
       setStep("error");
@@ -107,7 +110,7 @@ export default function RelinkPage() {
       <p className="text-[13px] text-muted mb-7">
         {step === "send" && "Confirm ownership of your linked account before relinking"}
         {step === "enter_code" && "Enter the code sent to your linked Telegram"}
-        {step === "bot_link" && "Open the bot to complete the relink"}
+        {step === "bot_link" && "Open the bot and tap Approve to complete the relink"}
         {step === "success" && "Telegram account relinked — redirecting"}
         {step === "error" && "Something went wrong"}
       </p>
@@ -166,7 +169,8 @@ export default function RelinkPage() {
             <span className="text-[12px] text-fg">Telegram</span>
           </div>
           <p className="text-[13px] text-secondary mb-5">
-            Open the bot link from the Telegram account you want to link.
+            Open the bot from the Telegram account you want to link, then tap
+            Approve in the chat.
           </p>
           <a href={botUrl} target="_blank" rel="noreferrer" className="block mb-3">
             <Button type="button">Open Telegram bot</Button>
