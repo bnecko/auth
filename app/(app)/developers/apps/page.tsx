@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
+import { LayoutGrid } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
 import { Section, Empty } from "@/components/Section";
@@ -30,18 +30,8 @@ export default async function DeveloperAppsPage() {
   );
 
   return (
-    <AppShell
-      user={{
-        name: current.user.firstName,
-        username: current.user.username,
-      }}
-      trail="OAuth apps"
-      isAdmin={current.user.role === "admin"}
-    >
-      <header
-        className="flex items-end justify-between mb-10"
-        data-mount-row
-      >
+    <>
+      <header className="flex items-end justify-between mb-10">
         <div>
           <div className="flex items-baseline gap-2 mb-2">
             <span className="text-[13px] text-muted">Developer / apps</span>
@@ -58,11 +48,12 @@ export default async function DeveloperAppsPage() {
         </Link>
       </header>
 
-      <div data-mount-row>
+      <div>
         <Section
           index="1.0"
           title="Registered apps"
           hint="OAuth clients you own"
+          icon={LayoutGrid}
         >
           {apps.length === 0 ? (
             <Empty>No apps registered yet</Empty>
@@ -92,6 +83,6 @@ export default async function DeveloperAppsPage() {
           )}
         </Section>
       </div>
-    </AppShell>
+    </>
   );
 }

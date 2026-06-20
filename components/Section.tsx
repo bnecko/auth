@@ -1,32 +1,34 @@
+import type { LucideIcon } from "lucide-react";
+
 // A settings card: a white surface lifted by a hairline ring and a faint
-// shadow, with the title in an elevated header strip across the top and rows
-// beneath it. `data-mount-row` lets it ride the page-load stagger.
+// shadow, with the title (and an optional leading icon) in an elevated header
+// strip across the top and rows beneath it.
 
 export function Section({
   title,
+  icon: Icon,
   hint,
   action,
   index,
   children,
 }: {
   title: string;
+  icon?: LucideIcon;
   hint?: string;
   action?: React.ReactNode;
   index?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section
-      data-mount-row
-      className="mb-6 rounded-lg bg-card ring-1 ring-rule shadow-xs overflow-hidden"
-    >
+    <section className="mb-6 rounded-lg bg-card ring-1 ring-rule shadow-xs overflow-hidden">
       <header className="h-14 px-4 flex items-center justify-between gap-3 bg-elevated border-b border-rule">
-        <div className="flex items-baseline gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           {index && (
             <span className="text-[13px] text-faint tabular-nums shrink-0">
               {index}
             </span>
           )}
+          {Icon && <Icon size={15} className="text-muted shrink-0" />}
           <h2 className="text-[15px] font-semibold text-fg shrink-0">{title}</h2>
           {hint && (
             <span className="text-[13px] text-muted truncate">{hint}</span>

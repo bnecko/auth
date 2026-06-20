@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
+import { KeyRound } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 import { queryOne } from "@/lib/server/db";
@@ -46,17 +46,9 @@ export default async function AppSettingsPage({
   const initials = app.name.slice(0, 2).toUpperCase();
 
   return (
-    <AppShell
-      user={{
-        name: current.user.firstName,
-        username: current.user.username,
-      }}
-      trail={app.name}
-      isAdmin={current.user.role === "admin"}
-    >
+    <>
       <header
         className="flex items-start gap-5 mb-10"
-        data-mount-row
       >
         <div
           className="h-16 w-16 rounded-lg border border-rule bg-bg-soft flex items-center justify-center text-accent-strong text-[20px] font-semibold shrink-0"
@@ -80,11 +72,12 @@ export default async function AppSettingsPage({
         </div>
       </header>
 
-      <div data-mount-row>
+      <div>
         <Section
           index="1.0"
           title="Identifiers"
           hint="Immutable OAuth credentials"
+          icon={KeyRound}
         >
           <Row>
             <RowLabel>Client ID</RowLabel>
@@ -112,7 +105,7 @@ export default async function AppSettingsPage({
         </Section>
       </div>
 
-      <div data-mount-row>
+      <div>
         <AppSettingsForm
           appId={app.id}
           redirectUris={app.allowed_redirect_urls}
@@ -120,7 +113,7 @@ export default async function AppSettingsPage({
         />
       </div>
 
-      <div data-mount-row>
+      <div>
         <WebhookEndpointsSection
           appId={app.id}
           endpoints={webhookEndpoints.map(e => ({
@@ -132,6 +125,6 @@ export default async function AppSettingsPage({
           }))}
         />
       </div>
-    </AppShell>
+    </>
   );
 }

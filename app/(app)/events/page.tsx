@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
+import { History } from "lucide-react";
 import { Section, Empty } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 import { recentEventsForUser } from "@/lib/server/repositories/securityEvents";
@@ -13,17 +13,13 @@ export default async function EventsPage() {
   const events = await recentEventsForUser(u.id);
 
   return (
-    <AppShell
-      user={{ name: u.firstName, username: u.username }}
-      trail="Recent events"
-      isAdmin={u.role === "admin"}
-    >
-      <header data-mount-row className="mb-6">
+    <>
+      <header className="mb-6">
         <h1 className="text-[24px] tracking-tight text-fg leading-none mb-1">Recent events</h1>
         <p className="text-[13px] text-muted">Security activity on your account</p>
       </header>
 
-      <Section title="Recent events" hint="Last security activity">
+      <Section title="Recent events" hint="Last security activity" icon={History}>
         {events.length === 0 ? (
           <Empty>No recent events</Empty>
         ) : (
@@ -45,6 +41,6 @@ export default async function EventsPage() {
           </ul>
         )}
       </Section>
-    </AppShell>
+    </>
   );
 }
