@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { getSessionFromRequest } from "@/lib/server/session";
 import { createRelinkOtp } from "@/lib/server/relinkChallenge";
-import { sendTelegramMessage, escapeHtml } from "@/lib/server/telegramSend";
+import { sendTelegramMessage } from "@/lib/server/telegramSend";
 import { forbidden, json, tooManyRequests, requestContext } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   await sendTelegramMessage({
     chatId: user.telegramId,
-    text: `<b>Telegram relink requested</b>\n\nEnter this code on the website to confirm you own this account:\n\n<code>${escapeHtml(code)}</code>\n\nValid for 10 minutes. If you did not request this, ignore it.`,
+    text: `Telegram relink requested\n\nEnter this code on the website to confirm you own this account:\n\n${code}\n\nValid for 10 minutes. If you did not request this, ignore it.`,
   });
 
   return json({ ok: true });

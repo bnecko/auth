@@ -17,7 +17,7 @@ async function sendOperatorAlert(text) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: chatId, text }),
     });
   } catch (err) {
     logger.error("operator_alert_failed", { error: err });
@@ -293,7 +293,7 @@ async function disableEndpointIfFailing(row) {
       consecutiveFailures: endpoint.consecutive_failures,
     });
     await sendOperatorAlert(
-      `<b>Webhook endpoint auto-disabled</b>\nendpoint #${row.webhook_endpoint_id} after ${endpoint.consecutive_failures} consecutive failures`,
+      `Webhook endpoint auto-disabled\nendpoint #${row.webhook_endpoint_id} after ${endpoint.consecutive_failures} consecutive failures`,
     );
   }
 }

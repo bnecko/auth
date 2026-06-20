@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { getSessionFromRequest } from "@/lib/server/session";
 import { createStepUpOtp } from "@/lib/server/adminStepUp";
-import { sendTelegramMessage, escapeHtml } from "@/lib/server/telegramSend";
+import { sendTelegramMessage } from "@/lib/server/telegramSend";
 import { json, tooManyRequests } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   await sendTelegramMessage({
     chatId: user.telegramId,
-    text: `<b>Admin step-up verification</b>\n\nYour one-time code for admin access:\n\n<code>${escapeHtml(code)}</code>\n\nValid for 5 minutes. If you did not request this, someone has your password.`,
+    text: `Admin step-up verification\n\nYour one-time code for admin access:\n\n${code}\n\nValid for 5 minutes. If you did not request this, someone has your password.`,
   });
 
   return json({ ok: true });

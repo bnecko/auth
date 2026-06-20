@@ -3,7 +3,7 @@ import { normalizeIdentifier, publicId, randomToken } from "../crypto";
 import { type RequestContext } from "../http";
 import { verifyPassword } from "../password";
 import { recordSecurityEvent } from "../repositories/securityEvents";
-import { sendTelegramMessage, escapeHtml } from "../telegramSend";
+import { sendTelegramMessage } from "../telegramSend";
 import {
   applyEmailChange,
   applyUsernameChange,
@@ -104,14 +104,14 @@ export async function requestProfileChange(input: {
   await sendTelegramMessage({
     chatId: input.user.telegramId,
     text: [
-      "🔧 <b>Confirm account change</b>",
+      "Confirm account change",
       "",
-      `Change your <b>${input.field}</b> to:`,
-      `<b>${escapeHtml(newValue)}</b>`,
+      `Change your ${input.field} to:`,
+      newValue,
       "",
       "Do you want to apply this change?",
       "",
-      "⚠️ Only approve if you requested this. Never approve a change you didn't start.",
+      "Only approve if you requested this. Never approve a change you didn't start.",
     ].join("\n"),
     inlineButtons: [
       [
