@@ -17,6 +17,8 @@ create table users (
   avatar_preset smallint,
   restricted boolean not null default false,
   restricted_at timestamptz,
+  deactivated_at timestamptz,
+  deletion_requested_at timestamptz,
   notify_security_receipts boolean not null default true,
   notify_signin_alerts boolean not null default true,
   profile_public boolean not null default true,
@@ -29,6 +31,7 @@ create table users (
 );
 
 create index users_restricted_idx on users(id) where restricted;
+create index users_deletion_requested_idx on users(deletion_requested_at) where deletion_requested_at is not null;
 
 create table profile_change_requests (
   id bigserial primary key,

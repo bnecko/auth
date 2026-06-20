@@ -14,6 +14,7 @@ import {
   Settings,
   Bell,
   Eye,
+  TriangleAlert,
   House,
   Boxes,
   BookOpen,
@@ -105,6 +106,7 @@ const SETTINGS_SEARCH: FlatItem[] = [
   { href: "/settings/activity", label: "Activity", icon: History, group: "Settings" },
   { href: "/settings/notifications", label: "Notifications", icon: Bell, group: "Settings" },
   { href: "/settings/privacy", label: "Privacy", icon: Eye, group: "Settings" },
+  { href: "/settings/danger", label: "Danger zone", icon: TriangleAlert, group: "Settings" },
 ];
 
 function Monogram({ admin }: { admin?: boolean }) {

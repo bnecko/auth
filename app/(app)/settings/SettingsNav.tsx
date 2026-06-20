@@ -10,6 +10,7 @@ const sections = [
   { href: "/settings/activity", label: "Activity" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/privacy", label: "Privacy" },
+  { href: "/settings/danger", label: "Danger zone" },
 ];
 
 export function SettingsNav() {
