@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
+import { CreditCard } from "lucide-react";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
@@ -19,17 +19,13 @@ export default async function SubscriptionsPage() {
   const subscriptions = await listSubscriptionsForUser(u.id);
 
   return (
-    <AppShell
-      user={{ name: u.firstName, username: u.username }}
-      trail="Subscriptions"
-      isAdmin={u.role === "admin"}
-    >
-      <header data-mount-row className="mb-6">
+    <>
+      <header className="mb-6">
         <h1 className="text-[24px] tracking-tight text-fg leading-none mb-1">Subscriptions</h1>
         <p className="text-[13px] text-muted">Products tied to your account</p>
       </header>
 
-      <Section title="Subscriptions" hint="Products you pay for">
+      <Section title="Subscriptions" icon={CreditCard} hint="Products you pay for">
         {subscriptions.length === 0 ? (
           <Empty>No active subscriptions</Empty>
         ) : (
@@ -58,6 +54,6 @@ export default async function SubscriptionsPage() {
           ))
         )}
       </Section>
-    </AppShell>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
+import { LayoutGrid } from "lucide-react";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 import { listAuthorizationsForUser } from "@/lib/server/repositories/authorizations";
@@ -19,18 +19,15 @@ export default async function ConnectedAppsPage() {
   const apps = await listAuthorizationsForUser(u.id);
 
   return (
-    <AppShell
-      user={{ name: u.firstName, username: u.username }}
-      trail="Connected apps"
-      isAdmin={u.role === "admin"}
-    >
-      <header data-mount-row className="mb-6">
+    <>
+      <header className="mb-6">
         <h1 className="text-[24px] tracking-tight text-fg leading-none mb-1">Connected apps</h1>
         <p className="text-[13px] text-muted">External apps with access to your account</p>
       </header>
 
       <Section
         title="Connected apps"
+        icon={LayoutGrid}
         hint="OAuth grants"
         action={
           apps.length > 0 ? (
@@ -66,6 +63,6 @@ export default async function ConnectedAppsPage() {
           ))
         )}
       </Section>
-    </AppShell>
+    </>
   );
 }

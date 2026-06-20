@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { CodeTabs } from "./CodeTabs";
@@ -15,13 +14,7 @@ export default async function OAuthDocsPage() {
   }
 
   return (
-    <AppShell
-      user={{
-        name: current.user.firstName,
-        username: current.user.username,
-      }}
-      trail="OAuth docs"
-    >
+    <>
           <header className="mb-10">
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-[13px] text-muted">docs / oauth</span>
@@ -1007,7 +1000,7 @@ if result['status'] == 'approved':
               </nav>
             </aside>
           </div>
-    </AppShell>
+    </>
   );
 }
 

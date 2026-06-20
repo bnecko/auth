@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { TestLab } from "./test-lab";
@@ -13,13 +12,7 @@ export default async function TestLabPage() {
   }
 
   return (
-    <AppShell
-      user={{
-        name: current.user.firstName,
-        username: current.user.username,
-      }}
-      trail="Test field lab"
-    >
+    <>
       <header className="mb-10">
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[13px] text-muted">OAuth lab</span>
@@ -36,6 +29,6 @@ export default async function TestLabPage() {
       </header>
 
       <TestLab />
-    </AppShell>
+    </>
   );
 }

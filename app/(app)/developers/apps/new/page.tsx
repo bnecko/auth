@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
 import { getCurrentSession } from "@/lib/server/session";
 import { ClientForm } from "./ClientForm";
 
@@ -12,15 +11,9 @@ export default async function NewAppPage() {
   }
 
   return (
-    <AppShell
-      user={{
-        name: current.user.firstName,
-        username: current.user.username,
-      }}
-      trail="New app"
-    >
+    <>
       <div className="max-w-[720px]">
-        <header className="mb-10" data-mount-row>
+        <header className="mb-10">
           <h1 className="text-[32px] text-fg leading-none mb-3">
             New application
           </h1>
@@ -29,10 +22,10 @@ export default async function NewAppPage() {
           </p>
         </header>
 
-        <div data-mount-row>
+        <div>
           <ClientForm />
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

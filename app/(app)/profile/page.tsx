@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
+import { User } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 
@@ -11,17 +11,13 @@ export default async function ProfilePage() {
   const u = current.user;
 
   return (
-    <AppShell
-      user={{ name: u.firstName, username: u.username }}
-      trail="Profile"
-      isAdmin={u.role === "admin"}
-    >
-      <header data-mount-row className="mb-6">
+    <>
+      <header className="mb-6">
         <h1 className="text-[24px] tracking-tight text-fg leading-none mb-1">Profile</h1>
         <p className="text-[13px] text-muted">Your account details</p>
       </header>
 
-      <Section title="Profile" hint="Account fields">
+      <Section title="Profile" icon={User} hint="Account fields">
         <Row><RowLabel>First name</RowLabel><RowValue>{u.firstName}</RowValue><span /></Row>
         <Row><RowLabel>Username</RowLabel><RowValue>@{u.username}</RowValue><span /></Row>
         <Row>
@@ -45,6 +41,6 @@ export default async function ProfilePage() {
           </a>
         </Row>
       </Section>
-    </AppShell>
+    </>
   );
 }

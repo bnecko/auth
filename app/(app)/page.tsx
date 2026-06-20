@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
 import { getDashboard } from "@/lib/server/services/dashboard";
@@ -11,10 +10,6 @@ export const dynamic = "force-dynamic";
 
 function statusTone(status: string) {
   return status === "active" ? "success" : status === "banned" ? "danger" : "warning";
-}
-
-function shortDate(value: string | null) {
-  return value ? value.slice(0, 10) : "never";
 }
 
 function Card({
@@ -78,12 +73,8 @@ export default async function AccountHomePage() {
   const hasTelegram = !!u.telegramVerifiedAt;
 
   return (
-    <AppShell
-      user={{ name: u.firstName, username: u.username }}
-      trail="Account home"
-      isAdmin={u.role === "admin"}
-    >
-      <header data-mount-row className="mb-8">
+    <>
+      <header className="mb-8">
         <h1 className="text-[28px] tracking-tight text-fg leading-none mb-3">Account home</h1>
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-[14px] text-secondary">
@@ -96,7 +87,7 @@ export default async function AccountHomePage() {
         </div>
       </header>
 
-      <div data-mount-row className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <Card title="Account" href="/profile">
           <CardRow label="Status" value={<Tag tone={statusTone(u.status)}>{u.status}</Tag>} />
           <CardRow label="Telegram" value={hasTelegram ? "Verified" : "Not linked"} />
@@ -114,7 +105,7 @@ export default async function AccountHomePage() {
         </Card>
       </div>
 
-      <div data-mount-row className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="Recent activity" href="/events">
           {events.length === 0 ? (
             <div className="px-4 py-8 text-[13px] text-muted text-center">No recent events</div>
@@ -141,6 +132,6 @@ export default async function AccountHomePage() {
           <NextStep href="/request-bearer" label="Request an API bearer token" />
         </Card>
       </div>
-    </AppShell>
+    </>
   );
 }

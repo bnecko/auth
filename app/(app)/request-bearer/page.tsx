@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
-import { AppShell } from "@/components/AppShell";
 
 type Status = "idle" | "submitting" | "submitted" | "error";
 
@@ -43,7 +42,7 @@ export default function RequestBearerPage() {
   }
 
   return (
-    <AppShell user={{ name: "you", username: "you" }} trail="Request bearer">
+    <>
       <div className="max-w-[640px]">
           <header className="mb-9">
             <p className="text-[12px] text-muted mb-2">Bearer request</p>
@@ -122,6 +121,6 @@ export default function RequestBearerPage() {
             </form>
           )}
       </div>
-    </AppShell>
+    </>
   );
 }

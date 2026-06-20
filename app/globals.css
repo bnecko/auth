@@ -163,43 +163,21 @@ input[type="number"]::-webkit-inner-spin-button {
   animation: blink-step 1s step-end infinite;
 }
 
-/* Mount stagger — a single quiet page-load reveal. Apply `data-mount-stagger`
-   on a container and `data-mount-row` on each child. */
-[data-mount-stagger] > [data-mount-row] {
-  opacity: 0;
-  transform: translateY(4px);
-  animation: mount-row 280ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(1) {
-  animation-delay: 40ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(2) {
-  animation-delay: 100ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(3) {
-  animation-delay: 160ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(4) {
-  animation-delay: 220ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(5) {
-  animation-delay: 280ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(6) {
-  animation-delay: 340ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(7) {
-  animation-delay: 400ms;
-}
-[data-mount-stagger] > [data-mount-row]:nth-child(n + 8) {
-  animation-delay: 460ms;
-}
-
-@keyframes mount-row {
-  to {
+/* Skeleton placeholder — a quiet shimmer shown while content loads. The real
+   UI then replaces it instantly, with no entrance animation of its own. */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
     opacity: 1;
-    transform: none;
   }
+  50% {
+    opacity: 0.45;
+  }
+}
+.skeleton {
+  background: var(--hover);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes overlay-in {
@@ -228,9 +206,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-mount-stagger] > [data-mount-row] {
-    opacity: 1;
-    transform: none;
+  .skeleton {
     animation: none;
   }
   .cursor-blink {

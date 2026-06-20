@@ -199,7 +199,7 @@ function SearchPalette({ items, onClose }: { items: FlatItem[]; onClose: () => v
 
 export function AppShell({
   user,
-  trail = "Account",
+  trail,
   isAdmin,
   variant = "user",
   children,
@@ -220,6 +220,11 @@ export function AppShell({
   const nav = admin ? ADMIN_NAV : USER_NAV;
   const homeHref = admin ? "/admin" : "/";
   const flatItems: FlatItem[] = nav.flatMap(g => g.items.map(it => ({ ...it, group: g.label })));
+  const breadcrumb =
+    trail ??
+    (pathname === "/"
+      ? "Account home"
+      : flatItems.find(it => it.href === pathname)?.label ?? (admin ? "Admin" : "Account"));
 
   useEffect(() => {
     setIsMac(navigator.platform.toUpperCase().includes("MAC"));
@@ -265,7 +270,7 @@ export function AppShell({
           </span>
         )}
         <span className="text-faint">/</span>
-        <span className="text-[14px] text-secondary truncate">{trail}</span>
+        <span className="text-[14px] text-secondary truncate">{breadcrumb}</span>
         <div className="ml-auto flex items-center gap-1">
           {admin ? (
             <Link
@@ -406,10 +411,7 @@ export function AppShell({
         </aside>
 
         <main className="flex-1 min-w-0 bg-canvas">
-          <div
-            className="mx-auto w-full max-w-[1400px] px-6 md:px-8 lg:px-10 py-8"
-            data-mount-stagger
-          >
+          <div className="mx-auto w-full max-w-[1400px] px-6 md:px-8 lg:px-10 py-8">
             {children}
           </div>
         </main>

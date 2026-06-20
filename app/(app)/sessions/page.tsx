@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
+import { MonitorSmartphone } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
@@ -20,18 +20,15 @@ export default async function SessionsPage() {
   const sessions = await listSessionsForUser(u.id);
 
   return (
-    <AppShell
-      user={{ name: u.firstName, username: u.username }}
-      trail="Sessions"
-      isAdmin={u.role === "admin"}
-    >
-      <header data-mount-row className="mb-6">
+    <>
+      <header className="mb-6">
         <h1 className="text-[24px] tracking-tight text-fg leading-none mb-1">Sessions</h1>
         <p className="text-[13px] text-muted">Devices currently signed in</p>
       </header>
 
       <Section
         title="Sessions"
+        icon={MonitorSmartphone}
         hint="Signed-in browsers"
         action={
           <form action={revokeOtherSessionsAction}>
@@ -63,6 +60,6 @@ export default async function SessionsPage() {
           </Row>
         ))}
       </Section>
-    </AppShell>
+    </>
   );
 }
