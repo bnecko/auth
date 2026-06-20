@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/Button";
 import { BearerSection } from "@/components/BearerSection";
 import { getCurrentSession } from "@/lib/server/session";
 import { listBearerRequestsForUser } from "@/lib/server/repositories/bearerRequests";
@@ -19,11 +20,8 @@ export default async function BearersPage() {
           <h1 className="text-[24px] tracking-tight text-fg leading-none mb-1">API bearers</h1>
           <p className="text-[13px] text-muted">Long-lived tokens for server-to-server access</p>
         </div>
-        <Link
-          href="/request-bearer"
-          className="shrink-0 inline-flex items-center h-9 px-4 rounded-md bg-accent text-fg text-[13px] font-medium hover:brightness-95 transition"
-        >
-          Request bearer
+        <Link href="/request-bearer" className="shrink-0">
+          <Button variant="primary" size="sm">Request bearer</Button>
         </Link>
       </header>
 

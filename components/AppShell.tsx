@@ -58,7 +58,7 @@ const USER_NAV: NavGroup[] = [
     label: "Developer",
     items: [
       { href: "/developers/apps", label: "OAuth apps", icon: Boxes },
-      { href: "/developers/oauth", label: "OAuth docs", icon: BookOpen, newWindow: true },
+      { href: "/developers/oauth", label: "OAuth docs", icon: BookOpen },
       { href: "/developers/test-lab", label: "Test field lab", icon: FlaskConical },
     ],
   },
@@ -66,7 +66,7 @@ const USER_NAV: NavGroup[] = [
     label: "Support",
     items: [
       { href: "https://t.me/bottleneck_help", label: "Telegram", icon: Send, newWindow: true },
-      { href: "/#faq", label: "FAQ", icon: CircleHelp },
+      { href: "/faq", label: "FAQ", icon: CircleHelp },
     ],
   },
 ];
@@ -149,7 +149,7 @@ function SearchPalette({ items, onClose }: { items: FlatItem[]; onClose: () => v
         role="dialog"
         aria-modal="true"
         aria-label="Search"
-        className="palette-mount w-full max-w-[580px] bg-card border border-rule rounded-lg shadow-elevated overflow-hidden"
+        className="palette-mount w-full max-w-[600px] bg-card border border-rule rounded-xl shadow-elevated overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 p-4 border-b border-rule">
@@ -322,12 +322,12 @@ export function AppShell({
               type="button"
               onClick={() => setSearchOpen(true)}
               title="Search"
-              className="w-full h-9 flex items-center gap-2 px-2.5 rounded-md border border-rule text-[13px] text-muted hover:bg-hover transition-colors"
+              className="w-full h-9 flex items-center gap-2 px-2.5 rounded-lg border border-rule bg-card text-[13px] text-muted hover:border-rule-strong transition-colors"
             >
-              <Search size={16} className="shrink-0" />
+              <Search size={15} className="shrink-0 text-faint" />
               {!collapsed && (
                 <>
-                  <span>Search</span>
+                  <span>Search…</span>
                   <span className="ml-auto">
                     <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
                   </span>
@@ -411,7 +411,7 @@ export function AppShell({
         </aside>
 
         <main className="flex-1 min-w-0 bg-canvas">
-          <div className="mx-auto w-full max-w-[1400px] px-6 md:px-8 lg:px-10 py-8">
+          <div className="mx-auto w-full max-w-[1080px] px-6 md:px-8 lg:px-10 py-8">
             {children}
           </div>
         </main>

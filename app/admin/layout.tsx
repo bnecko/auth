@@ -1,20 +1,9 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
-import { isAdminStepUpVerified } from "@/lib/server/adminStepUp";
 import { getCurrentSession } from "@/lib/server/session";
 
-const TRAILS: Record<string, string> = {
-  "/admin": "Overview",
-  "/admin/users": "Users",
-  "/admin/oauth-clients": "OAuth clients",
-  "/admin/keys": "Signing keys",
-  "/admin/activation-requests": "Activation requests",
-  "/admin/webhooks": "Webhook deliveries",
-  "/admin/bans": "Bans",
-  "/admin/security": "Security events",
-};
-
+// Admin area gate: require an admin account. The Telegram step-up check lives in
+// the (panel) layout so that /admin/verify is reachable without being gated —
+// gating it caused a redirect-to-self / blank page on client-side navigation.
 export default async function AdminLayout({
   children,
 }: {
@@ -24,31 +13,5 @@ export default async function AdminLayout({
   if (!current || current.user.role !== "admin") {
     redirect("/");
   }
-
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-
-  // The step-up gate renders its own minimal shell; everything else gets the
-  // admin app shell once the live Telegram step-up is verified.
-  if (pathname === "/admin/verify") {
-    return <>{children}</>;
-  }
-
-  const verified = await isAdminStepUpVerified(current.user.id);
-  if (!verified) {
-    redirect("/admin/verify");
-  }
-
-  return (
-    <AppShell
-      variant="admin"
-      user={{
-        name: current.user.firstName || current.user.username,
-        username: current.user.username,
-      }}
-      trail={TRAILS[pathname] ?? "Admin"}
-    >
-      {children}
-    </AppShell>
-  );
+  return <>{children}</>;
 }

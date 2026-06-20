@@ -62,7 +62,7 @@ export default async function DeveloperAppsPage() {
               <Link
                 key={app.slug}
                 href={`/developers/apps/${app.slug}`}
-                className="grid grid-cols-[1fr_220px_140px] gap-4 px-1 py-3.5 border-t border-rule first:border-t-0 items-center text-[13px] group hover:text-accent-strong transition-colors"
+                className="grid grid-cols-[1fr_auto_120px] gap-4 px-4 py-3 border-t border-rule first:border-t-0 items-center text-[13px] group hover:bg-hover transition-colors"
               >
                 <div className="flex items-baseline gap-2 min-w-0">
                   <span className="text-fg group-hover:text-accent-strong transition-colors truncate">

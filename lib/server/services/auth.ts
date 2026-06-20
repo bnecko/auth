@@ -27,8 +27,11 @@ import {
   completeLoginChallenge,
   createLoginChallenge,
   findLoginChallenge,
-  verifyLoginChallengeByStartToken,
+  findPendingLoginChallengeByStartToken,
+  markLoginChallengeDenied,
+  markLoginChallengeVerified,
 } from "../repositories/loginChallenges";
+import { sendTelegramMessage, escapeHtml } from "../telegramSend";
 import {
   countRecentEventsByIp,
   recordSecurityEvent,
@@ -403,13 +406,13 @@ export async function getTelegramLoginChallenge(publicIdValue: string) {
   };
 }
 
-export async function verifyTelegramLoginChallenge(
+export async function requestTelegramLoginApproval(
   startToken: string,
   telegram: TelegramIdentity,
   req: NextRequest,
 ) {
   const context = requestContext(req);
-  const challenge = await verifyLoginChallengeByStartToken({
+  const challenge = await findPendingLoginChallengeByStartToken({
     startToken,
     telegramId: telegram.id,
   });
@@ -418,12 +421,63 @@ export async function verifyTelegramLoginChallenge(
     return null;
   }
 
+  // Don't auto-verify: ask the account owner to approve this specific login
+  // attempt (showing the originating IP) via inline buttons.
+  await sendTelegramMessage({
+    chatId: telegram.id,
+    text: [
+      "<b>New login attempt</b>",
+      `IP: <code>${escapeHtml(challenge.ip || "unknown")}</code>`,
+      "",
+      "Do you want to approve this sign-in?",
+    ].join("\n"),
+    inlineButtons: [
+      [
+        { text: "Approve", callbackData: `login_approve:${challenge.publicId}` },
+        { text: "Deny", callbackData: `login_deny:${challenge.publicId}` },
+      ],
+    ],
+  });
+
   await recordSecurityEvent({
     userId: challenge.userId,
-    eventType: "login_2fa_success",
-    result: "verified",
+    eventType: "login_2fa_prompt",
+    result: "sent",
     context,
     metadata: { challengeId: challenge.publicId, telegramId: telegram.id },
+  });
+
+  return challenge;
+}
+
+export async function decideTelegramLogin(input: {
+  challengeId: string;
+  decision: "approve" | "deny";
+  telegramId: string;
+  req: NextRequest;
+}) {
+  const context = requestContext(input.req);
+  const challenge =
+    input.decision === "approve"
+      ? await markLoginChallengeVerified({
+          publicId: input.challengeId,
+          telegramId: input.telegramId,
+        })
+      : await markLoginChallengeDenied({
+          publicId: input.challengeId,
+          telegramId: input.telegramId,
+        });
+
+  if (!challenge) {
+    return null;
+  }
+
+  await recordSecurityEvent({
+    userId: challenge.userId,
+    eventType: "login_2fa_decision",
+    result: input.decision === "approve" ? "verified" : "denied",
+    context,
+    metadata: { challengeId: challenge.publicId, telegramId: input.telegramId },
   });
 
   return challenge;

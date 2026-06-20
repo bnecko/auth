@@ -114,35 +114,26 @@ export function WebhookEndpointsSection({
                   <form action={rotate}>
                     <input type="hidden" name="app_id" value={appId} />
                     <input type="hidden" name="endpoint_id" value={ep.publicId} />
-                    <button
-                      type="submit"
-                      className="text-secondary hover:text-accent-strong transition-colors"
-                    >
+                    <Button type="submit" variant="secondary" size="sm">
                       Rotate secret
-                    </button>
+                    </Button>
                   </form>
                 )}
                 {ep.status === "active" && (
                   <form action={disableWebhookEndpointAction}>
                     <input type="hidden" name="app_id" value={appId} />
                     <input type="hidden" name="endpoint_id" value={ep.publicId} />
-                    <button
-                      type="submit"
-                      className="text-secondary hover:text-accent-strong transition-colors"
-                    >
+                    <Button type="submit" variant="danger" size="sm">
                       Disable
-                    </button>
+                    </Button>
                   </form>
                 )}
                 <form action={deleteWebhookEndpointAction}>
                   <input type="hidden" name="app_id" value={appId} />
                   <input type="hidden" name="endpoint_id" value={ep.publicId} />
-                  <button
-                    type="submit"
-                    className="text-secondary hover:text-danger transition-colors"
-                  >
+                  <Button type="submit" variant="danger" size="sm">
                     Delete
-                  </button>
+                  </Button>
                 </form>
               </div>
             </Row>

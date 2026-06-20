@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
+import { Button } from "@/components/Button";
 import { getCurrentSession } from "@/lib/server/session";
 import { listAuthorizationsForUser } from "@/lib/server/repositories/authorizations";
 import { revokeAppAction } from "@/app/dashboard-actions";
@@ -32,9 +33,9 @@ export default async function ConnectedAppsPage() {
         action={
           apps.length > 0 ? (
             <form action={revokeAllOAuthGrantsAction}>
-              <button className="text-[13px] text-secondary hover:text-danger transition-colors">
+              <Button type="submit" variant="danger" size="sm">
                 Revoke all
-              </button>
+              </Button>
             </form>
           ) : undefined
         }
@@ -52,12 +53,9 @@ export default async function ConnectedAppsPage() {
               </RowValue>
               <form action={revokeAppAction}>
                 <input type="hidden" name="appSlug" value={app.appSlug} />
-                <button
-                  type="submit"
-                  className="text-[13px] text-secondary hover:text-danger transition-colors"
-                >
+                <Button type="submit" variant="danger" size="sm">
                   Revoke
-                </button>
+                </Button>
               </form>
             </Row>
           ))

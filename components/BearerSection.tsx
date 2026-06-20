@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Button } from "@/components/Button";
 import { Empty, Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import type { BearerRequest } from "@/lib/server/types";
@@ -34,11 +35,8 @@ export function BearerSection({ bearers }: { bearers: BearerRequest[] }) {
       hint="Keys for external apps"
       index="3.1"
       action={
-        <Link
-          href="/request-bearer"
-          className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
-        >
-          Request bearer
+        <Link href="/request-bearer">
+          <Button variant="secondary" size="sm">Request bearer</Button>
         </Link>
       }
     >
@@ -157,40 +155,22 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
           {error && <span className="text-danger">{error}</span>}
           {canReveal && !hasKey && (
             <>
-              <button
-                type="button"
-                onClick={reveal}
-                disabled={busy}
-                className="text-secondary hover:text-accent-strong transition-colors disabled:text-faint"
-              >
+              <Button type="button" variant="secondary" size="sm" onClick={reveal} disabled={busy}>
                 Show
-              </button>
-              <button
-                type="button"
-                onClick={abandon}
-                disabled={busy}
-                className="text-faint hover:text-danger transition-colors disabled:text-faint"
-              >
+              </Button>
+              <Button type="button" variant="danger" size="sm" onClick={abandon} disabled={busy}>
                 Discard
-              </button>
+              </Button>
             </>
           )}
           {hasKey && (
             <>
-              <button
-                type="button"
-                onClick={copy}
-                className="text-secondary hover:text-accent-strong transition-colors"
-              >
+              <Button type="button" variant="secondary" size="sm" onClick={copy}>
                 {copied ? "Copied" : "Copy"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setRevealed(null)}
-                className="text-secondary hover:text-fg transition-colors"
-              >
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setRevealed(null)}>
                 Done
-              </button>
+              </Button>
             </>
           )}
         </span>

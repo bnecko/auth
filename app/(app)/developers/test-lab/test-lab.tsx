@@ -181,13 +181,13 @@ export function TestLab() {
     <div className="grid xl:grid-cols-[1fr_360px] gap-10 items-start">
       <div>
         <Section index="1.0" title="Client" hint="OAuth client config">
-          <div className="grid sm:grid-cols-[120px_1fr] gap-3 py-3 px-1 border-b border-rule">
+          <div className="grid sm:grid-cols-[120px_1fr] gap-3 py-3 px-3 border-b border-rule">
             <span className="text-[12px] text-muted">Server</span>
             <span className="text-[13px] text-fg truncate">
               {cleanBase || "current origin"}
             </span>
           </div>
-          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 py-4 px-1">
+          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 py-4 px-3">
             <LabField label="Client ID" value={clientId} onChange={setClientId} />
             <LabField
               label="Client secret"
@@ -207,7 +207,7 @@ export function TestLab() {
         </Section>
 
         <Section index="2.0" title="PKCE" hint="Proof key for code exchange">
-          <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end py-4 px-1">
+          <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end py-4 px-3">
             <LabField
               label="Code verifier"
               value={verifier}
@@ -222,7 +222,7 @@ export function TestLab() {
               </Button>
             </div>
           </div>
-          <div className="py-4 px-1 border-t border-rule">
+          <div className="py-4 px-3 border-t border-rule">
             <LabText
               label="Code challenge"
               value={challenge}
@@ -232,7 +232,7 @@ export function TestLab() {
         </Section>
 
         <Section index="3.0" title="Authorize URL" hint="Full request">
-          <div className="py-4 px-1">
+          <div className="py-4 px-3">
             <LabText
               label="URL"
               value={authorizeUrl}
@@ -256,7 +256,7 @@ export function TestLab() {
         </Section>
 
         <Section index="4.0" title="Token operations" hint="Exchange / refresh / introspect / revoke">
-          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 py-4 px-1">
+          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 py-4 px-3">
             <LabField label="Authorization code" value={code} onChange={setCode} />
             <LabField
               label="Refresh token"
@@ -280,7 +280,7 @@ export function TestLab() {
               ]}
             />
           </div>
-          <div className="grid sm:grid-cols-4 gap-2 py-4 px-1 border-t border-rule">
+          <div className="grid sm:grid-cols-4 gap-2 py-4 px-3 border-t border-rule">
             <Button
               variant="secondary"
               type="button"
@@ -319,7 +319,7 @@ export function TestLab() {
 
       <aside className="space-y-6 xl:sticky xl:top-16">
         <Section title="Metadata" hint="Discovery">
-          <div className="grid gap-2 py-4 px-1">
+          <div className="grid gap-2 py-4 px-3">
             <Button
               variant="secondary"
               type="button"

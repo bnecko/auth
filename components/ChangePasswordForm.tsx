@@ -14,7 +14,7 @@ export function ChangePasswordForm({
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-sm py-2">
+    <form action={formAction} className="flex flex-col gap-4 max-w-md py-2">
       {state?.error && <Alert tone="danger">{state.error}</Alert>}
       {state?.success && (
         <Alert tone="success">
@@ -39,7 +39,7 @@ export function ChangePasswordForm({
         required
       />
       <div>
-        <Button type="submit" loading={pending}>
+        <Button type="submit" size="sm" loading={pending}>
           Change password
         </Button>
       </div>
