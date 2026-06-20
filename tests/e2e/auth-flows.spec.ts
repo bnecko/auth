@@ -9,11 +9,14 @@ test("login keeps remember-me visible and enabled", async ({ page }) => {
   await expect(page.getByRole("checkbox", { name: /remember/i })).toBeChecked();
 });
 
-test("telegram 2fa waiting screen preserves bot handoff", async ({ page }) => {
+test("telegram 2fa waiting screen prompts for the pushed approval", async ({ page }) => {
   await page.goto("/login/telegram?id=test-challenge");
 
-  await expect(page.getByText("telegram 2fa")).toBeVisible();
-  await expect(page.getByText("waiting for telegram")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /confirm it/i })).toBeVisible();
+  await expect(
+    page.getByText("We sent a sign-in request to your Telegram"),
+  ).toBeVisible();
+  await expect(page.getByText("Waiting for your Telegram tap")).toBeVisible();
 });
 
 test("device flow redirects unauthenticated users to login", async ({ page }) => {
