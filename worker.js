@@ -1,6 +1,6 @@
 const { Worker } = require("bullmq");
 const Redis = require("ioredis");
-const { createHmac } = require("crypto");
+const { createHmac, createHash } = require("crypto");
 const { Pool } = require("pg");
 const { lookup } = require("dns/promises");
 const { isIP } = require("net");
@@ -561,6 +561,50 @@ async function sweepRestrictedInactive() {
   }
 }
 
+// Purge accounts whose grace-period soft delete has elapsed. Signing in before
+// the deadline clears deletion_requested_at (createUserSession), so anything
+// still set past the window is a confirmed deletion. We reserve the Telegram
+// identity in `bans` first (so a recreated account stays blocked even after the
+// row is gone), then delete the user, which cascades to their data.
+async function sweepPendingDeletions() {
+  try {
+    const days = Number(process.env.DELETION_GRACE_DAYS || 30);
+    const due = await pool.query(
+      `select id, public_id, telegram_id
+         from users
+        where deletion_requested_at is not null
+          and deletion_requested_at < now() - make_interval(days => $1)
+        limit 200`,
+      [days],
+    );
+    for (const row of due.rows) {
+      if (row.telegram_id) {
+        const valueHash = createHash("sha256").update(row.telegram_id).digest("hex");
+        await pool.query(
+          `insert into bans (kind, user_id, value_hash, reason, created_by_user_id)
+           values ('telegram_id', null, $1, 'account deleted', null)
+           on conflict (kind, value_hash) where revoked_at is null and value_hash is not null
+             do nothing`,
+          [valueHash],
+        );
+      }
+      // Recorded before the delete; security_events.user_id is ON DELETE SET
+      // NULL, so the audit row survives the cascade (public_id kept in metadata).
+      await pool.query(
+        `insert into security_events (user_id, event_type, result, ip, user_agent, country, metadata)
+         values ($1, 'account_purged', 'ok', '', 'worker', '', $2::jsonb)`,
+        [row.id, JSON.stringify({ publicId: row.public_id, days })],
+      );
+      await pool.query(`delete from users where id = $1`, [row.id]);
+    }
+    if (due.rows.length > 0) {
+      logger.info("account_purge", { count: due.rows.length });
+    }
+  } catch (err) {
+    logger.error("deletion_sweep_error", { error: err });
+  }
+}
+
 // Wires up the Redis-backed telegram worker and the DB poll loops. Kept
 // behind a require.main guard so the delivery functions can be imported
 // by tests without opening a Redis connection or starting the timers.
@@ -656,6 +700,12 @@ function startWorker() {
   intervalIds.push(setInterval(() => runBatch(sweepRestrictedInactive, "restriction_sweep_loop_error"), 60 * 60 * 1000));
   runBatch(sweepRestrictedInactive, "initial_restriction_sweep_error");
   logger.info("restriction_sweep_started");
+
+  // Soft-deleted accounts past their grace window get purged. Hourly is plenty
+  // for a 30-day clock.
+  intervalIds.push(setInterval(() => runBatch(sweepPendingDeletions, "deletion_sweep_loop_error"), 60 * 60 * 1000));
+  runBatch(sweepPendingDeletions, "initial_deletion_sweep_error");
+  logger.info("deletion_sweep_started");
 
   process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
   process.on("SIGINT", () => shutdownGracefully("SIGINT"));

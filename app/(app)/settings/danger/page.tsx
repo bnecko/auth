@@ -5,6 +5,7 @@ import { Button } from "@/components/Button";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { getCurrentSession } from "@/lib/server/session";
 import { deactivateAccountAction } from "./actions";
+import { DeleteAccountFlow } from "./DeleteAccountFlow";
 
 export const dynamic = "force-dynamic";
 
@@ -57,11 +58,8 @@ export default async function DangerZonePage() {
         </Row>
       </Section>
 
-      <Section title="Delete" icon={TriangleAlert} hint="Permanent after a grace period">
-        <p className="px-4 py-4 text-[13px] text-muted">
-          Account deletion is coming soon. It will require Telegram approval and a grace period
-          before anything is removed.
-        </p>
+      <Section title="Delete" icon={TriangleAlert} hint="Permanent after a 30-day grace period">
+        <DeleteAccountFlow hasTelegram={!!current.user.telegramId} />
       </Section>
     </>
   );
