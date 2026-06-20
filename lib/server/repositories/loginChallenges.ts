@@ -3,6 +3,7 @@ import { hashToken } from "../crypto";
 
 export type LoginChallengeStatus =
   | "pending"
+  | "approved"
   | "verified"
   | "expired"
   | "cancelled";
@@ -137,16 +138,18 @@ export async function findPendingLoginChallengeByStartToken(input: {
   return row ? mapChallenge(row) : null;
 }
 
-// Approve: mark the pending challenge verified, but only if the approving
-// Telegram account is the one the challenge belongs to.
-export async function markLoginChallengeVerified(input: {
+// Approve (the user tapped "Log in" in Telegram): move pending -> approved and
+// stash the 6-digit code hash, scoped to the approving Telegram account. The
+// user still has to enter the code on the web to finish (completeLoginChallenge).
+export async function markLoginChallengeApproved(input: {
   publicId: string;
   telegramId: string;
+  codeHash: string;
 }) {
   const row = await queryOne<LoginChallengeRow>(
     `update telegram_login_challenges tlc
-        set status = 'verified',
-            verified_at = now()
+        set status = 'approved',
+            code_hash = $4
        from users u
       where tlc.user_id = u.id
         and tlc.public_id = $1
@@ -154,7 +157,7 @@ export async function markLoginChallengeVerified(input: {
         and tlc.status = 'pending'
         and tlc.expires_at > $3
       returning ${challengeSelectWithAlias}`,
-    [input.publicId, input.telegramId, new Date().toISOString()],
+    [input.publicId, input.telegramId, new Date().toISOString(), input.codeHash],
   );
   return row ? mapChallenge(row) : null;
 }
@@ -178,19 +181,30 @@ export async function markLoginChallengeDenied(input: {
   return row ? mapChallenge(row) : null;
 }
 
+// Final step: verify the 6-digit code against an approved challenge and consume
+// it (approved -> verified) so the same code can't be reused. Scoped to the
+// browser that started the login + the exact code hash.
 export async function completeLoginChallenge(input: {
   publicId: string;
   browserToken: string;
+  codeHash: string;
 }) {
   const row = await queryOne<LoginChallengeRow>(
     `update telegram_login_challenges
-        set status = 'cancelled'
+        set status = 'verified',
+            verified_at = now()
       where public_id = $1
         and browser_token_hash = $2
-        and status = 'verified'
+        and code_hash = $4
+        and status = 'approved'
         and expires_at > $3
       returning ${challengeSelect}`,
-    [input.publicId, hashToken(input.browserToken), new Date().toISOString()],
+    [
+      input.publicId,
+      hashToken(input.browserToken),
+      new Date().toISOString(),
+      input.codeHash,
+    ],
   );
   return row ? mapChallenge(row) : null;
 }

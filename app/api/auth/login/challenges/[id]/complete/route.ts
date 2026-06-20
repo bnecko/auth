@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { loginChallengeCookieName } from "@/lib/server/config";
-import { badRequest } from "@/lib/server/http";
+import { badRequest, requestBody } from "@/lib/server/http";
 import {
   clearLoginChallengeCookie,
   createUserSession,
@@ -18,9 +18,15 @@ export async function POST(
     return badRequest("verification browser session is missing");
   }
 
+  const body = await requestBody(req);
+  const code = typeof body.code === "string" ? body.code : "";
+  if (!/^\d{6}$/.test(code.trim())) {
+    return badRequest("enter the 6-digit code");
+  }
+
   try {
     const { id } = await params;
-    const result = await completeTelegramLoginChallenge(id, browserToken, req);
+    const result = await completeTelegramLoginChallenge(id, browserToken, code, req);
     const res = NextResponse.json({ redirectTo: "/" });
     clearLoginChallengeCookie(res);
     await createUserSession(result.user.id, req, res, {

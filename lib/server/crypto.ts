@@ -1,7 +1,13 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 
 export function randomToken(bytes = 32) {
   return randomBytes(bytes).toString("base64url");
+}
+
+// A zero-padded numeric one-time code (default 6 digits) for the login 2FA
+// flow. Uses a uniform CSPRNG draw so codes are not biased.
+export function numericCode(digits = 6) {
+  return String(randomInt(0, 10 ** digits)).padStart(digits, "0");
 }
 
 export function publicId(prefix: string) {

@@ -38,7 +38,6 @@ export default function LoginPage() {
       redirectTo?: string;
       requiresTelegram?: boolean;
       challengeId?: string;
-      botUrl?: string;
       error?: string;
       errors?: Record<string, string>;
     };
@@ -52,12 +51,6 @@ export default function LoginPage() {
 
     if (response.status === 202 && data.requiresTelegram && data.challengeId) {
       const params = new URLSearchParams(window.location.search);
-      if (data.botUrl) {
-        sessionStorage.setItem(
-          `bn_login_bot_url_${data.challengeId}`,
-          data.botUrl,
-        );
-      }
       sessionStorage.setItem(
         `bn_login_next_${data.challengeId}`,
         safeNext(params.get("next") || data.redirectTo),

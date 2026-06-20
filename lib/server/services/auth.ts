@@ -5,6 +5,7 @@ import { login2faTtlMinutes, registrationTtlMinutes } from "../config";
 import {
   hashToken,
   normalizeIdentifier,
+  numericCode,
   publicId,
   randomToken,
   telegramStartToken,
@@ -34,7 +35,7 @@ import {
   findLoginChallenge,
   findPendingLoginChallengeByStartToken,
   markLoginChallengeDenied,
-  markLoginChallengeVerified,
+  markLoginChallengeApproved,
 } from "../repositories/loginChallenges";
 import { sendTelegramMessage } from "../telegramSend";
 import {
@@ -381,6 +382,17 @@ export async function createTelegramLoginChallenge(
   }
 
   const context = requestContext(req);
+  // A banned Telegram identity cannot pass 2FA (blocks recreated accounts).
+  if (await isTelegramIdBanned(user.telegramId)) {
+    await recordSecurityEvent({
+      userId: user.id,
+      eventType: "login_2fa_required",
+      result: "telegram_banned",
+      context,
+    });
+    throw new Error("account unavailable");
+  }
+
   const startToken = telegramStartToken();
   const browserToken = randomToken();
   const expiresAt = new Date(Date.now() + login2faTtlMinutes() * 60_000);
@@ -393,6 +405,28 @@ export async function createTelegramLoginChallenge(
     ip: context.ip,
     userAgent: context.userAgent,
     expiresAt,
+  });
+
+  // Push the approval prompt straight to the user's Telegram - no t.me link to
+  // open. Tapping "Log in" issues the 6-digit code (see decideTelegramLogin).
+  await sendTelegramMessage({
+    chatId: user.telegramId,
+    text: [
+      "🔐 New login attempt",
+      "",
+      `User: ${user.username}`,
+      `IP: ${context.ip || "unknown"}`,
+      "",
+      "Do you want to sign in?",
+      "",
+      "Only approve if this is you. Never approve a sign-in for someone else.",
+    ].join("\n"),
+    inlineButtons: [
+      [
+        { text: "Log in", callbackData: `login_approve:${challenge.publicId}` },
+        { text: "Not me", callbackData: `login_deny:${challenge.publicId}` },
+      ],
+    ],
   });
 
   await recordSecurityEvent({
@@ -417,8 +451,10 @@ export async function getTelegramLoginChallenge(publicIdValue: string) {
   }
 
   const expired = Date.parse(challenge.expiresAt) <= Date.now();
+  const pendingish =
+    challenge.status === "pending" || challenge.status === "approved";
   return {
-    status: expired && challenge.status === "pending" ? "expired" : challenge.status,
+    status: expired && pendingish ? "expired" : challenge.status,
     expiresAt: challenge.expiresAt,
   };
 }
@@ -487,25 +523,50 @@ export async function decideTelegramLogin(input: {
   req: NextRequest;
 }) {
   const context = requestContext(input.req);
-  const challenge =
-    input.decision === "approve"
-      ? await markLoginChallengeVerified({
-          publicId: input.challengeId,
-          telegramId: input.telegramId,
-        })
-      : await markLoginChallengeDenied({
-          publicId: input.challengeId,
-          telegramId: input.telegramId,
-        });
 
+  if (input.decision === "deny") {
+    const denied = await markLoginChallengeDenied({
+      publicId: input.challengeId,
+      telegramId: input.telegramId,
+    });
+    if (!denied) return null;
+    await recordSecurityEvent({
+      userId: denied.userId,
+      eventType: "login_2fa_decision",
+      result: "denied",
+      context,
+      metadata: { challengeId: denied.publicId, telegramId: input.telegramId },
+    });
+    return denied;
+  }
+
+  // Approve: issue a 6-digit code (stored hashed) and send it to the user's
+  // Telegram. They type it on the web to finish - the tap alone isn't enough.
+  const code = numericCode(6);
+  const challenge = await markLoginChallengeApproved({
+    publicId: input.challengeId,
+    telegramId: input.telegramId,
+    codeHash: hashToken(code),
+  });
   if (!challenge) {
     return null;
   }
 
+  await sendTelegramMessage({
+    chatId: input.telegramId,
+    text: [
+      "Your Bottleneck login code:",
+      "",
+      code,
+      "",
+      "Enter it on the sign-in page to finish. It expires shortly. If you didn't try to sign in, ignore this.",
+    ].join("\n"),
+  });
+
   await recordSecurityEvent({
     userId: challenge.userId,
     eventType: "login_2fa_decision",
-    result: input.decision === "approve" ? "verified" : "denied",
+    result: "approved",
     context,
     metadata: { challengeId: challenge.publicId, telegramId: input.telegramId },
   });
@@ -516,12 +577,14 @@ export async function decideTelegramLogin(input: {
 export async function completeTelegramLoginChallenge(
   publicIdValue: string,
   browserToken: string,
+  code: string,
   req: NextRequest,
 ) {
   const context = requestContext(req);
   const challenge = await completeLoginChallenge({
     publicId: publicIdValue,
     browserToken,
+    codeHash: hashToken(code.trim()),
   });
 
   if (!challenge) {
@@ -531,7 +594,7 @@ export async function completeTelegramLoginChallenge(
       context,
       metadata: { challengeId: publicIdValue },
     });
-    throw new Error("verification is not complete");
+    throw new Error("incorrect or expired code");
   }
 
   const user = await findUserById(challenge.userId);
