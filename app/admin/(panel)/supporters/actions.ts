@@ -7,8 +7,11 @@ import { addSupporter, removeSupporter } from "@/lib/server/services/support";
 export async function addSupporterAction(formData: FormData) {
   const current = await requireAdminStepUpSession();
   const username = String(formData.get("username") || "").trim();
+  const roleRaw = String(formData.get("role") || "supporter");
+  const role =
+    roleRaw === "security" || roleRaw === "security_high" ? roleRaw : "supporter";
   if (username) {
-    await addSupporter({ admin: current.user, username });
+    await addSupporter({ admin: current.user, username, role });
   }
   revalidatePath("/admin/supporters");
 }

@@ -236,6 +236,8 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
         telegramUsername: null,
         telegramVerifiedAt: null,
         avatarPreset: null,
+        restricted: false,
+        restrictedAt: null,
         role: 'admin',
         status: 'active',
         createdAt: new Date().toISOString(),

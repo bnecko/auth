@@ -514,6 +514,53 @@ function validateConfig() {
   }
 }
 
+// A restriction whose security thread has had no activity from the restricted
+// user for the inactivity window is auto-closed and the account is banned. Only
+// acts on status='active' rows and transitions them first, so a mid-run crash
+// (the loop re-runs hourly) cannot double-ban. Idempotent.
+async function sweepRestrictedInactive() {
+  try {
+    const days = Number(process.env.RESTRICTION_INACTIVITY_DAYS || 60);
+    const banned = await pool.query(
+      `with stale as (
+         select r.id, r.user_id, r.trigger_code
+           from user_restrictions r
+          where r.status = 'active'
+            and coalesce(r.last_user_activity_at, r.created_at)
+                < now() - make_interval(days => $1)
+          limit 200
+       ), closed as (
+         update user_restrictions r
+            set status = 'closed', lifted_at = now()
+           from stale s
+          where r.id = s.id
+       )
+       update users u
+          set status = 'banned', restricted = false, restricted_at = null, updated_at = now()
+         from stale s
+        where u.id = s.user_id
+        returning u.id as user_id, s.trigger_code`,
+      [days],
+    );
+    for (const row of banned.rows) {
+      await pool.query(
+        `update sessions set revoked_at = now() where user_id = $1 and revoked_at is null`,
+        [row.user_id],
+      );
+      await pool.query(
+        `insert into security_events (user_id, event_type, result, ip, user_agent, country, metadata)
+         values ($1, 'restriction_auto_ban', 'ok', '', 'worker', '', $2::jsonb)`,
+        [row.user_id, JSON.stringify({ triggerCode: row.trigger_code, days })],
+      );
+    }
+    if (banned.rows.length > 0) {
+      logger.info("restriction_auto_ban", { count: banned.rows.length });
+    }
+  } catch (err) {
+    logger.error("restriction_sweep_error", { error: err });
+  }
+}
+
 // Wires up the Redis-backed telegram worker and the DB poll loops. Kept
 // behind a require.main guard so the delivery functions can be imported
 // by tests without opening a Redis connection or starting the timers.
@@ -603,6 +650,12 @@ function startWorker() {
   intervalIds.push(setInterval(() => runBatch(sweepExpiredActivations, "activation_sweep_loop_error"), 60 * 1000));
   runBatch(sweepExpiredActivations, "initial_activation_sweep_error");
   logger.info("activation_expiry_sweep_started");
+
+  // Restricted accounts inactive for the threshold get auto-banned (the case is
+  // closed). Hourly is plenty for a 60-day clock.
+  intervalIds.push(setInterval(() => runBatch(sweepRestrictedInactive, "restriction_sweep_loop_error"), 60 * 60 * 1000));
+  runBatch(sweepRestrictedInactive, "initial_restriction_sweep_error");
+  logger.info("restriction_sweep_started");
 
   process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
   process.on("SIGINT", () => shutdownGracefully("SIGINT"));

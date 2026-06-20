@@ -38,6 +38,8 @@ async function seedUser(prefix = 'sess'): Promise<User> {
     telegramUsername: null,
     telegramVerifiedAt: null,
     avatarPreset: null,
+    restricted: false,
+    restrictedAt: null,
     role: 'user',
     status: 'active',
     createdAt: new Date().toISOString(),

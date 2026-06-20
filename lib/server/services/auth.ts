@@ -27,6 +27,7 @@ import {
 } from "../repositories/registrationRequests";
 import { beginRelinkApproval, decideRelink } from "../relinkChallenge";
 import { isTelegramIdBanned } from "../repositories/bans";
+import { recordSuspicionEvent } from "../repositories/suspicion";
 import {
   completeLoginChallenge,
   createLoginChallenge,
@@ -303,11 +304,23 @@ export async function loginUser(input: LoginInput, req: NextRequest) {
     result: "ok",
     context,
   });
-  await assessRequestRisk({
+  const risk = await assessRequestRisk({
     userId: user.id,
     eventType: "login_success",
     context,
   });
+  // Detection seam: a high-risk sign-in enqueues a review for the security team
+  // (queue-only; a human decides whether to restrict). An AI scorer could later
+  // replace this trigger without touching callers.
+  if (risk.result === "high") {
+    await recordSuspicionEvent({
+      publicId: publicId("sus"),
+      userId: user.id,
+      triggerType: "login_anomaly",
+      score: risk.score,
+      reasons: risk.reasons,
+    });
+  }
 
   return user;
 }

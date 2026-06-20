@@ -73,6 +73,25 @@ export function computeAccess(input: {
   const signedIn = !!viewer;
   const isAuthor = signedIn && viewer.id === thread.authorUserId;
 
+  // Security threads (restriction conversations) never surface through the
+  // normal support pages. The restricted user reaches theirs via /restricted
+  // and the security team via the admin restrictions page; only admins may
+  // open one here, and never with edit/publish/star affordances.
+  if (thread.kind === "security") {
+    const canView = isAdmin;
+    return {
+      canView,
+      canComment: false,
+      canInternalNote: canView,
+      canStar: false,
+      canClaim: false,
+      canManage: false,
+      canEditThread: false,
+      canDeleteThread: false,
+      canPublish: false,
+    };
+  }
+
   // Private threads: the author always sees their own; admins see all; a
   // supporter sees it only while it is unclaimed, or if they are the claimer
   // or were invited onto it.
@@ -554,18 +573,23 @@ function adminContext(): RequestContext {
   return { ip: "", userAgent: "admin_ui", country: "" };
 }
 
-export async function addSupporter(input: { admin: User; username: string }) {
+export async function addSupporter(input: {
+  admin: User;
+  username: string;
+  role?: "supporter" | "security" | "security_high";
+}) {
   const target = await findUserByIdentifier(input.username.trim());
   if (!target) {
     throw new Error("no user with that username");
   }
-  await addSupportTeamMember({ userId: target.id, addedByUserId: input.admin.id });
+  const role = input.role || "supporter";
+  await addSupportTeamMember({ userId: target.id, addedByUserId: input.admin.id, role });
   await recordSecurityEvent({
     userId: input.admin.id,
     eventType: "support_supporter_added",
-    result: "ok",
+    result: role,
     context: adminContext(),
-    metadata: { supporter: target.id, username: target.username },
+    metadata: { supporter: target.id, username: target.username, role },
   });
 }
 

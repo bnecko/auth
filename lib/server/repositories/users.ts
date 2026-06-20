@@ -15,6 +15,8 @@ type UserRow = {
   telegram_username: string | null;
   telegram_verified_at: string | null;
   avatar_preset: number | null;
+  restricted: boolean;
+  restricted_at: string | null;
   role: UserRole;
   status: UserStatus;
   created_at: string;
@@ -45,6 +47,8 @@ function mapUser(row: UserRow): User {
     telegramUsername: row.telegram_username,
     telegramVerifiedAt: row.telegram_verified_at,
     avatarPreset: row.avatar_preset,
+    restricted: row.restricted,
+    restrictedAt: row.restricted_at,
     role: row.role,
     status: row.status,
     createdAt: row.created_at,
@@ -64,6 +68,8 @@ const userSelect = `
   telegram_username,
   telegram_verified_at::text,
   avatar_preset,
+  restricted,
+  restricted_at::text,
   role,
   status,
   created_at::text

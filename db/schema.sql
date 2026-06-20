@@ -15,11 +15,15 @@ create table users (
   telegram_username text,
   telegram_verified_at timestamptz,
   avatar_preset smallint,
+  restricted boolean not null default false,
+  restricted_at timestamptz,
   role text not null default 'user' check (role in ('user', 'admin')),
   status text not null default 'active' check (status in ('pending', 'active', 'limited', 'banned')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create index users_restricted_idx on users(id) where restricted;
 
 create table profile_change_requests (
   id bigserial primary key,
@@ -448,7 +452,7 @@ create index webhook_deliveries_status_idx on webhook_deliveries(status, next_at
 create table support_threads (
   id bigserial primary key,
   public_id text not null unique,
-  kind text not null check (kind in ('ticket', 'issue')),
+  kind text not null check (kind in ('ticket', 'issue', 'security')),
   visibility text not null check (visibility in ('public', 'private')),
   status text not null default 'open'
     check (status in ('open', 'in_progress', 'resolved', 'closed')),
@@ -494,6 +498,8 @@ create table support_team (
   id bigserial primary key,
   user_id bigint not null unique references users(id) on delete cascade,
   added_by_user_id bigint references users(id) on delete set null,
+  role text not null default 'supporter'
+    check (role in ('supporter', 'security', 'security_high')),
   created_at timestamptz not null default now()
 );
 
@@ -525,3 +531,42 @@ create index support_thread_revisions_thread_idx
   on support_thread_revisions(thread_id, created_at);
 create index support_threads_public_status_idx
   on support_threads(visibility, status, star_count desc);
+
+create table user_restrictions (
+  id bigserial primary key,
+  public_id text not null unique,
+  user_id bigint not null references users(id) on delete cascade,
+  status text not null default 'active'
+    check (status in ('active', 'appealed', 'closed', 'lifted')),
+  trigger_type text not null,
+  trigger_code text not null unique,
+  reason text,
+  security_thread_id bigint references support_threads(id) on delete set null,
+  suspicion_event_id bigint,
+  restricted_by_user_id bigint references users(id) on delete set null,
+  last_user_activity_at timestamptz,
+  created_at timestamptz not null default now(),
+  lifted_at timestamptz
+);
+
+create unique index user_restrictions_active_user_idx
+  on user_restrictions(user_id) where status = 'active';
+create index user_restrictions_status_activity_idx
+  on user_restrictions(status, last_user_activity_at);
+
+create table suspicion_events (
+  id bigserial primary key,
+  public_id text not null unique,
+  user_id bigint references users(id) on delete cascade,
+  trigger_type text not null,
+  score integer not null default 0,
+  reasons jsonb not null default '[]'::jsonb,
+  status text not null default 'pending'
+    check (status in ('pending', 'actioned', 'dismissed')),
+  reviewed_by_user_id bigint references users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index suspicion_events_status_created_idx
+  on suspicion_events(status, created_at);
+create index suspicion_events_user_idx on suspicion_events(user_id);

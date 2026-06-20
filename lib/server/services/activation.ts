@@ -61,6 +61,7 @@ export async function assertBearerOwnerAllowed(app: ExternalApp) {
   if (!owner) return;
   const blocked =
     owner.status === "banned" ||
+    owner.restricted ||
     (await isActiveBanForUser(owner.id)) ||
     (await isTelegramIdBanned(owner.telegramId));
   if (blocked) {

@@ -1,6 +1,6 @@
 import { query, queryOne } from "../db";
 
-export type SupportThreadKind = "ticket" | "issue";
+export type SupportThreadKind = "ticket" | "issue" | "security";
 export type SupportThreadVisibility = "public" | "private";
 export type SupportThreadStatus = "open" | "in_progress" | "resolved" | "closed";
 
@@ -35,10 +35,13 @@ export type SupportMessage = {
   authorUsername: string | null;
 };
 
+export type SupporterRole = "supporter" | "security" | "security_high";
+
 export type SupportTeamMember = {
   userId: number;
   username: string;
   firstName: string;
+  role: SupporterRole;
   addedByUserId: number | null;
   createdAt: string;
 };
@@ -207,6 +210,14 @@ export async function findSupportThreadByPublicId(publicId: string) {
   return row ? mapThread(row) : null;
 }
 
+export async function findSupportThreadById(id: number) {
+  const row = await queryOne<SupportThreadRow>(
+    `select ${threadSelect} ${threadFrom} where t.id = $1`,
+    [id],
+  );
+  return row ? mapThread(row) : null;
+}
+
 // Public list for the open issue tracker: most-starred first, then newest.
 // status: undefined = all; "open" includes in_progress so active work still shows.
 export async function listPublicSupportThreads(
@@ -335,7 +346,7 @@ export async function setSupportThreadVisibility(input: {
 export async function listSupportThreadsForAuthor(authorUserId: number) {
   const rows = await query<SupportThreadRow>(
     `select ${threadSelect} ${threadFrom}
-      where t.author_user_id = $1
+      where t.author_user_id = $1 and t.kind <> 'security'
       order by t.updated_at desc`,
     [authorUserId],
   );
@@ -349,6 +360,7 @@ export async function listSupportQueue(supporterUserId: number | null, limit = 2
   const rows = await query<SupportThreadRow>(
     `select ${threadSelect} ${threadFrom}
       where t.status in ('open', 'in_progress')
+        and t.kind <> 'security'
         and (
           $1::bigint is null
           or t.claimed_by_user_id is null
@@ -538,10 +550,11 @@ export async function listSupportTeam() {
     user_id: string;
     username: string;
     first_name: string;
+    role: SupporterRole;
     added_by_user_id: string | null;
     created_at: string;
   }>(
-    `select st.user_id, u.username, u.first_name,
+    `select st.user_id, u.username, u.first_name, st.role,
             st.added_by_user_id, st.created_at::text
        from support_team st
        join users u on u.id = st.user_id
@@ -551,9 +564,18 @@ export async function listSupportTeam() {
     userId: Number(r.user_id),
     username: r.username,
     firstName: r.first_name,
+    role: r.role,
     addedByUserId: r.added_by_user_id ? Number(r.added_by_user_id) : null,
     createdAt: r.created_at,
   })) satisfies SupportTeamMember[];
+}
+
+export async function getSupportTeamRole(userId: number) {
+  const row = await queryOne<{ role: SupporterRole }>(
+    `select role from support_team where user_id = $1`,
+    [userId],
+  );
+  return row?.role ?? null;
 }
 
 // Telegram chat ids for supporters who have a linked account - used to fan
@@ -571,12 +593,13 @@ export async function listSupporterTelegramChatIds() {
 export async function addSupportTeamMember(input: {
   userId: number;
   addedByUserId: number;
+  role?: SupporterRole;
 }) {
   await query(
-    `insert into support_team (user_id, added_by_user_id)
-     values ($1, $2)
-     on conflict (user_id) do nothing`,
-    [input.userId, input.addedByUserId],
+    `insert into support_team (user_id, added_by_user_id, role)
+     values ($1, $2, $3)
+     on conflict (user_id) do update set role = excluded.role`,
+    [input.userId, input.addedByUserId, input.role ?? "supporter"],
   );
 }
 

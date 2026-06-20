@@ -88,10 +88,16 @@ const ADMIN_NAV: NavGroup[] = [
       { href: "/admin/webhooks", label: "Webhook deliveries", icon: Webhook },
       { href: "/admin/bans", label: "Bans", icon: Ban },
       { href: "/admin/security", label: "Security events", icon: ShieldAlert },
+      { href: "/security-review", label: "Security review", icon: ShieldAlert },
       { href: "/admin/supporters", label: "Supporters", icon: Headset },
     ],
   },
 ];
+
+const SECURITY_GROUP: NavGroup = {
+  label: "Security team",
+  items: [{ href: "/security-review", label: "Security review", icon: ShieldAlert }],
+};
 
 type FlatItem = NavGroup["items"][number] & { group: string };
 
@@ -207,12 +213,14 @@ export function AppShell({
   user,
   trail,
   isAdmin,
+  isSecurity,
   variant = "user",
   children,
 }: {
   user: { name: string; username: string };
   trail?: string;
   isAdmin?: boolean;
+  isSecurity?: boolean;
   variant?: "user" | "admin";
   children: React.ReactNode;
 }) {
@@ -223,7 +231,11 @@ export function AppShell({
   const [isMac, setIsMac] = useState(false);
 
   const admin = variant === "admin";
-  const nav = admin ? ADMIN_NAV : USER_NAV;
+  const nav = admin
+    ? ADMIN_NAV
+    : isSecurity
+      ? [...USER_NAV, SECURITY_GROUP]
+      : USER_NAV;
   const homeHref = admin ? "/admin" : "/";
   const flatItems: FlatItem[] = nav.flatMap(g => g.items.map(it => ({ ...it, group: g.label })));
   const breadcrumb =

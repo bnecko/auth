@@ -173,6 +173,43 @@ describe("support access — claiming and managing", () => {
   });
 });
 
+describe("support access — security threads", () => {
+  it("a security thread is never visible to its author or supporters via the normal path, only admins", () => {
+    const author = computeAccess({
+      thread: makeThread({ kind: "security", visibility: "private", authorUserId: 10 }),
+      viewer: viewer(10),
+      isStaff: false,
+      isAdmin: false,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(author.canView).toBe(false);
+    expect(author.canComment).toBe(false);
+
+    const supporter = computeAccess({
+      thread: makeThread({ kind: "security", visibility: "private", authorUserId: 10 }),
+      viewer: viewer(20),
+      isStaff: true,
+      isAdmin: false,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(supporter.canView).toBe(false);
+
+    const admin = computeAccess({
+      thread: makeThread({ kind: "security", visibility: "private", authorUserId: 10 }),
+      viewer: viewer(1),
+      isStaff: true,
+      isAdmin: true,
+      isClaimer: false,
+      isInvited: false,
+    });
+    expect(admin.canView).toBe(true);
+    expect(admin.canStar).toBe(false);
+    expect(admin.canPublish).toBe(false);
+  });
+});
+
 describe("support access — commenting and stars", () => {
   it("a non-staff user cannot comment on a closed thread, but staff can", () => {
     const member = computeAccess({
