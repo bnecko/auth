@@ -25,6 +25,13 @@ export async function revokeSessionAction(formData: FormData) {
   if (isNaN(sessionId)) return;
 
   await revokeSessionById(sessionId, current.user.id);
+  await recordSecurityEvent({
+    userId: current.user.id,
+    eventType: "session_revoked",
+    result: "ok",
+    context: requestContextFromHeaders(await headers()),
+    metadata: { sessionId },
+  });
   revalidatePath("/", "layout");
 }
 

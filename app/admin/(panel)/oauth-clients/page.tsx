@@ -1,5 +1,6 @@
 import { Empty, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { listPendingOAuthClientRegistrationRequests } from "@/lib/server/repositories/oauthClientRegistrations";
 import {
   approveOAuthClientRegistrationAction,
@@ -93,25 +94,27 @@ export default async function AdminOAuthClientsPage() {
                   </dd>
                 </dl>
 
-                <div className="mt-4 flex items-baseline gap-5 text-[13px]">
-                  <form action={approveOAuthClientRegistrationAction}>
-                    <input type="hidden" name="request_id" value={request.id} />
-                    <button
-                      type="submit"
-                      className="text-accent-strong hover:text-fg transition-colors"
-                    >
-                      Approve
-                    </button>
-                  </form>
-                  <form action={denyOAuthClientRegistrationAction}>
-                    <input type="hidden" name="request_id" value={request.id} />
-                    <button
-                      type="submit"
-                      className="text-secondary hover:text-danger transition-colors"
-                    >
-                      Deny
-                    </button>
-                  </form>
+                <div className="mt-4 flex items-center gap-2">
+                  <ConfirmButton
+                    action={approveOAuthClientRegistrationAction}
+                    fields={{ request_id: request.id }}
+                    label="Approve"
+                    triggerVariant="primary"
+                    tone="neutral"
+                    title="Approve this client registration?"
+                    message="The OAuth client is created and issued credentials."
+                    confirmLabel="Approve"
+                  />
+                  <ConfirmButton
+                    action={denyOAuthClientRegistrationAction}
+                    fields={{ request_id: request.id }}
+                    label="Deny"
+                    triggerVariant="danger"
+                    tone="danger"
+                    title="Deny this client registration?"
+                    message="The registration request is rejected."
+                    confirmLabel="Deny"
+                  />
                 </div>
               </div>
             ))

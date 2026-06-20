@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { CreditCard } from "lucide-react";
-import { Button } from "@/components/Button";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
@@ -42,12 +42,16 @@ export default async function SubscriptionsPage() {
                   Expires {shortDate(subscription.expiresAt)}
                 </span>
               </RowValue>
-              <form action={cancelSubscriptionAction}>
-                <input type="hidden" name="product" value={subscription.product} />
-                <Button type="submit" variant="danger" size="sm">
-                  Cancel
-                </Button>
-              </form>
+              <ConfirmButton
+                action={cancelSubscriptionAction}
+                fields={{ product: subscription.product }}
+                label="Cancel"
+                triggerVariant="danger"
+                tone="danger"
+                title={`Cancel ${subscription.product}?`}
+                message="This subscription will be cancelled."
+                confirmLabel="Cancel subscription"
+              />
             </Row>
           ))
         )}

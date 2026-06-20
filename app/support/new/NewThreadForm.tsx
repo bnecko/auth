@@ -37,8 +37,8 @@ export function NewThreadForm() {
             Type
           </label>
           <select id="kind" name="kind" defaultValue="issue" className={selectClass}>
-            <option value="issue">Issue — community report or question</option>
-            <option value="ticket">Ticket — request handled by support</option>
+            <option value="issue">Issue - community report or question</option>
+            <option value="ticket">Ticket - request handled by support</option>
           </select>
         </div>
         <div>
@@ -54,8 +54,8 @@ export function NewThreadForm() {
             defaultValue="public"
             className={selectClass}
           >
-            <option value="public">Public — anyone can read</option>
-            <option value="private">Private — only you and support</option>
+            <option value="public">Public - anyone can read</option>
+            <option value="private">Private - only you and support</option>
           </select>
         </div>
       </div>

@@ -13,7 +13,7 @@ export default async function SupportPage() {
           Community support
         </h1>
         <p className="text-[13px] text-muted">
-          Public issues and questions — anyone can read; sign in to post or star.
+          Public issues and questions - anyone can read; sign in to post or star.
         </p>
       </header>
 

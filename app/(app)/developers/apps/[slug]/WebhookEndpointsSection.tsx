@@ -77,7 +77,7 @@ export function WebhookEndpointsSection({
         <Alert tone="warning">
           <div className="flex items-baseline gap-2 mb-1.5">
             <span className="text-[13px] font-medium text-muted">
-              Signing secret — shown once
+              Signing secret - shown once
             </span>
           </div>
           <code className="block font-mono select-all text-accent-strong break-all">

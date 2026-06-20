@@ -430,7 +430,7 @@ export async function listSupportTeam() {
   })) satisfies SupportTeamMember[];
 }
 
-// Telegram chat ids for supporters who have a linked account — used to fan
+// Telegram chat ids for supporters who have a linked account - used to fan
 // out new-thread notifications.
 export async function listSupporterTelegramChatIds() {
   const rows = await query<{ telegram_id: string }>(

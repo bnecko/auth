@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 // Approve/Reject button on a bearer request notification. The bot
 // authenticates via the shared TELEGRAM_BOT_WEBHOOK_SECRET header and
 // passes the original from.id so the service layer can re-check the
-// admin identity (defense in depth — the bot already checks too).
+// admin identity (defense in depth - the bot already checks too).
 export async function POST(req: NextRequest) {
   const secret = env("TELEGRAM_BOT_WEBHOOK_SECRET");
   const provided = req.headers.get("x-bottleneck-bot-secret") || "";

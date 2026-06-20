@@ -118,7 +118,7 @@ export async function findLoginChallenge(publicId: string) {
 }
 
 // Find the pending challenge a /start token refers to, scoped to the Telegram
-// account it was issued for. Does NOT change status — the user still has to
+// account it was issued for. Does NOT change status - the user still has to
 // approve via the inline buttons.
 export async function findPendingLoginChallengeByStartToken(input: {
   startToken: string;

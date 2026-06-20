@@ -45,7 +45,7 @@ export default function FaqPage() {
           a="Passkeys let you sign in without a password using your device biometrics or a security key. Add one under Password & 2FA."
         />
         <QA
-          q="I lost access to my Telegram — what now?"
+          q="I lost access to my Telegram - what now?"
           a="Contact support to recover your account. You will be asked to verify your identity before any change is made."
         />
       </Section>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
-import { Button } from "@/components/Button";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { getCurrentSession } from "@/lib/server/session";
 import { listAuthorizationsForUser } from "@/lib/server/repositories/authorizations";
 import { revokeAppAction } from "@/app/dashboard-actions";
@@ -32,11 +32,15 @@ export default async function ConnectedAppsPage() {
         hint="OAuth grants"
         action={
           apps.length > 0 ? (
-            <form action={revokeAllOAuthGrantsAction}>
-              <Button type="submit" variant="danger" size="sm">
-                Revoke all
-              </Button>
-            </form>
+            <ConfirmButton
+              action={revokeAllOAuthGrantsAction}
+              label="Revoke all"
+              triggerVariant="danger"
+              tone="danger"
+              title="Revoke all connected apps?"
+              message="Every external app loses access to your account. You can reconnect them later."
+              confirmLabel="Revoke all"
+            />
           ) : undefined
         }
       >
@@ -51,12 +55,16 @@ export default async function ConnectedAppsPage() {
                 <span className="text-muted">·</span>
                 <span className="text-muted">Since {shortDate(app.createdAt)}</span>
               </RowValue>
-              <form action={revokeAppAction}>
-                <input type="hidden" name="appSlug" value={app.appSlug} />
-                <Button type="submit" variant="danger" size="sm">
-                  Revoke
-                </Button>
-              </form>
+              <ConfirmButton
+                action={revokeAppAction}
+                fields={{ appSlug: app.appSlug }}
+                label="Revoke"
+                triggerVariant="danger"
+                tone="danger"
+                title={`Revoke ${app.appName}?`}
+                message="This app loses access to your account. You can reconnect it later."
+                confirmLabel="Revoke access"
+              />
             </Row>
           ))
         )}

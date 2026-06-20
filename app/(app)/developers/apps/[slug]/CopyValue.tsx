@@ -12,7 +12,7 @@ export function CopyValue({ value, label }: { value: string; label?: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard unavailable (e.g. non-secure context). Drop quietly —
+      // Clipboard unavailable (e.g. non-secure context). Drop quietly -
       // the value is still visible for manual copy.
     }
   }

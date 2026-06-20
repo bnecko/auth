@@ -11,9 +11,11 @@ export async function banUserAction(formData: FormData) {
 
   const userId = Number(formData.get("userId"));
   if (!userId) return;
+  if (userId === current.user.id) return; // never self-ban
 
+  const reason = String(formData.get("reason") || "").trim() || null;
   const ctx = requestContextFromHeaders(await headers());
-  await setAccountStatus(userId, "banned", current.user, ctx);
+  await setAccountStatus(userId, "banned", current.user, ctx, reason);
   revalidatePath("/admin/users");
 }
 

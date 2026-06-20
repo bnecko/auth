@@ -115,7 +115,7 @@ export function AppSettingsForm({
               <option value="bn-oauth-2026-01">bottleneck OAuth 2026.01</option>
             </select>
             <p className="text-[12px] text-muted mt-2">
-              Both versions behave identically today — new apps should stay on 2026.05.
+              Both versions behave identically today - new apps should stay on 2026.05.
             </p>
           </div>
 

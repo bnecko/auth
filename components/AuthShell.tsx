@@ -5,7 +5,7 @@ import Link from "next/link";
 // focused object on the page, nothing competing with it.
 
 function Monogram() {
-  // Two narrow bars converging into one wider bar — a bottleneck silhouette.
+  // Two narrow bars converging into one wider bar - a bottleneck silhouette.
   // Drawn inline so there's no extra request and the color stays accent-driven.
   return (
     <svg

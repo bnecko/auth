@@ -1,5 +1,6 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { query } from "@/lib/server/db";
 import { getCurrentSession } from "@/lib/server/session";
 import { redirect } from "next/navigation";
@@ -77,15 +78,22 @@ export default async function AdminBansPage() {
                     )}
                   </div>
                 </div>
-                <form action={revokeBanAction}>
-                  <input type="hidden" name="banId" value={ban.id} />
-                  <button
-                    type="submit"
-                    className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
-                  >
-                    Revoke
-                  </button>
-                </form>
+                <ConfirmButton
+                  action={revokeBanAction}
+                  fields={{ banId: ban.id }}
+                  label="Revoke"
+                  triggerVariant="secondary"
+                  tone="warning"
+                  title="Revoke this ban?"
+                  message="Lifting this ban restores access for whoever it covers."
+                  preview={
+                    <span className="flex items-center gap-2">
+                      <Tag tone="danger">{ban.kind}</Tag>
+                      {ban.username && <span className="text-fg">@{ban.username}</span>}
+                    </span>
+                  }
+                  confirmLabel="Revoke ban"
+                />
               </div>
             ))
           )}

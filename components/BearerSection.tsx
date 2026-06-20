@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/Button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Empty, Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import type { BearerRequest } from "@/lib/server/types";
@@ -55,6 +56,7 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
   const [error, setError] = useState<string | null>(null);
   const [hasPlaintext, setHasPlaintext] = useState(bearer.hasPlaintext);
   const [copied, setCopied] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<null | "reveal" | "discard">(null);
 
   async function reveal() {
     setBusy(true);
@@ -73,6 +75,7 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
       setHasPlaintext(false);
     } finally {
       setBusy(false);
+      setConfirmKind(null);
     }
   }
 
@@ -88,9 +91,6 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
   }
 
   async function abandon() {
-    if (!confirm("Clear the saved key? You won't be able to view it again.")) {
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -105,6 +105,7 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
       setHasPlaintext(false);
     } finally {
       setBusy(false);
+      setConfirmKind(null);
     }
   }
 
@@ -155,10 +156,10 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
           {error && <span className="text-danger">{error}</span>}
           {canReveal && !hasKey && (
             <>
-              <Button type="button" variant="secondary" size="sm" onClick={reveal} disabled={busy}>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmKind("reveal")} disabled={busy}>
                 Show
               </Button>
-              <Button type="button" variant="danger" size="sm" onClick={abandon} disabled={busy}>
+              <Button type="button" variant="danger" size="sm" onClick={() => setConfirmKind("discard")} disabled={busy}>
                 Discard
               </Button>
             </>
@@ -175,6 +176,20 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
           )}
         </span>
       </Row>
+      <ConfirmDialog
+        open={confirmKind !== null}
+        busy={busy}
+        tone={confirmKind === "discard" ? "danger" : "warning"}
+        title={confirmKind === "discard" ? "Clear this key?" : "Reveal this key?"}
+        message={
+          confirmKind === "discard"
+            ? "The saved key is cleared and cannot be viewed again."
+            : "The key is shown only once - copy it immediately, it cannot be retrieved later."
+        }
+        confirmLabel={confirmKind === "discard" ? "Clear key" : "Reveal"}
+        onConfirm={() => (confirmKind === "discard" ? abandon() : reveal())}
+        onClose={() => !busy && setConfirmKind(null)}
+      />
     </>
   );
 }

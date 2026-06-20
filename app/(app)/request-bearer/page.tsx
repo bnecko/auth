@@ -51,7 +51,7 @@ export default function RequestBearerPage() {
             </h1>
             <p className="text-[14px] text-muted max-w-prose">
               Describe your app and why it needs an API bearer. An admin
-              reviews each request manually — you'll see the result on
+              reviews each request manually - you'll see the result on
               your dashboard.
             </p>
           </header>

@@ -153,7 +153,7 @@ export async function rejectBearerRequest(
 // Atomically reveals the plaintext once and clears it in the same
 // statement. After this returns, the plaintext_key column is null and
 // the request transitions to 'cleared'. We never leave a retrievable
-// plaintext sitting in the DB across requests — a leaked replica or
+// plaintext sitting in the DB across requests - a leaked replica or
 // stolen snapshot only exposes keys that haven't been read yet.
 //
 // PostgreSQL UPDATE ... RETURNING uses post-update values, and a
@@ -187,7 +187,7 @@ export async function readBearerRequestPlaintext(
 }
 
 // Used when the user dismisses a request without ever revealing the
-// key — for example they got the key out-of-band, or they want to
+// key - for example they got the key out-of-band, or they want to
 // abandon the issued credential. The reveal path already clears the
 // plaintext atomically; this is the abandon path.
 export async function clearBearerRequestKey(
