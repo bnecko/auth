@@ -17,6 +17,11 @@ type UserRow = {
   avatar_preset: number | null;
   restricted: boolean;
   restricted_at: string | null;
+  notify_security_receipts: boolean;
+  notify_signin_alerts: boolean;
+  profile_public: boolean;
+  discoverable_by_username: boolean;
+  public_show_telegram: boolean;
   role: UserRole;
   status: UserStatus;
   created_at: string;
@@ -49,6 +54,11 @@ function mapUser(row: UserRow): User {
     avatarPreset: row.avatar_preset,
     restricted: row.restricted,
     restrictedAt: row.restricted_at,
+    notifySecurityReceipts: row.notify_security_receipts,
+    notifySigninAlerts: row.notify_signin_alerts,
+    profilePublic: row.profile_public,
+    discoverableByUsername: row.discoverable_by_username,
+    publicShowTelegram: row.public_show_telegram,
     role: row.role,
     status: row.status,
     createdAt: row.created_at,
@@ -70,6 +80,11 @@ const userSelect = `
   avatar_preset,
   restricted,
   restricted_at::text,
+  notify_security_receipts,
+  notify_signin_alerts,
+  profile_public,
+  discoverable_by_username,
+  public_show_telegram,
   role,
   status,
   created_at::text
@@ -112,6 +127,51 @@ export async function updateUserProfile(
       input.bio ?? null,
       input.avatarPreset !== undefined,
       input.avatarPreset ?? null,
+    ],
+  );
+  return row ? mapUser(row) : null;
+}
+
+// Notification preferences. Each flag gates a real Telegram send in notifyUser().
+export async function updateNotificationPrefs(
+  userId: number,
+  input: { notifySecurityReceipts: boolean; notifySigninAlerts: boolean },
+) {
+  const row = await queryOne<UserRow>(
+    `update users
+        set notify_security_receipts = $2,
+            notify_signin_alerts = $3,
+            updated_at = now()
+      where id = $1
+      returning ${userSelect}`,
+    [userId, input.notifySecurityReceipts, input.notifySigninAlerts],
+  );
+  return row ? mapUser(row) : null;
+}
+
+// Privacy controls. Each flag gates the public profile at /u/[id] or the
+// /user/[username] alias.
+export async function updatePrivacySettings(
+  userId: number,
+  input: {
+    profilePublic: boolean;
+    discoverableByUsername: boolean;
+    publicShowTelegram: boolean;
+  },
+) {
+  const row = await queryOne<UserRow>(
+    `update users
+        set profile_public = $2,
+            discoverable_by_username = $3,
+            public_show_telegram = $4,
+            updated_at = now()
+      where id = $1
+      returning ${userSelect}`,
+    [
+      userId,
+      input.profilePublic,
+      input.discoverableByUsername,
+      input.publicShowTelegram,
     ],
   );
   return row ? mapUser(row) : null;

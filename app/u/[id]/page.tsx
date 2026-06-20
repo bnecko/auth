@@ -15,7 +15,7 @@ export default async function PublicProfilePage(props: {
 }) {
   const { id } = await props.params;
   const user = await findUserByPublicId(id);
-  if (!user) notFound();
+  if (!user || !user.profilePublic) notFound();
 
   const joinedAt = new Date(user.createdAt).toLocaleDateString("en-US", {
     year: "numeric",
@@ -60,7 +60,7 @@ export default async function PublicProfilePage(props: {
               <RowValue>{joinedAt}</RowValue>
               <span />
             </Row>
-            {user.telegramUsername && (
+            {user.publicShowTelegram && user.telegramUsername && (
               <Row>
                 <RowLabel>Telegram</RowLabel>
                 <RowValue>
@@ -77,7 +77,7 @@ export default async function PublicProfilePage(props: {
                 <span />
               </Row>
             )}
-            {ref && (
+            {user.publicShowTelegram && ref && (
               <Row>
                 <RowLabel>Telegram ref</RowLabel>
                 <RowValue>

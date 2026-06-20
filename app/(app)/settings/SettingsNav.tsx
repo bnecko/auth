@@ -8,6 +8,8 @@ const sections = [
   { href: "/settings/security", label: "Password & 2FA" },
   { href: "/settings/sessions", label: "Sessions" },
   { href: "/settings/activity", label: "Activity" },
+  { href: "/settings/notifications", label: "Notifications" },
+  { href: "/settings/privacy", label: "Privacy" },
 ];
 
 export function SettingsNav() {
