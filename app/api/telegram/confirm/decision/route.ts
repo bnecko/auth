@@ -8,6 +8,7 @@ import {
   decideTelegramRelink,
 } from "@/lib/server/services/auth";
 import { decideProfileChange } from "@/lib/server/services/profile";
+import { decideBearerRevoke } from "@/lib/server/services/bearer";
 
 export const runtime = "nodejs";
 
@@ -83,6 +84,18 @@ export async function POST(req: NextRequest) {
       return badRequest("change request not found or already handled");
     }
     return json({ kind: "profile_decision", status: result.status, decision });
+  }
+
+  if (kind === "bearer_revoke") {
+    const result = await decideBearerRevoke({
+      apprId: id,
+      decision,
+      telegramId: telegram.id,
+    });
+    if (!result) {
+      return badRequest("revoke request not found or already handled");
+    }
+    return json({ kind: "bearer_revoke_decision", status: result.status, decision });
   }
 
   return badRequest("unknown decision kind");

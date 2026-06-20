@@ -18,9 +18,11 @@ import {
   upsertAuthorization,
 } from "../repositories/authorizations";
 import { findExternalAppByApiKey } from "../repositories/externalApps";
+import { findUserById } from "../repositories/users";
+import { isActiveBanForUser, isTelegramIdBanned } from "../repositories/bans";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { hasActiveSubscription } from "../repositories/subscriptions";
-import type { User } from "../types";
+import type { ExternalApp, User } from "../types";
 import { toIso } from "../time";
 import { parseScopes } from "../validation";
 import { enqueueWebhookEvent } from "../webhooks";
@@ -47,6 +49,38 @@ export function activationErrorResponse(err: unknown) {
     return apiError(err.message, err.code, err.status);
   }
   return apiError("activation failed", "internal_error", 400);
+}
+
+// A bearer key is disabled the moment its owner is banned or restricted, but we
+// return a DISTINCT non-401 code so integrators can tell "owner locked out" from
+// "bad key". The key itself stays valid and resumes working once the owner is
+// unbanned (reversible) - unlike a user-initiated revoke, which disables the app.
+export async function assertBearerOwnerAllowed(app: ExternalApp) {
+  if (app.ownerUserId == null) return;
+  const owner = await findUserById(app.ownerUserId);
+  if (!owner) return;
+  const blocked =
+    owner.status === "banned" ||
+    (await isActiveBanForUser(owner.id)) ||
+    (await isTelegramIdBanned(owner.telegramId));
+  if (blocked) {
+    throw new ActivationError(
+      "owner_restricted",
+      "the owner of this app is restricted",
+      403,
+    );
+  }
+}
+
+// Resolve + authorize an app by its API key: invalid/inactive -> 401, owner
+// restricted -> 403. Every bearer-authenticated entry point funnels through here.
+export async function requireActiveAppByApiKey(apiKey: string) {
+  const app = await findExternalAppByApiKey(apiKey);
+  if (!app || app.status !== "active") {
+    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
+  }
+  await assertBearerOwnerAllowed(app);
+  return app;
 }
 
 // Webhook enqueue is best-effort: a downstream side effect must never
@@ -93,10 +127,7 @@ export async function createExternalActivationRequest(
   req: NextRequest,
   idempotencyKey?: string | null,
 ): Promise<ActivationCreateResult> {
-  const app = await findExternalAppByApiKey(apiKey);
-  if (!app || app.status !== "active") {
-    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
-  }
+  const app = await requireActiveAppByApiKey(apiKey);
 
   // Idempotency: a retried create with the same key returns the original
   // response (including its one-time token) instead of minting a duplicate.
@@ -349,10 +380,7 @@ export async function cancelExternalActivationRequest(
   apiKey: string,
   publicIdValue: string,
 ) {
-  const app = await findExternalAppByApiKey(apiKey);
-  if (!app || app.status !== "active") {
-    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
-  }
+  const app = await requireActiveAppByApiKey(apiKey);
 
   const cancelled = await cancelActivation(publicIdValue, app.id);
   if (cancelled) {
@@ -371,11 +399,7 @@ export async function cancelExternalActivationRequest(
 }
 
 async function requireApp(apiKey: string) {
-  const app = await findExternalAppByApiKey(apiKey);
-  if (!app || app.status !== "active") {
-    throw new ActivationError("invalid_credentials", "invalid app credentials", 401);
-  }
-  return app;
+  return requireActiveAppByApiKey(apiKey);
 }
 
 // The app's own configuration, so an integrator can validate its redirect
