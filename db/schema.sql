@@ -418,3 +418,67 @@ create table webhook_deliveries (
 
 create index webhook_deliveries_endpoint_idx on webhook_deliveries(webhook_endpoint_id, created_at);
 create index webhook_deliveries_status_idx on webhook_deliveries(status, next_attempt_at);
+
+create table support_threads (
+  id bigserial primary key,
+  public_id text not null unique,
+  kind text not null check (kind in ('ticket', 'issue')),
+  visibility text not null check (visibility in ('public', 'private')),
+  status text not null default 'open'
+    check (status in ('open', 'in_progress', 'resolved', 'closed')),
+  author_user_id bigint not null references users(id) on delete cascade,
+  title text not null,
+  body text not null,
+  claimed_by_user_id bigint references users(id) on delete set null,
+  claimed_at timestamptz,
+  solved_at timestamptz,
+  star_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index support_threads_author_idx on support_threads(author_user_id);
+create index support_threads_claimed_by_idx on support_threads(claimed_by_user_id);
+create index support_threads_public_stars_idx
+  on support_threads(visibility, star_count desc, created_at desc);
+create index support_threads_visibility_status_idx
+  on support_threads(visibility, status);
+
+create table support_messages (
+  id bigserial primary key,
+  public_id text not null unique,
+  thread_id bigint not null references support_threads(id) on delete cascade,
+  author_user_id bigint not null references users(id) on delete cascade,
+  body text not null,
+  internal boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index support_messages_thread_idx on support_messages(thread_id, created_at);
+
+create table support_stars (
+  id bigserial primary key,
+  thread_id bigint not null references support_threads(id) on delete cascade,
+  user_id bigint not null references users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (thread_id, user_id)
+);
+
+create table support_team (
+  id bigserial primary key,
+  user_id bigint not null unique references users(id) on delete cascade,
+  added_by_user_id bigint references users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table support_thread_supporters (
+  id bigserial primary key,
+  thread_id bigint not null references support_threads(id) on delete cascade,
+  user_id bigint not null references users(id) on delete cascade,
+  invited_by_user_id bigint references users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (thread_id, user_id)
+);
+
+create index support_thread_supporters_thread_idx on support_thread_supporters(thread_id);
+create index support_thread_supporters_user_idx on support_thread_supporters(user_id);
