@@ -1,5 +1,5 @@
 import { Section, Empty } from "@/components/Section";
-import { Button } from "@/components/Button";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { listSupporters } from "@/lib/server/services/support";
 import { addSupporterAction, removeSupporterAction } from "./actions";
 
@@ -18,17 +18,23 @@ export default async function AdminSupportersPage() {
       </header>
 
       <Section title="Add supporter" hint="grants supporter access">
-        <form action={addSupporterAction} className="flex items-center gap-2 px-4 py-3">
-          <input
-            name="username"
-            required
-            placeholder="username or email"
-            className="flex-1 h-9 rounded-md bg-card border border-rule px-3 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+        <div className="px-4 py-3">
+          <ConfirmButton
+            action={addSupporterAction}
+            extraInput={{
+              name: "username",
+              label: "Username or email",
+              placeholder: "username or email",
+              required: true,
+            }}
+            label="Add supporter"
+            triggerVariant="primary"
+            tone="neutral"
+            title="Add a supporter?"
+            message="This grants the account supporter access: viewing private threads, replying, and claiming tickets."
+            confirmLabel="Add supporter"
           />
-          <Button type="submit" size="sm">
-            Add
-          </Button>
-        </form>
+        </div>
       </Section>
 
       <Section title="Roster" hint={`${supporters.length}`}>
@@ -48,12 +54,16 @@ export default async function AdminSupportersPage() {
                   added {s.createdAt.slice(0, 10)}
                 </div>
               </div>
-              <form action={removeSupporterAction}>
-                <input type="hidden" name="userId" value={s.userId} />
-                <Button type="submit" size="sm" variant="danger">
-                  Remove
-                </Button>
-              </form>
+              <ConfirmButton
+                action={removeSupporterAction}
+                fields={{ userId: s.userId }}
+                label="Remove"
+                triggerVariant="danger"
+                tone="danger"
+                title={`Remove @${s.username} as supporter?`}
+                message="They will lose supporter access to private threads and the queue."
+                confirmLabel="Remove supporter"
+              />
             </div>
           ))
         )}

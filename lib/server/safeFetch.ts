@@ -3,7 +3,7 @@ import { isIP } from "net";
 
 // Pre-fetch guard against SSRF: resolves the hostname and rejects URLs
 // that point at loopback, private RFC1918, link-local, or cloud metadata
-// addresses. Does NOT fully defeat DNS rebinding — that requires hooking
+// addresses. Does NOT fully defeat DNS rebinding - that requires hooking
 // the socket connect, which we can revisit if/when undici exposes a
 // stable API for it. For the auth service's surface area (JWKS fetch
 // and outbound webhook delivery) the resolve-then-fetch race window is

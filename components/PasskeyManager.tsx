@@ -6,6 +6,7 @@ import { Row, RowLabel, RowValue, Empty } from "./Section";
 import { Tag } from "./Tag";
 import { revokePasskeyAction } from "@/app/dashboard-actions";
 import { Button } from "@/components/Button";
+import { ConfirmButton } from "@/components/ConfirmButton";
 
 export function PasskeyManager({
   passkeys,
@@ -68,12 +69,16 @@ export function PasskeyManager({
                 Last used {key.lastUsed.slice(0, 10)}
               </span>
             </RowValue>
-            <form action={revokePasskeyAction}>
-              <input type="hidden" name="credentialId" value={key.id} />
-              <Button type="submit" variant="danger" size="sm">
-                Revoke
-              </Button>
-            </form>
+            <ConfirmButton
+              action={revokePasskeyAction}
+              fields={{ credentialId: key.id }}
+              label="Revoke"
+              triggerVariant="danger"
+              tone="danger"
+              title={`Revoke ${key.name || "this passkey"}?`}
+              message="This passkey can no longer be used to sign in."
+              confirmLabel="Revoke passkey"
+            />
           </Row>
         ))
       )}

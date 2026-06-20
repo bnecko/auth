@@ -128,7 +128,7 @@ input:-webkit-autofill:focus {
 }
 
 /* Form fields manage their own focus (border + ring), so suppress the generic
-   accent outline on them — e.g. the search palette input. */
+   accent outline on them - e.g. the search palette input. */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
@@ -171,7 +171,7 @@ input[type="number"]::-webkit-inner-spin-button {
   animation: blink-step 1s step-end infinite;
 }
 
-/* Skeleton placeholder — a quiet shimmer shown while content loads. The real
+/* Skeleton placeholder - a quiet shimmer shown while content loads. The real
    UI then replaces it instantly, with no entrance animation of its own. */
 @keyframes skeleton-pulse {
   0%,

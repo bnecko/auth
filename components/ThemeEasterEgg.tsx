@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 // Phosphor color easter egg. Type "blood" anywhere outside an input
-// field and the amber accent swaps for vivid red — every text-accent,
+// field and the amber accent swaps for vivid red - every text-accent,
 // border-accent, bg-accent, and the ::selection style updates in lock
 // step because the whole palette routes through CSS variables. Type
 // "blood" again to revert. Preference persists in localStorage. The

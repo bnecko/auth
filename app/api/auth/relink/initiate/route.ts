@@ -7,11 +7,11 @@ import { rateLimit } from "@/lib/server/rateLimit";
 
 export const runtime = "nodejs";
 
-// 3 sends per user per 10-minute OTP window — enough for a resend or two
+// 3 sends per user per 10-minute OTP window - enough for a resend or two
 const USER_LIMIT = 3;
 const USER_WINDOW_MS = 10 * 60 * 1000;
 
-// 10 sends per IP per hour — defence in depth for shared/proxied IPs
+// 10 sends per IP per hour - defence in depth for shared/proxied IPs
 const IP_LIMIT = 10;
 const IP_WINDOW_MS = 60 * 60 * 1000;
 

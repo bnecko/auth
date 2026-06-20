@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       subject = typeof claims.sub === "string" ? claims.sub : null;
 
       // RFC 7662-style: if client_id was supplied, it must match aud.
-      // A mismatch is treated as no hint at all — we'll log out the
+      // A mismatch is treated as no hint at all - we'll log out the
       // local session but refuse to redirect to a third party.
       const clientMatches =
         !clientIdParam || (clientPublicId !== null && clientIdParam === clientPublicId);
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
 
 // Matches the allowed list with exact URL equality, mirroring the
 // strictness of the authorize-redirect allowlist. An empty allowlist
-// means "no redirect permitted" — we fall back to the local logout
+// means "no redirect permitted" - we fall back to the local logout
 // page rather than bouncing to an attacker-controlled URL.
 function postLogoutRedirectUriAllowed(uri: string, allowed: readonly string[]) {
   if (allowed.length === 0) return false;

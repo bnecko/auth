@@ -8,11 +8,11 @@ const TTL = 600; // 10 minutes
 const OTP_KEY = (userId: number) => `relink:otp:${userId}`;
 const TOKEN_KEY = (startHash: string) => `relink:tok:${startHash}`;
 const STATUS_KEY = (browserHash: string) => `relink:sta:${browserHash}`;
-// Short opaque handle for an approval prompt — small enough to ride in a
+// Short opaque handle for an approval prompt - small enough to ride in a
 // Telegram callback_data payload, unlike the 64-char start-token hash.
 const APPR_KEY = (apprId: string) => `relink:appr:${apprId}`;
 
-// Unambiguous uppercase alphanumeric — no O/0/I/1
+// Unambiguous uppercase alphanumeric - no O/0/I/1
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export function generateRelinkOtp(): string {
@@ -56,7 +56,7 @@ export async function getRelinkStatus(browserToken: string) {
   return await redis.get(STATUS_KEY(browserHash));
 }
 
-// Step 1 of the relink: the bot saw a valid /start token. Don't link yet —
+// Step 1 of the relink: the bot saw a valid /start token. Don't link yet -
 // mint a short approval handle and return the owner so the caller can send an
 // Approve/Deny prompt. Returns null if the token is unknown or expired.
 export async function beginRelinkApproval(

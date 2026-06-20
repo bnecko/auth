@@ -1,5 +1,6 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { query, queryOne } from "@/lib/server/db";
 import { decideBearerAction } from "./actions";
 
@@ -115,35 +116,27 @@ export default async function AdminPage() {
                 <div className="text-meta text-secondary mb-4 border-l border-rule pl-3 py-1 leading-relaxed whitespace-pre-wrap">
                   {req.reason}
                 </div>
-                <div className="flex items-baseline gap-5">
-                  <form action={decideBearerAction}>
-                    <input
-                      type="hidden"
-                      name="requestId"
-                      value={req.public_id}
-                    />
-                    <input type="hidden" name="decision" value="approve" />
-                    <button
-                      type="submit"
-                      className="text-[13px] text-ok hover:text-fg transition-colors"
-                    >
-                      Approve
-                    </button>
-                  </form>
-                  <form action={decideBearerAction}>
-                    <input
-                      type="hidden"
-                      name="requestId"
-                      value={req.public_id}
-                    />
-                    <input type="hidden" name="decision" value="reject" />
-                    <button
-                      type="submit"
-                      className="text-[13px] text-secondary hover:text-danger transition-colors"
-                    >
-                      Deny
-                    </button>
-                  </form>
+                <div className="flex items-center gap-2">
+                  <ConfirmButton
+                    action={decideBearerAction}
+                    fields={{ requestId: req.public_id, decision: "approve" }}
+                    label="Approve"
+                    triggerVariant="primary"
+                    tone="neutral"
+                    title="Approve this bearer request?"
+                    message="A new API key is issued to the requester and shown to them once."
+                    confirmLabel="Approve"
+                  />
+                  <ConfirmButton
+                    action={decideBearerAction}
+                    fields={{ requestId: req.public_id, decision: "reject" }}
+                    label="Deny"
+                    triggerVariant="danger"
+                    tone="danger"
+                    title="Deny this bearer request?"
+                    message="The request is rejected; no key is issued."
+                    confirmLabel="Deny"
+                  />
                 </div>
               </div>
             ))

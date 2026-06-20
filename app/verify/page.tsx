@@ -123,7 +123,7 @@ export default function VerifyPage() {
       {!botUrl && (
         <div className="mb-4">
           <Alert tone="warning">
-            Verification link missing — start registration again
+            Verification link missing - start registration again
           </Alert>
         </div>
       )}
@@ -136,7 +136,7 @@ export default function VerifyPage() {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {status === "completed" && (
-        <Alert tone="success">Verified — redirecting</Alert>
+        <Alert tone="success">Verified - redirecting</Alert>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-3">

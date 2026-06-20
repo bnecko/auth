@@ -17,8 +17,14 @@ export async function setAccountStatus(
   status: UserStatus,
   admin: User,
   context: RequestContext,
+  reason: string | null = null,
 ) {
   requireAdmin(admin);
+  // Guard here too (not just in the server action) so the route handler that
+  // also calls setAccountStatus can't be used to self-ban.
+  if (status === "banned" && targetUserId === admin.id) {
+    throw new Error("cannot ban yourself");
+  }
 
   await setUserStatus(targetUserId, status);
   if (status === "banned") {
@@ -36,7 +42,7 @@ export async function setAccountStatus(
     eventType: status === "banned" ? "account_banned" : "account_status_changed",
     result: status,
     context,
-    metadata: { adminId: admin.publicId },
+    metadata: { adminId: admin.publicId, ...(reason ? { reason } : {}) },
   });
 }
 

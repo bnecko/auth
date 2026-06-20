@@ -130,7 +130,7 @@ async function handleCallbackQuery(query) {
   const data = query.data || "";
   const fromId = query.from && query.from.id ? String(query.from.id) : "";
 
-  // login_/relink_/reg_ (approve|deny) — the user confirming a sign-in or a
+  // login_/relink_/reg_ (approve|deny) - the user confirming a sign-in or a
   // Telegram link. The decision is scoped server-side to the Telegram account
   // the prompt belongs to, so we forward the tapping user's identity.
   const confirmMatch = data.match(/^(login|relink|reg)_(approve|deny):(\S+)$/);
@@ -150,7 +150,7 @@ async function handleCallbackQuery(query) {
       await editMessage(
         query.message.chat.id,
         query.message.message_id,
-        `${original}\n\n— ${verb}`,
+        `${original}\n\n- ${verb}`,
       );
     }
     return;
@@ -185,7 +185,7 @@ async function handleCallbackQuery(query) {
   // so the admin sees a toast either way.
   if (query.message) {
     const original = query.message.text || "";
-    const updated = `${original}\n\n— ${verb}${suffix}`;
+    const updated = `${original}\n\n- ${verb}${suffix}`;
     await editMessage(
       query.message.chat.id,
       query.message.message_id,

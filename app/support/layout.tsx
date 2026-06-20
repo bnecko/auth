@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getCurrentSession } from "@/lib/server/session";
 
 // Public chrome for the support area. Unlike the (app) layout this does not
-// require a session — logged-out visitors can read public threads — so it
+// require a session - logged-out visitors can read public threads - so it
 // renders its own lightweight header instead of the full AppShell sidebar.
 export default async function SupportLayout({
   children,

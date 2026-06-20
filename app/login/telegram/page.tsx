@@ -121,7 +121,7 @@ export default function TelegramLoginPage() {
 
       {!botUrl && (
         <div className="mb-4">
-          <Alert tone="warning">Verification link missing — sign in again</Alert>
+          <Alert tone="warning">Verification link missing - sign in again</Alert>
         </div>
       )}
 
@@ -131,7 +131,7 @@ export default function TelegramLoginPage() {
 
       {error && <Alert tone="danger">{error}</Alert>}
       {status === "completed" && (
-        <Alert tone="success">Verified — redirecting</Alert>
+        <Alert tone="success">Verified - redirecting</Alert>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-3">

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Star, Lock, ArrowLeft } from "lucide-react";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/Button";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { getCurrentSession } from "@/lib/server/session";
 import { getThreadView } from "@/lib/server/services/support";
 import { kindTone, statusTone, statusLabel } from "@/lib/supportDisplay";
@@ -102,62 +103,85 @@ export default async function SupportThreadPage({
           )}
           <div className="flex flex-wrap items-center gap-2">
             {access.canClaim && (
-              <form action={claimAction}>
-                <input type="hidden" name="threadId" value={thread.publicId} />
-                <Button type="submit" size="sm">
-                  Claim ticket
-                </Button>
-              </form>
+              <ConfirmButton
+                action={claimAction}
+                fields={{ threadId: thread.publicId }}
+                label="Claim ticket"
+                triggerVariant="primary"
+                tone="neutral"
+                title="Claim this ticket?"
+                message="You'll be assigned to it and it moves to in progress. Other supporters won't see it unless you invite them."
+                confirmLabel="Claim"
+              />
             )}
             {access.canManage && (
               <>
                 {thread.status !== "resolved" && (
-                  <form action={statusAction}>
-                    <input type="hidden" name="threadId" value={thread.publicId} />
-                    <input type="hidden" name="status" value="resolved" />
-                    <Button type="submit" size="sm" variant="secondary">
-                      Mark resolved
-                    </Button>
-                  </form>
+                  <ConfirmButton
+                    action={statusAction}
+                    fields={{ threadId: thread.publicId, status: "resolved" }}
+                    label="Mark resolved"
+                    triggerVariant="secondary"
+                    tone="neutral"
+                    title="Mark this thread resolved?"
+                    message="The author is told it's resolved. You can reopen it later."
+                    confirmLabel="Mark resolved"
+                  />
                 )}
                 {thread.status !== "closed" && (
-                  <form action={statusAction}>
-                    <input type="hidden" name="threadId" value={thread.publicId} />
-                    <input type="hidden" name="status" value="closed" />
-                    <Button type="submit" size="sm" variant="secondary">
-                      Close
-                    </Button>
-                  </form>
+                  <ConfirmButton
+                    action={statusAction}
+                    fields={{ threadId: thread.publicId, status: "closed" }}
+                    label="Close"
+                    triggerVariant="secondary"
+                    tone="warning"
+                    title="Close this thread?"
+                    message="Closing stops further discussion. You can reopen it later."
+                    confirmLabel="Close thread"
+                  />
                 )}
                 {(thread.status === "resolved" || thread.status === "closed") && (
-                  <form action={statusAction}>
-                    <input type="hidden" name="threadId" value={thread.publicId} />
-                    <input type="hidden" name="status" value="open" />
-                    <Button type="submit" size="sm" variant="ghost">
-                      Reopen
-                    </Button>
-                  </form>
+                  <ConfirmButton
+                    action={statusAction}
+                    fields={{ threadId: thread.publicId, status: "open" }}
+                    label="Reopen"
+                    triggerVariant="ghost"
+                    tone="neutral"
+                    title="Reopen this thread?"
+                    message="It returns to the queue as open."
+                    confirmLabel="Reopen"
+                  />
                 )}
                 {thread.claimedByUserId !== null && (
-                  <form action={unclaimAction}>
-                    <input type="hidden" name="threadId" value={thread.publicId} />
-                    <Button type="submit" size="sm" variant="ghost">
-                      Unclaim
-                    </Button>
-                  </form>
-                )}
-                <form action={inviteAction} className="flex items-center gap-2 ml-auto">
-                  <input type="hidden" name="threadId" value={thread.publicId} />
-                  <input
-                    name="username"
-                    required
-                    placeholder="invite supporter"
-                    className="h-8 w-[160px] rounded-md bg-card border border-rule px-2.5 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors"
+                  <ConfirmButton
+                    action={unclaimAction}
+                    fields={{ threadId: thread.publicId }}
+                    label="Unclaim"
+                    triggerVariant="ghost"
+                    tone="warning"
+                    title="Unclaim this ticket?"
+                    message="It returns to the open queue and other supporters can pick it up."
+                    confirmLabel="Unclaim"
                   />
-                  <Button type="submit" size="sm" variant="secondary">
-                    Invite
-                  </Button>
-                </form>
+                )}
+                <div className="ml-auto">
+                  <ConfirmButton
+                    action={inviteAction}
+                    fields={{ threadId: thread.publicId }}
+                    extraInput={{
+                      name: "username",
+                      label: "Supporter username",
+                      placeholder: "username",
+                      required: true,
+                    }}
+                    label="Invite supporter"
+                    triggerVariant="secondary"
+                    tone="neutral"
+                    title="Invite a supporter?"
+                    message="They'll get access to this thread even after it's claimed."
+                    confirmLabel="Invite"
+                  />
+                </div>
               </>
             )}
           </div>

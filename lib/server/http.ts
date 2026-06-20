@@ -17,7 +17,7 @@ export type RequestContext = {
 // Resolves the client IP from proxy headers, trusting them only when
 // TRUSTED_PROXY opts in to a specific proxy. Takes a header getter so the
 // same gate applies to both NextRequest handlers and server actions (which
-// read headers via next/headers) — otherwise server actions would trust
+// read headers via next/headers) - otherwise server actions would trust
 // spoofable headers that the request path correctly ignores.
 function resolveClientIp(get: (name: string) => string | null | undefined): string {
   const trusted = env("TRUSTED_PROXY").toLowerCase();

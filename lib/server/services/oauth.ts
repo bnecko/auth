@@ -92,7 +92,7 @@ type AuthorizeParams = {
 // like login_required and consent_required can be returned to the
 // client via redirect rather than rendered as a server-side error
 // page. Errors raised BEFORE redirect_uri validation must not set
-// these fields — we never bounce a user to an unvalidated URL.
+// these fields - we never bounce a user to an unvalidated URL.
 export class OAuthError extends Error {
   constructor(
     public code: string,
@@ -259,8 +259,8 @@ function hasScope(scopes: readonly string[], standard: string, legacy: string) {
 
 // The profile version is currently a forward-compatibility tag stored
 // per-client. Both 2026-05 and 2026-01 receive identical behaviour
-// today — strict client policy, refresh-token rotation with reuse
-// detection, one-time DCR secret reveal — and the field is reserved
+// today - strict client policy, refresh-token rotation with reuse
+// detection, one-time DCR secret reveal - and the field is reserved
 // for a future divergence (e.g. a 2026-09 profile that mandates DPoP).
 // Do not rely on the legacy tag to opt out of any current security
 // behaviour; it does not.
@@ -538,7 +538,7 @@ function jsonBase64Url(value: unknown) {
 // current OIDC key set and enforces the freshness + issuer claims
 // every caller would otherwise have to duplicate. Returns the parsed
 // claims on success, null on any failure. Callers that need aud
-// validation must still do that — it's call-site-specific.
+// validation must still do that - it's call-site-specific.
 export function verifyIdToken(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;

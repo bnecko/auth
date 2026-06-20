@@ -47,7 +47,7 @@ export function ClientForm() {
           Credentials issued
         </h2>
         <p className="text-[13px] text-muted mb-7">
-          Copy your client secret now — it will never be shown again
+          Copy your client secret now - it will never be shown again
         </p>
 
         <div className="bg-card border border-rule rounded-lg divide-y divide-rule mb-8">
@@ -67,7 +67,7 @@ export function ClientForm() {
               {created.clientSecret}
             </code>
             <p className="mt-2 text-[12px] text-accent-strong flex items-baseline gap-1.5">
-              <span>Shown once — store immediately</span>
+              <span>Shown once - store immediately</span>
             </p>
           </div>
         </div>
@@ -98,7 +98,7 @@ export function ClientForm() {
         type="url"
         placeholder="https://yourapp.com/oauth/callback"
         required
-        hint="Where users are sent after authorizing — https required (except localhost)"
+        hint="Where users are sent after authorizing - https required (except localhost)"
       />
 
       <div className="pt-4 border-t border-rule flex items-center justify-end gap-3">

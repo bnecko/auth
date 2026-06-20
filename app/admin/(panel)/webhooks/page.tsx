@@ -1,5 +1,6 @@
 import { Section, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { Button } from "@/components/Button";
 import { getCurrentSession } from "@/lib/server/session";
 import {
   listRecentWebhookDeliveries,
@@ -138,12 +139,9 @@ export default async function AdminWebhooksPage({
                         name="public_id"
                         value={d.publicId}
                       />
-                      <button
-                        type="submit"
-                        className="text-[13px] text-secondary hover:text-accent-strong transition-colors"
-                      >
+                      <Button type="submit" variant="ghost" size="sm">
                         Retry
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </div>

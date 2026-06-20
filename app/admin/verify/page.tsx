@@ -26,7 +26,7 @@ export default async function AdminVerifyPage({
   const callbackUrl = `${authBaseUrl()}/api/admin/telegram-step-up`;
 
   const errorMessages: Record<string, string> = {
-    invalid_payload: "Telegram verification failed — try again",
+    invalid_payload: "Telegram verification failed - try again",
     identity_mismatch:
       "The Telegram account does not match your linked identity",
   };
@@ -51,7 +51,7 @@ export default async function AdminVerifyPage({
         {error && (
           <div className="mb-5">
             <Alert tone="danger">
-              {errorMessages[error] ?? "Verification failed — try again"}
+              {errorMessages[error] ?? "Verification failed - try again"}
             </Alert>
           </div>
         )}
@@ -59,7 +59,7 @@ export default async function AdminVerifyPage({
         <div className="bg-card border border-rule rounded-lg p-6">
           {!current.user.telegramId ? (
             <Alert tone="warning">
-              No Telegram account is linked — link one from the dashboard first
+              No Telegram account is linked - link one from the dashboard first
             </Alert>
           ) : !botUsername ? (
             <Alert tone="danger">

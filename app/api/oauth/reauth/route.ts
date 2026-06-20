@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // Triggered from /oauth/authorize when prompt=login or max_age forces
 // re-authentication. Clears the existing session cookie (and revokes
 // the DB row) before sending the user back through /login, so the
-// resulting fresh login is the only valid session — the old one
+// resulting fresh login is the only valid session - the old one
 // can't survive the forced re-auth.
 //
 // `next` must point at the authorize endpoint we came from. Any

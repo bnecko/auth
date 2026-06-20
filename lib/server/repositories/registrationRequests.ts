@@ -137,7 +137,7 @@ export async function findRegistrationRequest(publicId: string) {
   return row ? mapRegistrationRequest(row) : null;
 }
 
-// Find the pending request a /start token refers to. Does NOT change status —
+// Find the pending request a /start token refers to. Does NOT change status -
 // the user still has to approve via the inline buttons.
 export async function findPendingRegistrationByStartToken(startTokenHash: string) {
   const row = await queryOne<RegistrationRequestRow>(

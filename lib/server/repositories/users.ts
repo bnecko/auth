@@ -147,7 +147,7 @@ export async function createUser(input: CreateUserInput) {
 }
 
 export async function linkTelegram(userId: number, telegram: TelegramIdentity) {
-  // Refuse to overwrite an existing telegram link — preventing a CSRF on
+  // Refuse to overwrite an existing telegram link - preventing a CSRF on
   // GET /api/telegram/callback from rebinding a logged-in user's account to
   // an attacker-controlled Telegram identity. The unique constraint on
   // users.telegram_id additionally prevents the same TG id being attached
@@ -177,7 +177,7 @@ export async function linkTelegram(userId: number, telegram: TelegramIdentity) {
   }
 }
 
-// Unconditional relink — clears any existing Telegram association and sets the
+// Unconditional relink - clears any existing Telegram association and sets the
 // new one. Only called after the user has proven ownership of their current
 // linked account via an OTP delivered to that account.
 export async function relinkTelegram(userId: number, telegram: TelegramIdentity) {

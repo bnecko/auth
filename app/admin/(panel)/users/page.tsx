@@ -1,5 +1,6 @@
 import { Section, Empty, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { query } from "@/lib/server/db";
 import { getCurrentSession } from "@/lib/server/session";
 import { redirect } from "next/navigation";
@@ -113,27 +114,44 @@ export default async function AdminUsersPage({
                     {u.created_at?.slice(0, 10)}
                   </span>
                 </RowValue>
-                <div className="text-[12px]">
-                  {u.status !== "banned" ? (
-                    <form action={banUserAction}>
-                      <input type="hidden" name="userId" value={u.id} />
-                      <button
-                        type="submit"
-                        className="text-secondary hover:text-danger transition-colors"
-                      >
-                        Ban
-                      </button>
-                    </form>
+                <div>
+                  {String(current.user.id) === u.id ? (
+                    <span className="text-[12px] text-faint">You</span>
+                  ) : u.status !== "banned" ? (
+                    <ConfirmButton
+                      action={banUserAction}
+                      fields={{ userId: u.id }}
+                      extraInput={{
+                        name: "reason",
+                        label: "Reason (optional)",
+                        placeholder: "Why is this account being banned?",
+                        multiline: true,
+                      }}
+                      label="Ban"
+                      triggerVariant="danger"
+                      tone="danger"
+                      title={`Ban @${u.username}?`}
+                      message="They will be signed out everywhere and blocked from signing in. You can unban them later."
+                      preview={
+                        <span className="flex items-center gap-2">
+                          <span className="text-fg">@{u.username}</span>
+                          <span className="text-muted truncate">{u.email}</span>
+                          <Tag tone={statusTone[u.status] ?? "neutral"}>{u.status}</Tag>
+                        </span>
+                      }
+                      confirmLabel="Ban account"
+                    />
                   ) : (
-                    <form action={unbanUserAction}>
-                      <input type="hidden" name="userId" value={u.id} />
-                      <button
-                        type="submit"
-                        className="text-secondary hover:text-accent-strong transition-colors"
-                      >
-                        Unban
-                      </button>
-                    </form>
+                    <ConfirmButton
+                      action={unbanUserAction}
+                      fields={{ userId: u.id }}
+                      label="Unban"
+                      triggerVariant="secondary"
+                      tone="warning"
+                      title={`Unban @${u.username}?`}
+                      message="They will be able to sign in again."
+                      confirmLabel="Unban account"
+                    />
                   )}
                 </div>
               </Row>

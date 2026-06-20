@@ -799,7 +799,7 @@ export async function purgeExpiredClientAssertionJtis(graceMinutes = 60) {
 
 // Records a client_assertion jti for replay protection. Returns true
 // when the jti is newly recorded (caller may proceed), false when it
-// was already in the table (replay — reject the assertion).
+// was already in the table (replay - reject the assertion).
 export async function recordClientAssertionJti(input: {
   appId: number;
   jti: string;

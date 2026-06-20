@@ -111,7 +111,7 @@ export default function RelinkPage() {
         {step === "send" && "Confirm ownership of your linked account before relinking"}
         {step === "enter_code" && "Enter the code sent to your linked Telegram"}
         {step === "bot_link" && "Open the bot and tap Approve to complete the relink"}
-        {step === "success" && "Telegram account relinked — redirecting"}
+        {step === "success" && "Telegram account relinked - redirecting"}
         {step === "error" && "Something went wrong"}
       </p>
 

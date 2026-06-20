@@ -436,7 +436,7 @@ export async function requestTelegramLoginApproval(
       "",
       "Do you want to approve this sign-in?",
       "",
-      "⚠️ Only approve if this is you. Never approve a sign-in — or a Telegram link — for anyone else.",
+      "⚠️ Only approve if this is you. Never approve a sign-in - or a Telegram link - for anyone else.",
     ].join("\n"),
     inlineButtons: [
       [

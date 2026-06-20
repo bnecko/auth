@@ -5,7 +5,7 @@ import { safeFetch } from "./safeFetch";
 // authentication. Clients self-host their public JWKS either inline
 // (the `jwks` column on external_apps) or at a discoverable URL (the
 // `jwks_uri` column). We cache fetched JWKS in-process for five
-// minutes — long enough to absorb token-endpoint bursts, short enough
+// minutes - long enough to absorb token-endpoint bursts, short enough
 // to pick up a key rotation without operator action.
 
 type Jwk = Record<string, unknown> & { kid?: string; kty?: string; use?: string };
@@ -82,7 +82,7 @@ export async function resolveClientPublicKey(input: {
     try {
       return createPublicKey({ key: jwk as never, format: "jwk" });
     } catch {
-      // Skip unparseable entries — JWKS can carry symmetric keys we
+      // Skip unparseable entries - JWKS can carry symmetric keys we
       // can't use for assertion verification.
     }
   }
