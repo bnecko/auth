@@ -46,7 +46,7 @@ const USER_NAV: NavGroup[] = [
   {
     label: "Account",
     items: [
-      { href: "/", label: "Account home", icon: House },
+      { href: "/account", label: "Account home", icon: House },
       { href: "/settings", label: "Settings", icon: Settings },
       { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
       { href: "/apps", label: "Connected apps", icon: LayoutGrid },
@@ -244,14 +244,14 @@ export function AppShell({
     : isSecurity
       ? [...USER_NAV, SECURITY_GROUP]
       : USER_NAV;
-  const homeHref = admin ? "/admin" : "/";
+  const homeHref = admin ? "/admin" : "/account";
   const flatItems: FlatItem[] = [
     ...nav.flatMap(g => g.items.map(it => ({ ...it, group: g.label }))),
     ...(admin ? [] : SETTINGS_SEARCH),
   ];
   const breadcrumb =
     trail ??
-    (pathname === "/"
+    (pathname === "/account"
       ? "Account home"
       : flatItems.find(it => it.href === pathname)?.label ?? (admin ? "Admin" : "Account"));
 
@@ -303,7 +303,7 @@ export function AppShell({
         <div className="ml-auto flex items-center gap-1">
           {admin ? (
             <Link
-              href="/"
+              href="/account"
               className="h-8 px-3 inline-flex items-center rounded-md text-[13px] text-secondary hover:bg-hover hover:text-fg transition-colors"
             >
               Account

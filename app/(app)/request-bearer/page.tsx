@@ -65,7 +65,7 @@ export default function RequestBearerPage() {
                   the bearer will appear on your dashboard.
                 </p>
               </Alert>
-              <Link href="/">
+              <Link href="/account">
                 <Button variant="secondary">Back to dashboard</Button>
               </Link>
             </>
@@ -112,7 +112,7 @@ export default function RequestBearerPage() {
                 <Button type="submit" loading={status === "submitting"}>
                   Send request
                 </Button>
-                <Link href="/" className="flex-1">
+                <Link href="/account" className="flex-1">
                   <Button type="button" variant="ghost">
                     Cancel
                   </Button>

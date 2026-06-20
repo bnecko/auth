@@ -13,7 +13,7 @@ export async function POST(
 
   try {
     const user = await completeVerifiedRegistration(id, req);
-    const res = NextResponse.json({ redirectTo: "/" });
+    const res = NextResponse.json({ redirectTo: "/account" });
     await createUserSession(user.id, req, res);
     return res;
   } catch (err) {
