@@ -1,5 +1,5 @@
 import { getCurrentSession } from "./session";
-import { isSupportTeamMember } from "./repositories/support";
+import { getSupportTeamRole, isSupportTeamMember } from "./repositories/support";
 import type { User } from "./types";
 
 // A supporter is an account on the support_team roster. Admins are not
@@ -22,6 +22,28 @@ export async function canHandleSupport(user: Pick<User, "id" | "role">) {
 export async function requireSupporterSession() {
   const current = await getCurrentSession();
   if (!current || !(await canHandleSupport(current.user))) {
+    throw new Error("forbidden");
+  }
+  return current;
+}
+
+// Security team: admins, plus support_team members with a security role. These
+// can view/reply in restricted users' security threads.
+export async function canHandleSecurity(user: Pick<User, "id" | "role">) {
+  if (user.role === "admin") return true;
+  const role = await getSupportTeamRole(user.id);
+  return role === "security" || role === "security_high";
+}
+
+// Only admins and high-security supporters may actually restrict/lift a user.
+export async function canRestrict(user: Pick<User, "id" | "role">) {
+  if (user.role === "admin") return true;
+  return (await getSupportTeamRole(user.id)) === "security_high";
+}
+
+export async function requireSecuritySession() {
+  const current = await getCurrentSession();
+  if (!current || !(await canHandleSecurity(current.user))) {
     throw new Error("forbidden");
   }
   return current;

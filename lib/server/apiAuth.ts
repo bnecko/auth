@@ -13,6 +13,11 @@ export async function requireUser(req: NextRequest) {
   if (!session || session.user.status === "banned") {
     return { response: unauthorized(), session: null };
   }
+  // A restricted account keeps a session (so it can reach /restricted in the
+  // browser) but is cut off from every API. Distinct code, not a bare 401.
+  if (session.user.restricted) {
+    return { response: forbidden("account restricted"), session: null };
+  }
 
   return { response: null, session };
 }
