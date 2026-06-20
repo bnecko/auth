@@ -13,6 +13,7 @@ export type LoginChallenge = {
   userId: number;
   remember: boolean;
   status: LoginChallengeStatus;
+  ip: string | null;
   expiresAt: string;
 };
 
@@ -22,6 +23,7 @@ type LoginChallengeRow = {
   user_id: string;
   remember_me: boolean;
   status: LoginChallengeStatus;
+  ip: string | null;
   expires_at: string;
 };
 
@@ -31,6 +33,7 @@ const challengeSelect = `
   user_id,
   remember_me,
   status,
+  ip,
   expires_at::text
 `;
 
@@ -40,6 +43,7 @@ const challengeSelectWithAlias = `
   tlc.user_id,
   tlc.remember_me,
   tlc.status,
+  tlc.ip,
   tlc.expires_at::text
 `;
 
@@ -50,6 +54,7 @@ function mapChallenge(row: LoginChallengeRow): LoginChallenge {
     userId: Number(row.user_id),
     remember: row.remember_me,
     status: row.status,
+    ip: row.ip,
     expiresAt: row.expires_at,
   };
 }
@@ -106,8 +111,30 @@ export async function findLoginChallenge(publicId: string) {
   return row ? mapChallenge(row) : null;
 }
 
-export async function verifyLoginChallengeByStartToken(input: {
+// Find the pending challenge a /start token refers to, scoped to the Telegram
+// account it was issued for. Does NOT change status — the user still has to
+// approve via the inline buttons.
+export async function findPendingLoginChallengeByStartToken(input: {
   startToken: string;
+  telegramId: string;
+}) {
+  const row = await queryOne<LoginChallengeRow>(
+    `select ${challengeSelectWithAlias}
+       from telegram_login_challenges tlc
+       join users u on u.id = tlc.user_id
+      where tlc.start_token_hash = $1
+        and u.telegram_id = $2
+        and tlc.status = 'pending'
+        and tlc.expires_at > $3`,
+    [hashToken(input.startToken), input.telegramId, new Date().toISOString()],
+  );
+  return row ? mapChallenge(row) : null;
+}
+
+// Approve: mark the pending challenge verified, but only if the approving
+// Telegram account is the one the challenge belongs to.
+export async function markLoginChallengeVerified(input: {
+  publicId: string;
   telegramId: string;
 }) {
   const row = await queryOne<LoginChallengeRow>(
@@ -116,12 +143,31 @@ export async function verifyLoginChallengeByStartToken(input: {
             verified_at = now()
        from users u
       where tlc.user_id = u.id
-        and tlc.start_token_hash = $1
+        and tlc.public_id = $1
         and u.telegram_id = $2
         and tlc.status = 'pending'
         and tlc.expires_at > $3
       returning ${challengeSelectWithAlias}`,
-    [hashToken(input.startToken), input.telegramId, new Date().toISOString()],
+    [input.publicId, input.telegramId, new Date().toISOString()],
+  );
+  return row ? mapChallenge(row) : null;
+}
+
+// Deny: cancel the pending challenge (same scoping as approve).
+export async function markLoginChallengeDenied(input: {
+  publicId: string;
+  telegramId: string;
+}) {
+  const row = await queryOne<LoginChallengeRow>(
+    `update telegram_login_challenges tlc
+        set status = 'cancelled'
+       from users u
+      where tlc.user_id = u.id
+        and tlc.public_id = $1
+        and u.telegram_id = $2
+        and tlc.status = 'pending'
+      returning ${challengeSelectWithAlias}`,
+    [input.publicId, input.telegramId],
   );
   return row ? mapChallenge(row) : null;
 }

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { User } from "lucide-react";
+import { Button } from "@/components/Button";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 
@@ -36,9 +38,7 @@ export default async function ProfilePage() {
           <RowValue>
             {u.telegramUsername ? `@${u.telegramUsername}` : u.telegramId || "Not linked"}
           </RowValue>
-          <a href="/relink" className="text-[13px] text-secondary hover:text-accent-strong transition-colors">
-            Relink
-          </a>
+          <Link href="/relink"><Button variant="secondary" size="sm">Relink</Button></Link>
         </Row>
       </Section>
     </>

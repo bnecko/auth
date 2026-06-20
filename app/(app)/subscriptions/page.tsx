@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CreditCard } from "lucide-react";
+import { Button } from "@/components/Button";
 import { Section, Row, RowLabel, RowValue, Empty } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { getCurrentSession } from "@/lib/server/session";
@@ -43,12 +44,9 @@ export default async function SubscriptionsPage() {
               </RowValue>
               <form action={cancelSubscriptionAction}>
                 <input type="hidden" name="product" value={subscription.product} />
-                <button
-                  type="submit"
-                  className="text-[13px] text-secondary hover:text-danger transition-colors"
-                >
+                <Button type="submit" variant="danger" size="sm">
                   Cancel
-                </button>
+                </Button>
               </form>
             </Row>
           ))

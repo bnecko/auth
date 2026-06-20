@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { MonitorSmartphone } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
+import { Button } from "@/components/Button";
 import { getCurrentSession } from "@/lib/server/session";
 import { listSessionsForUser } from "@/lib/server/repositories/sessions";
 import { revokeSessionAction } from "@/app/dashboard-actions";
@@ -32,9 +33,9 @@ export default async function SessionsPage() {
         hint="Signed-in browsers"
         action={
           <form action={revokeOtherSessionsAction}>
-            <button className="text-[13px] text-secondary hover:text-danger transition-colors">
+            <Button type="submit" variant="danger" size="sm">
               Revoke others
-            </button>
+            </Button>
           </form>
         }
       >
@@ -49,13 +50,14 @@ export default async function SessionsPage() {
             </RowValue>
             <form action={revokeSessionAction}>
               <input type="hidden" name="sessionId" value={session.id} />
-              <button
+              <Button
                 type="submit"
-                className="text-[13px] text-secondary hover:text-danger transition-colors disabled:text-faint disabled:hover:text-faint disabled:cursor-not-allowed"
+                variant="danger"
+                size="sm"
                 disabled={session.id === current.session.id}
               >
                 Revoke
-              </button>
+              </Button>
             </form>
           </Row>
         ))}

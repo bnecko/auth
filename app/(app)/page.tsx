@@ -22,8 +22,8 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-card ring-1 ring-rule shadow-xs overflow-hidden flex flex-col">
-      <header className="h-12 px-4 flex items-center justify-between bg-elevated">
+    <div className="rounded-xl bg-elevated ring-1 ring-rule shadow-xs overflow-hidden flex flex-col">
+      <header className="h-11 px-3.5 flex items-center justify-between">
         <h3 className="text-[14px] font-medium text-fg">{title}</h3>
         {href && (
           <Link
@@ -34,7 +34,7 @@ function Card({
           </Link>
         )}
       </header>
-      <div className="rounded-xl ring-1 ring-rule bg-card overflow-hidden flex-1">{children}</div>
+      <div className="m-1 mt-0 rounded-lg ring-1 ring-rule bg-card overflow-hidden flex-1">{children}</div>
     </div>
   );
 }

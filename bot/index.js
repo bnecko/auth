@@ -130,6 +130,28 @@ async function handleCallbackQuery(query) {
   const data = query.data || "";
   const fromId = query.from && query.from.id ? String(query.from.id) : "";
 
+  const loginMatch = data.match(/^login_(approve|deny):(\S+)$/);
+  if (loginMatch) {
+    const decision = loginMatch[1];
+    const challengeId = loginMatch[2];
+    const result = await callLoginDecision(challengeId, decision, fromId);
+    if (!result.ok) {
+      await answerCallback(query.id, result.message || "Could not record your decision.", true);
+      return;
+    }
+    const verb = decision === "approve" ? "Approved" : "Denied";
+    await answerCallback(query.id, verb);
+    if (query.message) {
+      const original = query.message.text || "";
+      await editMessage(
+        query.message.chat.id,
+        query.message.message_id,
+        `${original}\n\n— ${verb}`,
+      );
+    }
+    return;
+  }
+
   const bearerMatch = data.match(/^bearer_(approve|reject):(\S+)$/);
   if (!bearerMatch) {
     await answerCallback(query.id, "");
@@ -202,6 +224,26 @@ async function callBearerDecision(requestId, decision, fromId) {
   }
 }
 
+async function callLoginDecision(challengeId, decision, fromId) {
+  try {
+    const response = await fetch(`${authBaseUrl}/api/telegram/login/decision`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-bottleneck-bot-secret": webhookSecret,
+      },
+      body: JSON.stringify({ challengeId, decision, telegramId: fromId }),
+    });
+    if (!response.ok) {
+      const data = await safeJson(response);
+      return { ok: false, message: data?.error || `http ${response.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+}
+
 async function answerCallback(callbackQueryId, text, alert) {
   await fetch(`${apiBase}/answerCallbackQuery`, {
     method: "POST",
@@ -243,6 +285,13 @@ async function callVerify(startToken, from) {
   });
 
   if (response.ok) {
+    const data = await safeJson(response);
+    if (data && data.kind === "login_pending") {
+      return {
+        message:
+          "We sent you an approval request above. Tap Approve to finish signing in.",
+      };
+    }
     return { message: "Verified. Return to the browser to finish signing in." };
   }
 

@@ -1,8 +1,17 @@
 type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Size = "md" | "sm";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
+  size?: Size;
   loading?: boolean;
+};
+
+// md is the full-width form button; sm is a compact, auto-width action for rows
+// and card headers.
+const sizes: Record<Size, string> = {
+  md: "w-full h-10 px-4 text-[14px]",
+  sm: "h-8 px-3 text-[13px]",
 };
 
 // Primary is the one filled control: the accent on a dark label. Secondary is
@@ -44,6 +53,7 @@ function Spinner() {
 
 export function Button({
   variant = "primary",
+  size = "md",
   loading,
   className = "",
   children,
@@ -53,8 +63,8 @@ export function Button({
   return (
     <button
       className={[
-        "w-full h-10 px-4 text-[14px] font-medium rounded-md",
-        "transition disabled:cursor-not-allowed",
+        sizes[size],
+        "font-medium rounded-md transition disabled:cursor-not-allowed",
         "inline-flex items-center justify-center gap-2",
         styles[variant],
         className,

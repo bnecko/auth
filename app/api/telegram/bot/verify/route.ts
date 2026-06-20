@@ -3,8 +3,8 @@ import { env } from "@/lib/server/config";
 import { hashToken, safeEqual } from "@/lib/server/crypto";
 import { badRequest, forbidden, json, requestBody, requestContext } from "@/lib/server/http";
 import {
+  requestTelegramLoginApproval,
   verifyRegistrationByTelegram,
-  verifyTelegramLoginChallenge,
 } from "@/lib/server/services/auth";
 import { completeRelinkByTelegram } from "@/lib/server/relinkChallenge";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
@@ -43,17 +43,17 @@ export async function POST(req: NextRequest) {
       return json({ kind: "relink", linked: relink.linked });
     }
 
-    const loginChallenge = await verifyTelegramLoginChallenge(
+    const loginChallenge = await requestTelegramLoginApproval(
       startToken,
       telegram,
       req,
     );
     if (loginChallenge) {
+      // We sent the user an approve/deny prompt; the login is not verified yet.
       return json({
         challengeId: loginChallenge.publicId,
-        verificationHash: hashToken(loginChallenge.publicId),
         status: loginChallenge.status,
-        kind: "login",
+        kind: "login_pending",
       });
     }
 

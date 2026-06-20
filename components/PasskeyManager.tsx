@@ -5,6 +5,7 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { Row, RowLabel, RowValue, Empty } from "./Section";
 import { Tag } from "./Tag";
 import { revokePasskeyAction } from "@/app/dashboard-actions";
+import { Button } from "@/components/Button";
 
 export function PasskeyManager({
   passkeys,
@@ -69,25 +70,25 @@ export function PasskeyManager({
             </RowValue>
             <form action={revokePasskeyAction}>
               <input type="hidden" name="credentialId" value={key.id} />
-              <button
-                type="submit"
-                className="text-[13px] text-secondary hover:text-danger transition-colors"
-              >
+              <Button type="submit" variant="danger" size="sm">
                 Revoke
-              </button>
+              </Button>
             </form>
           </Row>
         ))
       )}
 
       <div className="border-t border-rule px-1 py-3">
-        <button
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
           onClick={registerPasskey}
           disabled={loading}
-          className="text-[13px] text-accent-strong hover:text-fg transition-colors disabled:text-faint disabled:cursor-not-allowed"
+          loading={loading}
         >
           {loading ? "Registering…" : "Add passkey"}
-        </button>
+        </Button>
       </div>
     </>
   );

@@ -20,8 +20,8 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-6 rounded-xl bg-card ring-1 ring-rule shadow-xs overflow-hidden">
-      <header className="h-14 px-4 flex items-center justify-between gap-3 bg-elevated">
+    <section className="mb-5 rounded-xl bg-elevated ring-1 ring-rule shadow-xs overflow-hidden">
+      <header className="h-11 px-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           {index && (
             <span className="text-[13px] text-faint tabular-nums shrink-0">
@@ -29,16 +29,16 @@ export function Section({
             </span>
           )}
           {Icon && <Icon size={15} className="text-muted shrink-0" />}
-          <h2 className="text-[15px] font-semibold text-fg shrink-0">{title}</h2>
+          <h2 className="text-[14px] font-semibold text-fg shrink-0">{title}</h2>
           {hint && (
             <span className="text-[13px] text-muted truncate">{hint}</span>
           )}
         </div>
         {action}
       </header>
-      {/* Full-width rounded body panel below the header (matches the reference:
-          flush to the card edges, its own hairline ring). */}
-      <div className="rounded-xl ring-1 ring-rule bg-card overflow-hidden">
+      {/* White, full-width body panel. The card itself is the elevated (grey)
+          surface, so the panel's rounded corners reveal grey, not white. */}
+      <div className="m-1 mt-0 rounded-lg ring-1 ring-rule bg-card overflow-hidden">
         {children}
       </div>
     </section>

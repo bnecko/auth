@@ -4,6 +4,7 @@ import { ShieldCheck, Send, Fingerprint } from "lucide-react";
 import { PasskeyManager } from "@/components/PasskeyManager";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
+import { Button } from "@/components/Button";
 import { getCurrentSession } from "@/lib/server/session";
 import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauthn";
 import { changePasswordAction } from "@/app/security/actions";
@@ -48,9 +49,7 @@ export default async function SecurityPage() {
               </span>
             )}
           </RowValue>
-          <Link href="/relink" className="text-[13px] text-secondary hover:text-accent-strong transition-colors">
-            Relink
-          </Link>
+          <Link href="/relink"><Button variant="secondary" size="sm">Relink</Button></Link>
         </Row>
       </Section>
 

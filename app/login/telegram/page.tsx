@@ -60,10 +60,17 @@ export default function TelegramLoginPage() {
 
     if (data.status === "verified") {
       await complete(challengeId);
+      return;
     }
 
     if (data.status === "expired") {
       setError("Verification expired. Sign in again.");
+      setStatus("failed");
+      return;
+    }
+
+    if (data.status === "cancelled") {
+      setError("This login was denied. Sign in again to try once more.");
       setStatus("failed");
     }
   }
@@ -97,8 +104,8 @@ export default function TelegramLoginPage() {
       </div>
 
       <p className="text-meta text-secondary mb-5">
-        The bot receives a one-time login token and confirms it belongs to your
-        linked Telegram account.
+        Open the bot, then approve the login request we send to your linked
+        Telegram account.
       </p>
 
       <a
