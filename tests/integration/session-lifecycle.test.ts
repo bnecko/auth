@@ -40,6 +40,8 @@ async function seedUser(prefix = 'sess'): Promise<User> {
     avatarPreset: null,
     restricted: false,
     restrictedAt: null,
+    deactivatedAt: null,
+    deletionRequestedAt: null,
     notifySecurityReceipts: true,
     notifySigninAlerts: true,
     profilePublic: true,

@@ -27,6 +27,8 @@ type SessionUserRow = SessionRow & {
   avatar_preset: number | null;
   restricted: boolean;
   restricted_at: string | null;
+  deactivated_at: string | null;
+  deletion_requested_at: string | null;
   notify_security_receipts: boolean;
   notify_signin_alerts: boolean;
   profile_public: boolean;
@@ -114,6 +116,8 @@ export async function findSessionByToken(token: string) {
         u.avatar_preset,
         u.restricted,
         u.restricted_at::text,
+        u.deactivated_at::text,
+        u.deletion_requested_at::text,
         u.notify_security_receipts,
         u.notify_signin_alerts,
         u.profile_public,
@@ -146,6 +150,8 @@ export async function findSessionByToken(token: string) {
       avatarPreset: row.avatar_preset,
       restricted: row.restricted,
       restrictedAt: row.restricted_at,
+      deactivatedAt: row.deactivated_at,
+      deletionRequestedAt: row.deletion_requested_at,
       notifySecurityReceipts: row.notify_security_receipts,
       notifySigninAlerts: row.notify_signin_alerts,
       profilePublic: row.profile_public,

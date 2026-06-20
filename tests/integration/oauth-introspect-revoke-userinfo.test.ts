@@ -238,6 +238,8 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
         avatarPreset: null,
         restricted: false,
         restrictedAt: null,
+        deactivatedAt: null,
+        deletionRequestedAt: null,
         notifySecurityReceipts: true,
         notifySigninAlerts: true,
         profilePublic: true,

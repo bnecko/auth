@@ -15,6 +15,8 @@ import {
   findSessionByToken,
   revokeSession,
 } from "./repositories/sessions";
+import { clearAccountDormancy } from "./repositories/users";
+import { recordSecurityEvent } from "./repositories/securityEvents";
 
 export async function getCurrentSession() {
   const cookieStore = await cookies();
@@ -55,6 +57,19 @@ export async function createUserSession(
     userAgent: context.userAgent,
     expiresAt,
   });
+
+  // A successful sign-in is how a user reactivates a deactivated account or
+  // cancels a pending deletion within the grace window. Single chokepoint, so
+  // it covers every login method (password, Telegram 2FA, passkey).
+  const cleared = await clearAccountDormancy(userId);
+  if (cleared) {
+    await recordSecurityEvent({
+      userId,
+      eventType: "account_reactivated",
+      result: cleared.wasPendingDeletion ? "deletion_cancelled" : "reactivated",
+      context,
+    });
+  }
 
   const cookie = {
     httpOnly: true,

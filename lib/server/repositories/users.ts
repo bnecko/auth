@@ -17,6 +17,8 @@ type UserRow = {
   avatar_preset: number | null;
   restricted: boolean;
   restricted_at: string | null;
+  deactivated_at: string | null;
+  deletion_requested_at: string | null;
   notify_security_receipts: boolean;
   notify_signin_alerts: boolean;
   profile_public: boolean;
@@ -54,6 +56,8 @@ function mapUser(row: UserRow): User {
     avatarPreset: row.avatar_preset,
     restricted: row.restricted,
     restrictedAt: row.restricted_at,
+    deactivatedAt: row.deactivated_at,
+    deletionRequestedAt: row.deletion_requested_at,
     notifySecurityReceipts: row.notify_security_receipts,
     notifySigninAlerts: row.notify_signin_alerts,
     profilePublic: row.profile_public,
@@ -80,6 +84,8 @@ const userSelect = `
   avatar_preset,
   restricted,
   restricted_at::text,
+  deactivated_at::text,
+  deletion_requested_at::text,
   notify_security_receipts,
   notify_signin_alerts,
   profile_public,
@@ -175,6 +181,41 @@ export async function updatePrivacySettings(
     ],
   );
   return row ? mapUser(row) : null;
+}
+
+// Reversible self-service pause. Idempotent: a no-op if already deactivated.
+export async function deactivateAccount(userId: number) {
+  const row = await queryOne<UserRow>(
+    `update users
+        set deactivated_at = now(), updated_at = now()
+      where id = $1 and deactivated_at is null
+      returning ${userSelect}`,
+    [userId],
+  );
+  return row ? mapUser(row) : null;
+}
+
+// Clear any dormant state on a successful sign-in: reactivates a deactivated
+// account and cancels a pending deletion. Returns which flags were cleared
+// (read from the pre-update snapshot) so the caller can audit the reason.
+export async function clearAccountDormancy(userId: number) {
+  const row = await queryOne<{ was_deactivated: boolean; was_pending_deletion: boolean }>(
+    `with prev as (
+       select deactivated_at, deletion_requested_at from users where id = $1
+     )
+     update users u
+        set deactivated_at = null, deletion_requested_at = null, updated_at = now()
+       from prev
+      where u.id = $1
+        and (prev.deactivated_at is not null or prev.deletion_requested_at is not null)
+      returning
+        (prev.deactivated_at is not null) as was_deactivated,
+        (prev.deletion_requested_at is not null) as was_pending_deletion`,
+    [userId],
+  );
+  return row
+    ? { wasDeactivated: row.was_deactivated, wasPendingDeletion: row.was_pending_deletion }
+    : null;
 }
 
 // Apply a username change, re-checking uniqueness atomically (23505 -> null so

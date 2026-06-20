@@ -16,6 +16,8 @@ export type User = {
   avatarPreset: number | null;
   restricted: boolean;
   restrictedAt: string | null;
+  deactivatedAt: string | null;
+  deletionRequestedAt: string | null;
   notifySecurityReceipts: boolean;
   notifySigninAlerts: boolean;
   profilePublic: boolean;
