@@ -31,14 +31,14 @@ export async function POST(req: NextRequest) {
   try {
     const user = await loginUser(input, req);
     if (user.telegramId) {
+      // createTelegramLoginChallenge pushes the approval prompt straight to the
+      // user's Telegram - no t.me link needed for login.
       const result = await createTelegramLoginChallenge(user, input.remember, req);
-      const botUsername = process.env.TELEGRAM_BOT_USERNAME || "bottleneck_auth_bot";
       const res = NextResponse.json(
         {
           requiresTelegram: true,
           challengeId: result.challenge.publicId,
           expiresAt: result.challenge.expiresAt,
-          botUrl: `https://t.me/${botUsername}?start=${result.startToken}`,
         },
         { status: 202 },
       );
