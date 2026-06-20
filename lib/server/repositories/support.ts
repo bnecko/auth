@@ -251,6 +251,10 @@ export async function updateSupportThread(input: {
   title: string;
   body: string;
 }) {
+  // The revision CTE snapshots the old title/body (read at statement start);
+  // the UPDATE then writes the new values. The UPDATE has no FROM clause, so
+  // its RETURNING columns are unambiguous. The data-modifying `rev` CTE runs
+  // exactly once even though the main query does not reference it.
   const row = await queryOne<SupportThreadRow>(
     `with current as (
        select id, title, body from support_threads where public_id = $1
@@ -262,8 +266,7 @@ export async function updateSupportThread(input: {
      )
      update support_threads t
         set title = $4, body = $5, updated_at = now()
-       from current c
-      where t.id = c.id
+      where t.public_id = $1
       returning ${threadColumns}`,
     [input.publicId, input.revisionPublicId, input.editedByUserId, input.title, input.body],
   );

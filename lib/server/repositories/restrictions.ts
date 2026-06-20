@@ -65,14 +65,13 @@ export async function createRestriction(input: {
   restrictedByUserId: number | null;
 }) {
   const row = await queryOne<RestrictionRow>(
-    `with u as (select username from users where id = $2)
-     insert into user_restrictions
+    `insert into user_restrictions
        (public_id, user_id, trigger_type, trigger_code, reason,
         security_thread_id, suspicion_event_id, restricted_by_user_id,
         last_user_activity_at)
      values ($1, $2, $3, $4, $5, $6, $7, $8, now())
      returning id, public_id, user_id,
-               (select username from u) as username,
+               null::text as username,
                status, trigger_type, trigger_code, reason, security_thread_id,
                last_user_activity_at::text, created_at::text`,
     [
