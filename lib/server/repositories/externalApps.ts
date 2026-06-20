@@ -1,4 +1,4 @@
-import { queryOne } from "../db";
+import { query, queryOne } from "../db";
 import { hashToken } from "../crypto";
 import type { ExternalApp } from "../types";
 
@@ -201,6 +201,16 @@ export async function findExternalAppById(id: number) {
     [id],
   );
   return row ? mapExternalApp(row) : null;
+}
+
+export async function setExternalAppStatus(
+  appId: number,
+  status: "active" | "disabled",
+) {
+  await query(
+    `update external_apps set status = $2, updated_at = now() where id = $1`,
+    [appId, status],
+  );
 }
 
 export async function findExternalAppSecretHashForOwner(

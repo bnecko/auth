@@ -202,13 +202,15 @@ create table bearer_requests (
   app_name text not null,
   reason text not null,
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'rejected', 'cleared')),
+    check (status in ('pending', 'approved', 'rejected', 'cleared', 'revoked')),
   external_app_id bigint references external_apps(id) on delete set null,
   plaintext_key text,
+  created_by_telegram_id text,
   decided_by_telegram_id text,
   decided_at timestamptz,
   revealed_at timestamptz,
   cleared_at timestamptz,
+  revoked_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -229,6 +231,9 @@ create table bans (
 
 create index bans_user_id_idx on bans(user_id);
 create index bans_kind_value_idx on bans(kind, value_hash);
+create unique index bans_active_kind_value_idx
+  on bans(kind, value_hash)
+  where revoked_at is null and value_hash is not null;
 
 create table oauth_authorization_codes (
   id bigserial primary key,

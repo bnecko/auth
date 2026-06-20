@@ -10,10 +10,12 @@ type BearerRequestRow = {
   status: BearerRequestStatus;
   external_app_id: string | null;
   has_plaintext: boolean;
+  created_by_telegram_id: string | null;
   decided_by_telegram_id: string | null;
   decided_at: string | null;
   revealed_at: string | null;
   cleared_at: string | null;
+  revoked_at: string | null;
   created_at: string;
 };
 
@@ -27,10 +29,12 @@ function mapBearerRequest(row: BearerRequestRow): BearerRequest {
     status: row.status,
     externalAppId: row.external_app_id ? Number(row.external_app_id) : null,
     hasPlaintext: row.has_plaintext,
+    createdByTelegramId: row.created_by_telegram_id,
     decidedByTelegramId: row.decided_by_telegram_id,
     decidedAt: row.decided_at,
     revealedAt: row.revealed_at,
     clearedAt: row.cleared_at,
+    revokedAt: row.revoked_at,
     createdAt: row.created_at,
   };
 }
@@ -48,10 +52,12 @@ const bearerSelect = `
   status,
   external_app_id,
   (plaintext_key is not null) as has_plaintext,
+  created_by_telegram_id,
   decided_by_telegram_id,
   decided_at::text,
   revealed_at::text,
   cleared_at::text,
+  revoked_at::text,
   created_at::text
 `;
 
@@ -60,12 +66,13 @@ export async function createBearerRequest(input: {
   userId: number;
   appName: string;
   reason: string;
+  createdByTelegramId: string | null;
 }) {
   const row = await queryOne<BearerRequestRow>(
-    `insert into bearer_requests (public_id, user_id, app_name, reason)
-     values ($1, $2, $3, $4)
+    `insert into bearer_requests (public_id, user_id, app_name, reason, created_by_telegram_id)
+     values ($1, $2, $3, $4, $5)
      returning ${bearerSelect}`,
-    [input.publicId, input.userId, input.appName, input.reason],
+    [input.publicId, input.userId, input.appName, input.reason, input.createdByTelegramId],
   );
 
   if (!row) {
@@ -73,6 +80,19 @@ export async function createBearerRequest(input: {
   }
 
   return mapBearerRequest(row);
+}
+
+// User-initiated revoke (after Telegram approval): mark the request revoked.
+// Only an issued/approved request can be revoked.
+export async function markBearerRequestRevoked(publicId: string) {
+  const row = await queryOne<BearerRequestRow>(
+    `update bearer_requests
+        set status = 'revoked', revoked_at = now(), plaintext_key = null
+      where public_id = $1 and status in ('approved', 'cleared')
+      returning ${bearerSelect}`,
+    [publicId],
+  );
+  return row ? mapBearerRequest(row) : null;
 }
 
 export async function findBearerRequestByPublicId(publicId: string) {

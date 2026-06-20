@@ -8,14 +8,23 @@ import {
   createBearerRequest,
   findBearerRequestByPublicId,
   countPendingBearerRequestsForUser,
+  markBearerRequestRevoked,
   readBearerRequestPlaintext,
   rejectBearerRequest,
 } from "../repositories/bearerRequests";
-import { createExternalApp } from "../repositories/externalApps";
+import { createExternalApp, setExternalAppStatus } from "../repositories/externalApps";
 import { recordSecurityEvent } from "../repositories/securityEvents";
-import { escapeHtml } from "../telegramSend";
+import { sendTelegramMessage, escapeHtml } from "../telegramSend";
 import { getTelegramQueue } from "../queue";
+import {
+  beginBearerRevokeApproval,
+  getBearerRevokeStatus,
+  resolveBearerRevokeApproval,
+  setBearerRevokeStatus,
+} from "../bearerRevokeChallenge";
 import type { BearerRequest, User } from "../types";
+
+export { getBearerRevokeStatus };
 
 const APP_NAME_MAX = 60;
 const REASON_MAX = 600;
@@ -58,6 +67,7 @@ export async function submitBearerRequest(input: {
     userId: input.user.id,
     appName,
     reason,
+    createdByTelegramId: input.user.telegramId,
   });
 
   await recordSecurityEvent({
@@ -65,7 +75,7 @@ export async function submitBearerRequest(input: {
     eventType: "bearer_request_submitted",
     result: "ok",
     context: requestContext(input.req),
-    metadata: { requestId: request.publicId, appName },
+    metadata: { requestId: request.publicId, appName, telegramId: input.user.telegramId },
   });
 
   // Best-effort Telegram notification. If sending fails the request is
@@ -238,4 +248,100 @@ export async function dismissBearerKey(
   });
 
   return cleared;
+}
+
+// User-initiated revocation, confirmed over Telegram (web alone is not enough).
+// The approval is sent to the key creator's Telegram; on approve we disable the
+// backing app (the key stops working) and mark the request revoked.
+export async function requestBearerRevokeApproval(input: {
+  user: User;
+  bearerPublicId: string;
+  req: NextRequest;
+}) {
+  const bearer = await findBearerRequestByPublicId(input.bearerPublicId);
+  if (!bearer || bearer.userId !== input.user.id) {
+    throw new Error("bearer request not found");
+  }
+  if (bearer.status !== "approved" && bearer.status !== "cleared") {
+    throw new Error("this bearer is not active");
+  }
+  if (!input.user.telegramId) {
+    throw new Error("link Telegram before revoking a bearer key");
+  }
+
+  const { apprId, browserToken } = await beginBearerRevokeApproval({
+    bearerPublicId: bearer.publicId,
+    userId: input.user.id,
+  });
+
+  await sendTelegramMessage({
+    chatId: input.user.telegramId,
+    text: [
+      "🔑 <b>Revoke API bearer key</b>",
+      "",
+      `App: <b>${escapeHtml(bearer.appName)}</b>`,
+      "",
+      "Do you want to permanently revoke this key? Apps using it will stop working.",
+      "",
+      "⚠️ Only approve if you requested this.",
+    ].join("\n"),
+    inlineButtons: [
+      [
+        { text: "Approve", callbackData: `bearer_revoke_approve:${apprId}` },
+        { text: "Deny", callbackData: `bearer_revoke_deny:${apprId}` },
+      ],
+    ],
+  });
+
+  await recordSecurityEvent({
+    userId: input.user.id,
+    eventType: "bearer_revoke_request",
+    result: "sent",
+    context: requestContext(input.req),
+    metadata: { requestId: bearer.publicId },
+  });
+
+  return { browserToken };
+}
+
+export async function decideBearerRevoke(input: {
+  apprId: string;
+  decision: "approve" | "deny";
+  telegramId: string;
+}) {
+  const appr = await resolveBearerRevokeApproval(input.apprId);
+  if (!appr) return null;
+
+  const bearer = await findBearerRequestByPublicId(appr.bearerPublicId);
+  // Scope: only the key's creator (by Telegram id) may approve.
+  if (!bearer || bearer.createdByTelegramId !== input.telegramId) {
+    await setBearerRevokeStatus(appr.browserHash, "denied");
+    return null;
+  }
+
+  if (input.decision === "deny") {
+    await setBearerRevokeStatus(appr.browserHash, "denied");
+    await recordSecurityEvent({
+      userId: appr.userId,
+      eventType: "bearer_revoke_decision",
+      result: "denied",
+      context: { ip: "", userAgent: "telegram-bot", country: "" },
+      metadata: { requestId: bearer.publicId },
+    });
+    return { status: "denied" as const };
+  }
+
+  await markBearerRequestRevoked(bearer.publicId);
+  if (bearer.externalAppId) {
+    await setExternalAppStatus(bearer.externalAppId, "disabled");
+  }
+  await setBearerRevokeStatus(appr.browserHash, "revoked");
+  await recordSecurityEvent({
+    userId: appr.userId,
+    eventType: "bearer_revoke_decision",
+    result: "revoked",
+    context: { ip: "", userAgent: "telegram-bot", country: "" },
+    metadata: { requestId: bearer.publicId },
+  });
+  return { status: "revoked" as const };
 }

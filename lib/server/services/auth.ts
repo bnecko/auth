@@ -26,6 +26,7 @@ import {
   markRegistrationVerified,
 } from "../repositories/registrationRequests";
 import { beginRelinkApproval, decideRelink } from "../relinkChallenge";
+import { isTelegramIdBanned } from "../repositories/bans";
 import {
   completeLoginChallenge,
   createLoginChallenge,
@@ -415,6 +416,15 @@ export async function requestTelegramLoginApproval(
   req: NextRequest,
 ) {
   const context = requestContext(req);
+  if (await isTelegramIdBanned(telegram.id)) {
+    await recordSecurityEvent({
+      eventType: "login_2fa_prompt",
+      result: "telegram_banned",
+      context,
+      metadata: { telegramId: telegram.id },
+    });
+    return null;
+  }
   const challenge = await findPendingLoginChallengeByStartToken({
     startToken,
     telegramId: telegram.id,
@@ -541,6 +551,17 @@ export async function requestTelegramRegistrationApproval(
   req: NextRequest,
 ) {
   const context = requestContext(req);
+  // Block a banned Telegram identity from completing a fresh registration -
+  // this is the recreation-evasion guard.
+  if (await isTelegramIdBanned(telegram.id)) {
+    await recordSecurityEvent({
+      eventType: "telegram_verify_prompt",
+      result: "telegram_banned",
+      context,
+      metadata: { telegramId: telegram.id },
+    });
+    return null;
+  }
   const request = await findPendingRegistrationByStartToken(hashToken(startToken));
   if (!request) {
     return null;
@@ -611,6 +632,15 @@ export async function requestTelegramRelinkApproval(
   req: NextRequest,
 ) {
   const context = requestContext(req);
+  if (await isTelegramIdBanned(telegram.id)) {
+    await recordSecurityEvent({
+      eventType: "telegram_relink_prompt",
+      result: "telegram_banned",
+      context,
+      metadata: { telegramId: telegram.id },
+    });
+    return null;
+  }
   const approval = await beginRelinkApproval(startToken);
   if (!approval) {
     return null;

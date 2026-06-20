@@ -84,7 +84,8 @@ export type BearerRequestStatus =
   | "pending"
   | "approved"
   | "rejected"
-  | "cleared";
+  | "cleared"
+  | "revoked";
 
 export type BearerRequest = {
   id: number;
@@ -95,10 +96,12 @@ export type BearerRequest = {
   status: BearerRequestStatus;
   externalAppId: number | null;
   hasPlaintext: boolean;
+  createdByTelegramId: string | null;
   decidedByTelegramId: string | null;
   decidedAt: string | null;
   revealedAt: string | null;
   clearedAt: string | null;
+  revokedAt: string | null;
   createdAt: string;
 };
 

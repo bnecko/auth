@@ -3,7 +3,8 @@ import { requestContext, requestContextFromHeaders, type RequestContext } from "
 import { revokeAllOAuthTokensForUser } from "../repositories/oauth";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { revokeSessionsForUser } from "../repositories/sessions";
-import { setUserStatus } from "../repositories/users";
+import { findUserById, setUserStatus } from "../repositories/users";
+import { createTelegramIdBan, revokeBansForUser } from "../repositories/bans";
 import type { User, UserStatus } from "../types";
 
 export function requireAdmin(user: User) {
@@ -35,6 +36,20 @@ export async function setAccountStatus(
     // both layers so a ban actually bans.
     await revokeSessionsForUser(targetUserId);
     await revokeAllOAuthTokensForUser(targetUserId);
+    // Also ban the Telegram identity so a recreated account (new
+    // username/email, same Telegram) is blocked at registration/login.
+    const target = await findUserById(targetUserId);
+    if (target?.telegramId) {
+      await createTelegramIdBan({
+        telegramId: target.telegramId,
+        userId: targetUserId,
+        reason,
+        createdByUserId: admin.id,
+      });
+    }
+  } else if (status === "active") {
+    // Unban lifts the Telegram-ID ban created above.
+    await revokeBansForUser(targetUserId);
   }
 
   await recordSecurityEvent({

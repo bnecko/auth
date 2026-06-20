@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Empty, Row, RowLabel, RowValue, Section } from "@/components/Section";
@@ -56,7 +56,54 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
   const [error, setError] = useState<string | null>(null);
   const [hasPlaintext, setHasPlaintext] = useState(bearer.hasPlaintext);
   const [copied, setCopied] = useState(false);
-  const [confirmKind, setConfirmKind] = useState<null | "reveal" | "discard">(null);
+  const [confirmKind, setConfirmKind] = useState<null | "reveal" | "discard" | "revoke">(null);
+  const [revokeToken, setRevokeToken] = useState<string | null>(null);
+  const [revoked, setRevoked] = useState(bearer.status === "revoked");
+  const [revokeNote, setRevokeNote] = useState<string | null>(null);
+
+  // After kicking off a revoke, poll until the creator approves/denies in
+  // Telegram (mirrors the relink polling).
+  useEffect(() => {
+    if (!revokeToken || revoked) return;
+    const interval = setInterval(async () => {
+      const res = await fetch(
+        `/api/bearer-requests/${bearer.publicId}/revoke/status?t=${encodeURIComponent(revokeToken)}`,
+      );
+      const data = (await res.json()) as { status?: string };
+      if (data.status === "revoked") {
+        setRevoked(true);
+        setHasPlaintext(false);
+        setRevokeToken(null);
+      } else if (data.status === "denied" || data.status === "expired") {
+        setRevokeNote(
+          data.status === "denied" ? "Revocation denied in Telegram." : "Revocation request expired.",
+        );
+        setRevokeToken(null);
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [revokeToken, revoked, bearer.publicId]);
+
+  async function startRevoke() {
+    setBusy(true);
+    setError(null);
+    setRevokeNote(null);
+    try {
+      const res = await fetch(`/api/bearer-requests/${bearer.publicId}/revoke`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as { browserToken?: string; error?: string };
+      if (!res.ok || !data.browserToken) {
+        setError(data.error || "Could not start revoke");
+        return;
+      }
+      setRevokeToken(data.browserToken);
+      setRevokeNote("Approve the revoke in Telegram.");
+    } finally {
+      setBusy(false);
+      setConfirmKind(null);
+    }
+  }
 
   async function reveal() {
     setBusy(true);
@@ -153,8 +200,10 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
           )}
         </RowValue>
         <span className="flex items-center gap-3 text-[13px]">
+          {revoked && <Tag tone="neutral">Revoked</Tag>}
+          {revokeNote && !revoked && <span className="text-muted">{revokeNote}</span>}
           {error && <span className="text-danger">{error}</span>}
-          {canReveal && !hasKey && (
+          {!revoked && canReveal && !hasKey && (
             <>
               <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmKind("reveal")} disabled={busy}>
                 Show
@@ -174,20 +223,45 @@ function BearerRow({ bearer }: { bearer: BearerRequest }) {
               </Button>
             </>
           )}
+          {!revoked && !hasKey && bearer.status === "approved" && !revokeToken && (
+            <Button type="button" variant="danger" size="sm" onClick={() => setConfirmKind("revoke")} disabled={busy}>
+              Revoke
+            </Button>
+          )}
         </span>
       </Row>
       <ConfirmDialog
         open={confirmKind !== null}
         busy={busy}
-        tone={confirmKind === "discard" ? "danger" : "warning"}
-        title={confirmKind === "discard" ? "Clear this key?" : "Reveal this key?"}
+        tone={confirmKind === "reveal" ? "warning" : "danger"}
+        title={
+          confirmKind === "discard"
+            ? "Clear this key?"
+            : confirmKind === "revoke"
+              ? "Revoke this key?"
+              : "Reveal this key?"
+        }
         message={
           confirmKind === "discard"
             ? "The saved key is cleared and cannot be viewed again."
-            : "The key is shown only once - copy it immediately, it cannot be retrieved later."
+            : confirmKind === "revoke"
+              ? "This sends a confirmation to your Telegram. Once you approve there, the key is permanently revoked and apps using it stop working."
+              : "The key is shown only once - copy it immediately, it cannot be retrieved later."
         }
-        confirmLabel={confirmKind === "discard" ? "Clear key" : "Reveal"}
-        onConfirm={() => (confirmKind === "discard" ? abandon() : reveal())}
+        confirmLabel={
+          confirmKind === "discard"
+            ? "Clear key"
+            : confirmKind === "revoke"
+              ? "Send Telegram confirmation"
+              : "Reveal"
+        }
+        onConfirm={() =>
+          confirmKind === "discard"
+            ? abandon()
+            : confirmKind === "revoke"
+              ? startRevoke()
+              : reveal()
+        }
         onClose={() => !busy && setConfirmKind(null)}
       />
     </>

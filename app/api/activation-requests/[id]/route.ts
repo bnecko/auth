@@ -4,7 +4,10 @@ import { apiError, json, rateLimited } from "@/lib/server/http";
 import { hashToken } from "@/lib/server/crypto";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { toIso } from "@/lib/server/time";
-import { findExternalAppByApiKey } from "@/lib/server/repositories/externalApps";
+import {
+  activationErrorResponse,
+  requireActiveAppByApiKey,
+} from "@/lib/server/services/activation";
 import { findActivationByPublicId } from "@/lib/server/repositories/activationRequests";
 import { findUserById } from "@/lib/server/repositories/users";
 import { findAuthorizationState } from "@/lib/server/repositories/authorizations";
@@ -27,9 +30,11 @@ export async function GET(
     return rateLimited(rl.reset);
   }
 
-  const app = await findExternalAppByApiKey(apiKey);
-  if (!app) {
-    return apiError("invalid app credentials", "invalid_credentials", 401);
+  let app;
+  try {
+    app = await requireActiveAppByApiKey(apiKey);
+  } catch (err) {
+    return activationErrorResponse(err);
   }
 
   const { id } = await params;
