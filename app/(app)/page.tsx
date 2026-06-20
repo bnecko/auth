@@ -88,12 +88,12 @@ export default async function AccountHomePage() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <Card title="Account" href="/profile">
+        <Card title="Account" href="/settings/profile">
           <CardRow label="Status" value={<Tag tone={statusTone(u.status)}>{u.status}</Tag>} />
           <CardRow label="Telegram" value={hasTelegram ? "Verified" : "Not linked"} />
           <CardRow label="Username" value={`@${u.username}`} />
         </Card>
-        <Card title="Security" href="/security">
+        <Card title="Security" href="/settings/security">
           <CardRow label="Active sessions" value={stats.sessions} />
           <CardRow label="Passkeys" value={passkeys.length} />
           <CardRow label="Password" value="Enabled" />
@@ -106,7 +106,7 @@ export default async function AccountHomePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="Recent activity" href="/events">
+        <Card title="Recent activity" href="/settings/activity">
           {events.length === 0 ? (
             <div className="px-4 py-8 text-[13px] text-muted text-center">No recent events</div>
           ) : (
@@ -126,9 +126,9 @@ export default async function AccountHomePage() {
 
         <Card title="Next steps">
           {!hasTelegram && <NextStep href="/relink" label="Enable Telegram 2FA" />}
-          {passkeys.length === 0 && <NextStep href="/security" label="Add a passkey for passwordless sign in" />}
+          {passkeys.length === 0 && <NextStep href="/settings/security" label="Add a passkey for passwordless sign in" />}
           {apps.length > 0 && <NextStep href="/apps" label="Review connected apps" />}
-          {sessions.length > 1 && <NextStep href="/sessions" label="Check your active sessions" />}
+          {sessions.length > 1 && <NextStep href="/settings/sessions" label="Check your active sessions" />}
           <NextStep href="/request-bearer" label="Request an API bearer token" />
         </Card>
       </div>
