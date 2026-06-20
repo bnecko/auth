@@ -195,6 +195,18 @@ export async function deactivateAccount(userId: number) {
   return row ? mapUser(row) : null;
 }
 
+// Schedule a grace-period soft delete. Idempotent: a no-op if already pending.
+export async function scheduleAccountDeletion(userId: number) {
+  const row = await queryOne<UserRow>(
+    `update users
+        set deletion_requested_at = now(), updated_at = now()
+      where id = $1 and deletion_requested_at is null
+      returning ${userSelect}`,
+    [userId],
+  );
+  return row ? mapUser(row) : null;
+}
+
 // Clear any dormant state on a successful sign-in: reactivates a deactivated
 // account and cancels a pending deletion. Returns which flags were cleared
 // (read from the pre-update snapshot) so the caller can audit the reason.

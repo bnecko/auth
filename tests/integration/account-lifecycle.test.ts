@@ -3,6 +3,7 @@ import { queryOne } from '@/lib/server/db';
 import { publicId, randomToken } from '@/lib/server/crypto';
 import {
   deactivateAccount,
+  scheduleAccountDeletion,
   clearAccountDormancy,
   findUserById,
 } from '@/lib/server/repositories/users';
@@ -40,12 +41,14 @@ describeDb('account lifecycle', () => {
     expect(await clearAccountDormancy(id)).toBeNull();
   });
 
-  it('cancels a pending deletion on sign-in', async () => {
+  it('schedules a deletion (idempotently) and a sign-in cancels it', async () => {
     const id = await seedUserId();
-    await queryOne(
-      `update users set deletion_requested_at = now() where id = $1 returning id`,
-      [id],
-    );
+    const scheduled = await scheduleAccountDeletion(id);
+    expect(scheduled?.deletionRequestedAt).toBeTruthy();
+
+    // Already pending -> no-op.
+    expect(await scheduleAccountDeletion(id)).toBeNull();
+
     const cleared = await clearAccountDormancy(id);
     expect(cleared).toEqual({ wasDeactivated: false, wasPendingDeletion: true });
 

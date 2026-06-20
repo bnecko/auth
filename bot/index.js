@@ -134,7 +134,7 @@ async function handleCallbackQuery(query) {
   // server-side to the Telegram account the prompt belongs to, so we forward
   // the tapping user's identity.
   const confirmMatch = data.match(
-    /^(login|relink|reg|profile|bearer_revoke)_(approve|deny):(\S+)$/,
+    /^(login|relink|reg|profile|bearer_revoke|account_delete)_(approve|deny):(\S+)$/,
   );
   if (confirmMatch) {
     const kind = confirmMatch[1] === "reg" ? "registration" : confirmMatch[1];

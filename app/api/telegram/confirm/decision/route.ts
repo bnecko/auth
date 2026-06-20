@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/services/auth";
 import { decideProfileChange } from "@/lib/server/services/profile";
 import { decideBearerRevoke } from "@/lib/server/services/bearer";
+import { decideAccountDeletion } from "@/lib/server/services/account";
 
 export const runtime = "nodejs";
 
@@ -96,6 +97,19 @@ export async function POST(req: NextRequest) {
       return badRequest("revoke request not found or already handled");
     }
     return json({ kind: "bearer_revoke_decision", status: result.status, decision });
+  }
+
+  if (kind === "account_delete") {
+    const result = await decideAccountDeletion({
+      apprId: id,
+      decision,
+      telegram,
+      context: requestContext(req),
+    });
+    if (!result) {
+      return badRequest("deletion request not found or already handled");
+    }
+    return json({ kind: "account_delete_decision", status: result.status, decision });
   }
 
   return badRequest("unknown decision kind");
