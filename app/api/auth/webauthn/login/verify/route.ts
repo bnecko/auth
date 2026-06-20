@@ -7,6 +7,7 @@ import { json, requestBody, requestContext, requestId } from "@/lib/server/http"
 import { createUserSession } from "@/lib/server/session";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { findUserById } from "@/lib/server/repositories/users";
+import { notifyUser } from "@/lib/server/notifications";
 import { log } from "@/lib/server/log";
 
 export const runtime = "nodejs";
@@ -75,6 +76,15 @@ export async function POST(req: NextRequest) {
         result: "ok",
         context: requestContext(req),
         metadata: { credentialId: credential.credentialId },
+      });
+
+      // Passkey logins have no Telegram step, so they are the one sign-in path
+      // that otherwise leaves no trace. Best-effort alert, gated by the user's
+      // notify_signin_alerts preference (notifyUser never throws).
+      await notifyUser(user.id, {
+        type: "signin_alert",
+        method: "passkey",
+        ip: requestContext(req).ip || undefined,
       });
 
       const res = NextResponse.json({ success: true, redirectTo: "/" });

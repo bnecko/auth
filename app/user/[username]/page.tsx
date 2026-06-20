@@ -15,6 +15,11 @@ export default async function UserProfileAlias(props: {
   if (!user || user.username.toLowerCase() !== username.toLowerCase()) {
     notFound();
   }
+  // Respect the user's privacy choices: a hidden profile or one that opted out
+  // of username discovery is not reachable through the handle.
+  if (!user.profilePublic || !user.discoverableByUsername) {
+    notFound();
+  }
 
   redirect(`/u/${user.publicId}`);
 }

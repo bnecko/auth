@@ -16,6 +16,11 @@ export type User = {
   avatarPreset: number | null;
   restricted: boolean;
   restrictedAt: string | null;
+  notifySecurityReceipts: boolean;
+  notifySigninAlerts: boolean;
+  profilePublic: boolean;
+  discoverableByUsername: boolean;
+  publicShowTelegram: boolean;
   role: UserRole;
   status: UserStatus;
   createdAt: string;

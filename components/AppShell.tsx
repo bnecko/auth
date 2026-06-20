@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   History,
   Settings,
+  Bell,
+  Eye,
   House,
   Boxes,
   BookOpen,
@@ -101,6 +103,8 @@ const SETTINGS_SEARCH: FlatItem[] = [
   { href: "/settings/security", label: "Password & 2FA", icon: ShieldCheck, group: "Settings" },
   { href: "/settings/sessions", label: "Sessions", icon: MonitorSmartphone, group: "Settings" },
   { href: "/settings/activity", label: "Activity", icon: History, group: "Settings" },
+  { href: "/settings/notifications", label: "Notifications", icon: Bell, group: "Settings" },
+  { href: "/settings/privacy", label: "Privacy", icon: Eye, group: "Settings" },
 ];
 
 function Monogram({ admin }: { admin?: boolean }) {
