@@ -68,7 +68,7 @@ export async function changePasswordAction(
     return { error: err instanceof Error ? err.message : "Could not change password." };
   }
 
-  revalidatePath("/security");
+  revalidatePath("/settings/security");
   return { success: true };
 }
 

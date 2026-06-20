@@ -59,6 +59,6 @@ export async function requestIdentityChangeAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "could not request change" };
   }
-  revalidatePath("/profile");
+  revalidatePath("/settings/profile");
   return { ok: true, field };
 }

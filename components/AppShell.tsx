@@ -11,6 +11,7 @@ import {
   MonitorSmartphone,
   ShieldCheck,
   History,
+  Settings,
   House,
   Boxes,
   BookOpen,
@@ -43,18 +44,10 @@ const USER_NAV: NavGroup[] = [
     label: "Account",
     items: [
       { href: "/", label: "Account home", icon: House },
-      { href: "/profile", label: "Profile", icon: User },
+      { href: "/settings", label: "Settings", icon: Settings },
       { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
       { href: "/apps", label: "Connected apps", icon: LayoutGrid },
       { href: "/bearers", label: "API bearers", icon: KeyRound },
-    ],
-  },
-  {
-    label: "Security",
-    items: [
-      { href: "/sessions", label: "Sessions", icon: MonitorSmartphone },
-      { href: "/security", label: "Password & 2FA", icon: ShieldCheck },
-      { href: "/events", label: "Recent events", icon: History },
     ],
   },
   {
@@ -100,6 +93,15 @@ const SECURITY_GROUP: NavGroup = {
 };
 
 type FlatItem = NavGroup["items"][number] & { group: string };
+
+// The settings sub-pages live inside the /settings hub rather than the sidebar,
+// but stay searchable in the palette and resolve correct breadcrumbs.
+const SETTINGS_SEARCH: FlatItem[] = [
+  { href: "/settings/profile", label: "Profile", icon: User, group: "Settings" },
+  { href: "/settings/security", label: "Password & 2FA", icon: ShieldCheck, group: "Settings" },
+  { href: "/settings/sessions", label: "Sessions", icon: MonitorSmartphone, group: "Settings" },
+  { href: "/settings/activity", label: "Activity", icon: History, group: "Settings" },
+];
 
 function Monogram({ admin }: { admin?: boolean }) {
   const stroke = admin ? "var(--danger)" : "var(--accent)";
@@ -237,7 +239,10 @@ export function AppShell({
       ? [...USER_NAV, SECURITY_GROUP]
       : USER_NAV;
   const homeHref = admin ? "/admin" : "/";
-  const flatItems: FlatItem[] = nav.flatMap(g => g.items.map(it => ({ ...it, group: g.label })));
+  const flatItems: FlatItem[] = [
+    ...nav.flatMap(g => g.items.map(it => ({ ...it, group: g.label }))),
+    ...(admin ? [] : SETTINGS_SEARCH),
+  ];
   const breadcrumb =
     trail ??
     (pathname === "/"
@@ -369,7 +374,8 @@ export function AppShell({
                       !it.newWindow &&
                       !it.href.startsWith("http") &&
                       !it.href.includes("#") &&
-                      pathname === it.href;
+                      (pathname === it.href ||
+                        (it.href !== "/" && pathname.startsWith(`${it.href}/`)));
                     return (
                       <li key={it.label}>
                         <Link
@@ -398,7 +404,7 @@ export function AppShell({
 
           <div className="border-t border-rule p-3 space-y-1">
             <Link
-              href={`/user/${user.username}`}
+              href="/settings/profile"
               title={collapsed ? user.name : undefined}
               className={`flex items-center gap-2.5 rounded-md hover:bg-hover transition-colors ${
                 collapsed ? "justify-center p-1.5" : "px-2 py-2"
