@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { getCurrentSession } from "@/lib/server/session";
 import { requestContextFromHeaders } from "@/lib/server/http";
-import { revokeSessionById } from "@/lib/server/repositories/sessions";
+import {
+  listSessionsForUser,
+  revokeSessionById,
+} from "@/lib/server/repositories/sessions";
+import { canRevokeOtherSessions } from "@/lib/sessionPolicy";
 import { revokeAuthorization } from "@/lib/server/repositories/authorizations";
 import {
   revokeAccessTokensForRefreshGrant,
@@ -23,6 +27,13 @@ export async function revokeSessionAction(formData: FormData) {
   if (typeof sessionIdStr !== "string") return;
   const sessionId = parseInt(sessionIdStr, 10);
   if (isNaN(sessionId)) return;
+
+  // Revoking another session requires an established (24h+) or oldest session;
+  // ending your own current session is always allowed.
+  if (sessionId !== current.session.id) {
+    const sessions = await listSessionsForUser(current.user.id);
+    if (!canRevokeOtherSessions(current.session.id, sessions)) return;
+  }
 
   await revokeSessionById(sessionId, current.user.id);
   await recordSecurityEvent({

@@ -5,16 +5,24 @@ import { revalidatePath } from "next/cache";
 import { revokeAuthorizationsForUser } from "@/lib/server/repositories/authorizations";
 import { revokeAllOAuthTokensForUser } from "@/lib/server/repositories/oauth";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
-import { revokeOtherSessionsForUser } from "@/lib/server/repositories/sessions";
+import {
+  listSessionsForUser,
+  revokeOtherSessionsForUser,
+} from "@/lib/server/repositories/sessions";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { changePasswordForUser } from "@/lib/server/services/auth";
 import { getCurrentSession } from "@/lib/server/session";
+import { canRevokeOtherSessions } from "@/lib/sessionPolicy";
 
 export type ChangePasswordState = { error?: string; success?: boolean } | null;
 
 export async function revokeOtherSessionsAction() {
   const current = await getCurrentSession();
   if (!current) return;
+
+  // Only an established (24h+) or the oldest session may revoke others.
+  const sessions = await listSessionsForUser(current.user.id);
+  if (!canRevokeOtherSessions(current.session.id, sessions)) return;
 
   await revokeOtherSessionsForUser({
     userId: current.user.id,
