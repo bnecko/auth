@@ -50,6 +50,19 @@ export type SupportThreadSupporter = {
   createdAt: string;
 };
 
+export type SupportThreadRevision = {
+  id: number;
+  publicId: string;
+  threadId: number;
+  editedByUserId: number;
+  editorUsername: string | null;
+  titleBefore: string;
+  titleAfter: string;
+  bodyBefore: string;
+  bodyAfter: string;
+  createdAt: string;
+};
+
 type SupportThreadRow = {
   id: string;
   public_id: string;
@@ -195,15 +208,128 @@ export async function findSupportThreadByPublicId(publicId: string) {
 }
 
 // Public list for the open issue tracker: most-starred first, then newest.
-export async function listPublicSupportThreads(limit = 100) {
+// status: undefined = all; "open" includes in_progress so active work still shows.
+export async function listPublicSupportThreads(
+  status?: "open" | "resolved" | "closed",
+  limit = 100,
+) {
+  const statuses =
+    status === "open"
+      ? ["open", "in_progress"]
+      : status
+        ? [status]
+        : null;
   const rows = await query<SupportThreadRow>(
     `select ${threadSelect} ${threadFrom}
       where t.visibility = 'public'
+        and ($2::text[] is null or t.status = any($2))
       order by t.star_count desc, t.created_at desc
       limit $1`,
-    [limit],
+    [limit, statuses],
   );
   return rows.map(mapThread);
+}
+
+// Edit title/body in a single atomic statement that also snapshots the previous
+// values into support_thread_revisions. Status/solved_at/claimed_at are NOT
+// touched, so editing never reopens or re-solves a thread.
+export async function updateSupportThread(input: {
+  publicId: string;
+  revisionPublicId: string;
+  editedByUserId: number;
+  title: string;
+  body: string;
+}) {
+  const row = await queryOne<SupportThreadRow>(
+    `with current as (
+       select id, title, body from support_threads where public_id = $1
+     ), rev as (
+       insert into support_thread_revisions
+         (public_id, thread_id, edited_by_user_id, title_before, title_after, body_before, body_after)
+       select $2, c.id, $3, c.title, $4, c.body, $5 from current c
+       returning id
+     )
+     update support_threads t
+        set title = $4, body = $5, updated_at = now()
+       from current c
+      where t.id = c.id
+      returning ${threadColumns}`,
+    [input.publicId, input.revisionPublicId, input.editedByUserId, input.title, input.body],
+  );
+  return row ? mapThread(row) : null;
+}
+
+export async function listThreadRevisions(threadId: number) {
+  const rows = await query<{
+    id: string;
+    public_id: string;
+    thread_id: string;
+    edited_by_user_id: string;
+    editor_username: string | null;
+    title_before: string;
+    title_after: string;
+    body_before: string;
+    body_after: string;
+    created_at: string;
+  }>(
+    `select r.id, r.public_id, r.thread_id, r.edited_by_user_id,
+            u.username as editor_username,
+            r.title_before, r.title_after, r.body_before, r.body_after,
+            r.created_at::text
+       from support_thread_revisions r
+       join users u on u.id = r.edited_by_user_id
+      where r.thread_id = $1
+      order by r.created_at desc`,
+    [threadId],
+  );
+  return rows.map(r => ({
+    id: Number(r.id),
+    publicId: r.public_id,
+    threadId: Number(r.thread_id),
+    editedByUserId: Number(r.edited_by_user_id),
+    editorUsername: r.editor_username,
+    titleBefore: r.title_before,
+    titleAfter: r.title_after,
+    bodyBefore: r.body_before,
+    bodyAfter: r.body_after,
+    createdAt: r.created_at,
+  })) satisfies SupportThreadRevision[];
+}
+
+// Hard delete; FK cascade removes messages, stars, supporters, and revisions.
+export async function deleteSupportThread(publicId: string) {
+  const row = await queryOne<{ id: string }>(
+    `delete from support_threads where public_id = $1 returning id`,
+    [publicId],
+  );
+  return !!row;
+}
+
+export async function deleteSupportMessage(publicId: string) {
+  const row = await queryOne<{ thread_id: string }>(
+    `delete from support_messages where public_id = $1 returning thread_id`,
+    [publicId],
+  );
+  if (row) {
+    await query(`update support_threads set updated_at = now() where id = $1`, [
+      Number(row.thread_id),
+    ]);
+  }
+  return !!row;
+}
+
+export async function setSupportThreadVisibility(input: {
+  publicId: string;
+  visibility: SupportThreadVisibility;
+}) {
+  const row = await queryOne<SupportThreadRow>(
+    `update support_threads
+        set visibility = $2, updated_at = now()
+      where public_id = $1
+      returning ${threadColumns}`,
+    [input.publicId, input.visibility],
+  );
+  return row ? mapThread(row) : null;
 }
 
 export async function listSupportThreadsForAuthor(authorUserId: number) {

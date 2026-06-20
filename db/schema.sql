@@ -503,3 +503,20 @@ create table support_thread_supporters (
 
 create index support_thread_supporters_thread_idx on support_thread_supporters(thread_id);
 create index support_thread_supporters_user_idx on support_thread_supporters(user_id);
+
+create table support_thread_revisions (
+  id bigserial primary key,
+  public_id text not null unique,
+  thread_id bigint not null references support_threads(id) on delete cascade,
+  edited_by_user_id bigint not null references users(id) on delete cascade,
+  title_before text not null,
+  title_after text not null,
+  body_before text not null,
+  body_after text not null,
+  created_at timestamptz not null default now()
+);
+
+create index support_thread_revisions_thread_idx
+  on support_thread_revisions(thread_id, created_at);
+create index support_threads_public_status_idx
+  on support_threads(visibility, status, star_count desc);
