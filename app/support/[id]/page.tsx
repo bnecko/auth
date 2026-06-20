@@ -96,11 +96,14 @@ export default async function SupportThreadPage({
         </div>
       </div>
 
-      {(access.canEditThread || access.canPublish || access.canDeleteThread) && (
+      {access.canEditThread && (
+        <div className="mb-3">
+          <SupportThreadEditor threadId={thread.publicId} title={thread.title} body={thread.body} />
+        </div>
+      )}
+
+      {(access.canPublish || access.canDeleteThread) && (
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          {access.canEditThread && (
-            <SupportThreadEditor threadId={thread.publicId} title={thread.title} body={thread.body} />
-          )}
           {access.canPublish && (
             <ConfirmButton
               action={publishThreadAction}

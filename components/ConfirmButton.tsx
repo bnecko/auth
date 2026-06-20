@@ -1,16 +1,59 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "./Button";
-import { ConfirmDialog } from "./ConfirmDialog";
 
 type Tone = "danger" | "warning" | "neutral";
 
-// A trigger Button that gates a server-action <form> behind ConfirmDialog. The
-// form is rendered (hidden) with its hidden inputs; an optional extra input
-// (e.g. a ban reason or an invite username) is rendered inside the dialog and
-// associated back to the form via the HTML `form=` attribute, so it submits
-// even though it lives in a different part of the DOM.
+const confirmVariant: Record<Tone, "danger" | "secondary" | "primary"> = {
+  danger: "danger",
+  warning: "secondary",
+  neutral: "primary",
+};
+
+const inputClass =
+  "w-full mt-1 rounded-md bg-card border border-rule px-2.5 py-2 text-[13px] " +
+  "text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors";
+
+// Confirm + Cancel live inside the <form>, so they read its pending state via
+// useFormStatus. When the action settles (success-with-revalidate or error),
+// pending falls back to false and we close the dialog. Redirecting actions
+// unmount the component instead, which is also fine.
+function FormControls({
+  confirmLabel,
+  tone,
+  onCancel,
+  onSettled,
+}: {
+  confirmLabel: string;
+  tone: Tone;
+  onCancel: () => void;
+  onSettled: () => void;
+}) {
+  const { pending } = useFormStatus();
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (pending) {
+      wasPending.current = true;
+    } else if (wasPending.current) {
+      wasPending.current = false;
+      onSettled();
+    }
+  }, [pending, onSettled]);
+
+  return (
+    <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-rule bg-elevated">
+      <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button type="submit" variant={confirmVariant[tone]} size="sm" loading={pending}>
+        {confirmLabel}
+      </Button>
+    </div>
+  );
+}
+
 export function ConfirmButton({
   action,
   fields = {},
@@ -47,12 +90,15 @@ export function ConfirmButton({
   tone?: Tone;
 }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const formId = useId();
 
-  const inputClass =
-    "w-full mt-1 rounded-md bg-card border border-rule px-2.5 py-2 text-[13px] " +
-    "text-fg placeholder:text-faint focus:outline-none focus:border-accent transition-colors";
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <>
@@ -67,50 +113,62 @@ export function ConfirmButton({
         {label}
       </Button>
 
-      {/* The form lives outside the dialog so it survives the dialog unmount on
-          close; controls inside the dialog target it via form={formId}. */}
-      <form id={formId} action={action} className="hidden" onSubmit={() => setBusy(true)}>
-        {Object.entries(fields).map(([k, v]) => (
-          <input key={k} type="hidden" name={k} value={String(v)} />
-        ))}
-      </form>
-
-      <ConfirmDialog
-        open={open}
-        title={title}
-        message={message}
-        preview={preview}
-        confirmLabel={confirmLabel}
-        tone={tone}
-        busy={busy}
-        formId={formId}
-        onConfirm={() => setBusy(true)}
-        onClose={() => !busy && setOpen(false)}
-      >
-        {extraInput && (
-          <label className="mt-3 block text-[13px] text-muted">
-            {extraInput.label}
-            {extraInput.multiline ? (
-              <textarea
-                form={formId}
-                name={extraInput.name}
-                placeholder={extraInput.placeholder}
-                required={extraInput.required}
-                rows={3}
-                className={inputClass}
+      {open && (
+        <div
+          className="overlay-mount fixed inset-0 z-50 flex items-center justify-center px-5 bg-fg/20 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={title}
+            className="palette-mount w-full max-w-[440px] bg-card border border-rule rounded-xl shadow-elevated overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <form action={action}>
+              {Object.entries(fields).map(([k, v]) => (
+                <input key={k} type="hidden" name={k} value={String(v)} />
+              ))}
+              <div className="p-5">
+                <h2 className="text-[16px] font-semibold text-fg mb-1.5">{title}</h2>
+                <div className="text-[13px] text-secondary leading-snug">{message}</div>
+                {preview && (
+                  <div className="mt-3 rounded-lg border border-rule bg-elevated px-3 py-2.5 text-[13px]">
+                    {preview}
+                  </div>
+                )}
+                {extraInput && (
+                  <label className="mt-3 block text-[13px] text-muted">
+                    {extraInput.label}
+                    {extraInput.multiline ? (
+                      <textarea
+                        name={extraInput.name}
+                        placeholder={extraInput.placeholder}
+                        required={extraInput.required}
+                        rows={3}
+                        className={inputClass}
+                      />
+                    ) : (
+                      <input
+                        name={extraInput.name}
+                        placeholder={extraInput.placeholder}
+                        required={extraInput.required}
+                        className={inputClass}
+                      />
+                    )}
+                  </label>
+                )}
+              </div>
+              <FormControls
+                confirmLabel={confirmLabel}
+                tone={tone}
+                onCancel={() => setOpen(false)}
+                onSettled={() => setOpen(false)}
               />
-            ) : (
-              <input
-                form={formId}
-                name={extraInput.name}
-                placeholder={extraInput.placeholder}
-                required={extraInput.required}
-                className={inputClass}
-              />
-            )}
-          </label>
-        )}
-      </ConfirmDialog>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }
