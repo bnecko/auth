@@ -14,7 +14,7 @@ import {
 } from "../repositories/bearerRequests";
 import { createExternalApp, setExternalAppStatus } from "../repositories/externalApps";
 import { recordSecurityEvent } from "../repositories/securityEvents";
-import { sendTelegramMessage, escapeHtml } from "../telegramSend";
+import { sendTelegramMessage } from "../telegramSend";
 import { getTelegramQueue } from "../queue";
 import {
   beginBearerRevokeApproval,
@@ -108,16 +108,16 @@ async function notifyAdmin(input: { request: BearerRequest; user: User }) {
     : input.user.firstName;
 
   const text = [
-    `<b>Bearer key request</b>`,
+    `Bearer key request`,
     ``,
-    `<b>From:</b> ${escapeHtml(userLine)}`,
-    `<b>User:</b> ${escapeHtml(input.user.email)}`,
-    `<b>App:</b> ${escapeHtml(input.request.appName)}`,
+    `From: ${userLine}`,
+    `User: ${input.user.email}`,
+    `App: ${input.request.appName}`,
     ``,
-    `<b>Reason:</b>`,
-    escapeHtml(input.request.reason),
+    `Reason:`,
+    input.request.reason,
     ``,
-    `<a href="${authBaseUrl()}/admin/bearer/${input.request.publicId}">open in admin</a>`,
+    `${authBaseUrl()}/admin/bearer/${input.request.publicId}`,
   ].join("\n");
 
   await getTelegramQueue().add("send", {
@@ -277,13 +277,13 @@ export async function requestBearerRevokeApproval(input: {
   await sendTelegramMessage({
     chatId: input.user.telegramId,
     text: [
-      "🔑 <b>Revoke API bearer key</b>",
+      "Revoke API bearer key",
       "",
-      `App: <b>${escapeHtml(bearer.appName)}</b>`,
+      `App: ${bearer.appName}`,
       "",
       "Do you want to permanently revoke this key? Apps using it will stop working.",
       "",
-      "⚠️ Only approve if you requested this.",
+      "Only approve if you requested this.",
     ].join("\n"),
     inlineButtons: [
       [

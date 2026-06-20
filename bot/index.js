@@ -15,16 +15,15 @@ async function startStatusMonitor() {
   if (!analyticsChatId) return;
 
   const startTime = new Date().toISOString();
-  const text = `<b>server status:</b> UP\nStarted at: ${startTime}`;
+  const text = `server status: UP\nStarted at: ${startTime}`;
   
   const msgResponse = await fetch(`${apiBase}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ 
-      chat_id: analyticsChatId, 
+    body: JSON.stringify({
+      chat_id: analyticsChatId,
       message_thread_id: analyticsThreadId ? Number(analyticsThreadId) : undefined,
       text,
-      parse_mode: "HTML"
     }),
   });
   
@@ -47,7 +46,7 @@ async function startStatusMonitor() {
   }).catch(err => console.error("Failed to pin status message:", err.message));
 
   setInterval(async () => {
-    const updatedText = `<b>server status:</b> UP\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
+    const updatedText = `server status: UP\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
     await editMessage(analyticsChatId, messageId, updatedText);
   }, 10 * 60 * 1000);
 }
@@ -278,7 +277,6 @@ async function editMessage(chatId, messageId, text) {
       chat_id: chatId,
       message_id: messageId,
       text,
-      parse_mode: "HTML",
     }),
   }).catch(err => console.error("editMessageText error:", err.message));
 }

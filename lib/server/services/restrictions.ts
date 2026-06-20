@@ -142,9 +142,9 @@ export async function restrictUser(input: {
       {
         chat_id: target.telegramId,
         text: [
-          "⛔ <b>Account restricted</b>",
+          "Account restricted",
           "",
-          `Reference: <code>${triggerCode}</code>`,
+          `Reference: ${triggerCode}`,
           "",
           "Your Bottleneck account has been restricted pending a security review. Sign in to read the details and reply to the security team.",
         ].join("\n"),
@@ -176,7 +176,7 @@ export async function unrestrictUser(input: {
   if (target?.telegramId) {
     await getTelegramQueue().add("send", {
       chat_id: target.telegramId,
-      text: "✅ <b>Restriction lifted</b>\n\nYour Bottleneck account access has been restored.",
+      text: "Restriction lifted\n\nYour Bottleneck account access has been restored.",
     });
   }
 }

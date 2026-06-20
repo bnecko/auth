@@ -4,7 +4,6 @@ import { type RequestContext } from "../http";
 import { rateLimit } from "../rateLimit";
 import { recordSecurityEvent } from "../repositories/securityEvents";
 import { getTelegramQueue } from "../queue";
-import { escapeHtml } from "../telegramSend";
 import { findUserById, findUserByIdentifier } from "../repositories/users";
 import {
   addSupportTeamMember,
@@ -233,14 +232,14 @@ async function notifySupporters(input: { thread: SupportThread; author: User }) 
     : input.author.firstName;
 
   const text = [
-    `<b>New support ${input.thread.kind}</b>`,
+    `New support ${input.thread.kind}`,
     "",
-    `<b>From:</b> ${escapeHtml(authorLine)}`,
-    `<b>Visibility:</b> ${input.thread.visibility}`,
+    `From: ${authorLine}`,
+    `Visibility: ${input.thread.visibility}`,
     "",
-    `<b>${escapeHtml(input.thread.title)}</b>`,
+    input.thread.title,
     "",
-    `<a href="${authBaseUrl()}/support/${input.thread.publicId}">open thread</a>`,
+    `${authBaseUrl()}/support/${input.thread.publicId}`,
   ].join("\n");
 
   const queue = getTelegramQueue();

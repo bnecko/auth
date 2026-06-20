@@ -13,11 +13,12 @@ const TYPES: UserNotification['type'][] = [
 ];
 
 describe('notificationMessage', () => {
-  it('returns a non-empty HTML message for every notification type', () => {
+  it('returns a non-empty plain-text message for every notification type', () => {
     for (const type of TYPES) {
       const message = notificationMessage({ type });
       expect(message.length).toBeGreaterThan(10);
-      expect(message).toContain('<b>');
+      // Messages are plain text now - no markup.
+      expect(message).not.toContain('<b>');
     }
   });
 

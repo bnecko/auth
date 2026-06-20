@@ -1,6 +1,6 @@
 import { alertTelegramChatId, isProduction } from "../config";
 import redis from "../redis";
-import { sendTelegramMessage, escapeHtml } from "../telegramSend";
+import { sendTelegramMessage } from "../telegramSend";
 import { log } from "../log";
 
 // Operator alerts for webhook trouble. Best-effort and rate-limited: one
@@ -32,13 +32,13 @@ async function deliver(key: string, text: string) {
 export async function sendEnqueueFailedAlert(appId: number, reason: string) {
   await deliver(
     `webhook_enqueue_failed:${appId}`,
-    `<b>Webhook enqueue failed</b>\napp #${appId}\n${escapeHtml(reason)}`,
+    `Webhook enqueue failed\napp #${appId}\n${reason}`,
   );
 }
 
 export async function sendWebhookDisabledAlert(endpointId: number, failures: number) {
   await deliver(
     `webhook_disabled:${endpointId}`,
-    `<b>Webhook endpoint auto-disabled</b>\nendpoint #${endpointId} after ${failures} consecutive failures`,
+    `Webhook endpoint auto-disabled\nendpoint #${endpointId} after ${failures} consecutive failures`,
   );
 }

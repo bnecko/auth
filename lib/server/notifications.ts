@@ -10,11 +10,11 @@ export type UserNotification =
 export function notificationMessage(input: UserNotification): string {
   switch (input.type) {
     case "password_changed":
-      return "<b>Password changed</b>\n\nYour Bottleneck account password was just changed. If this was not you, reset your password and contact support immediately.";
+      return "Password changed\n\nYour Bottleneck account password was just changed. If this was not you, reset your password and contact support immediately.";
     case "password_reset_completed":
-      return "<b>Password reset</b>\n\nYour Bottleneck account password was reset. If this was not you, contact support immediately.";
+      return "Password reset\n\nYour Bottleneck account password was reset. If this was not you, contact support immediately.";
     case "login_failure_threshold":
-      return "<b>Unusual sign-in activity</b>\n\nToo many failed sign-in attempts were detected on your Bottleneck account, so sign-in is temporarily paused. If this was not you, your password may be targeted.";
+      return "Unusual sign-in activity\n\nToo many failed sign-in attempts were detected on your Bottleneck account, so sign-in is temporarily paused. If this was not you, your password may be targeted.";
     default: {
       const exhaustive: never = input;
       return exhaustive;
@@ -36,7 +36,6 @@ export async function notifyUser(userId: number, input: UserNotification): Promi
     await getTelegramQueue().add("send", {
       chat_id: user.telegramId,
       text: notificationMessage(input),
-      parse_mode: "HTML",
     });
   } catch (err) {
     await recordSecurityEvent({

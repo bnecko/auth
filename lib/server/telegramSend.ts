@@ -30,10 +30,12 @@ export async function sendTelegramMessage(input: SendMessageInput) {
     return { ok: false, skipped: true };
   }
 
+  // Plain text only: no parse_mode, so there is no markup to render and no
+  // escaping needed; a stray character in a username or title can never break
+  // a message.
   const body: Record<string, unknown> = {
     chat_id: input.chatId,
     text: input.text,
-    parse_mode: "HTML",
   };
 
   if (input.inlineButtons && input.inlineButtons.length > 0) {
@@ -59,16 +61,4 @@ export async function sendTelegramMessage(input: SendMessageInput) {
   }
 
   return { ok: true };
-}
-
-// Escapes a string for inclusion inside an HTML-parse-mode message.
-// Telegram only honours <b>, <i>, <u>, <s>, <code>, <pre>, <a> in
-// HTML mode, so we strictly escape the five reserved characters.
-export function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }

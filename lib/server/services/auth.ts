@@ -36,7 +36,7 @@ import {
   markLoginChallengeDenied,
   markLoginChallengeVerified,
 } from "../repositories/loginChallenges";
-import { sendTelegramMessage, escapeHtml } from "../telegramSend";
+import { sendTelegramMessage } from "../telegramSend";
 import {
   countRecentEventsByIp,
   recordSecurityEvent,
@@ -452,14 +452,14 @@ export async function requestTelegramLoginApproval(
   await sendTelegramMessage({
     chatId: telegram.id,
     text: [
-      "🔐 <b>New login attempt</b>",
+      "🔐 New login attempt",
       "",
-      `User: <b>${escapeHtml(challenge.username || "your account")}</b>`,
-      `IP: <code>${escapeHtml(challenge.ip || "unknown")}</code>`,
+      `User: ${challenge.username || "your account"}`,
+      `IP: ${challenge.ip || "unknown"}`,
       "",
       "Do you want to approve this sign-in?",
       "",
-      "⚠️ Only approve if this is you. Never approve a sign-in - or a Telegram link - for anyone else.",
+      "Only approve if this is you. Never approve a sign-in - or a Telegram link - for anyone else.",
     ].join("\n"),
     inlineButtons: [
       [
@@ -583,14 +583,14 @@ export async function requestTelegramRegistrationApproval(
   await sendTelegramMessage({
     chatId: telegram.id,
     text: [
-      "🔗 <b>Complete registration</b>",
+      "Complete registration",
       "",
-      `User: <b>${escapeHtml(request.username)}</b>`,
-      `IP: <code>${escapeHtml(request.ip || "unknown")}</code>`,
+      `User: ${request.username}`,
+      `IP: ${request.ip || "unknown"}`,
       "",
       "Do you want to link this Telegram account and finish signing up?",
       "",
-      "⚠️ Only approve if this is you. Never link your Telegram to someone else's account.",
+      "Only approve if this is you. Never link your Telegram to someone else's account.",
     ].join("\n"),
     inlineButtons: [
       [
@@ -664,13 +664,13 @@ export async function requestTelegramRelinkApproval(
   await sendTelegramMessage({
     chatId: telegram.id,
     text: [
-      "🔗 <b>Link Telegram account</b>",
+      "Link Telegram account",
       "",
-      `Account: <b>${escapeHtml(user?.username || "your account")}</b>`,
+      `Account: ${user?.username || "your account"}`,
       "",
       "Do you want to link this Telegram account?",
       "",
-      "⚠️ Only approve if this is your account. Never link your Telegram to someone else's account.",
+      "Only approve if this is your account. Never link your Telegram to someone else's account.",
     ].join("\n"),
     inlineButtons: [
       [
