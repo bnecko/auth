@@ -20,8 +20,8 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-6 rounded-lg bg-card ring-1 ring-rule shadow-xs overflow-hidden">
-      <header className="h-14 px-4 flex items-center justify-between gap-3 bg-elevated border-b border-rule">
+    <section className="mb-6 rounded-xl bg-card ring-1 ring-rule shadow-xs overflow-hidden">
+      <header className="h-14 px-4 flex items-center justify-between gap-3 bg-elevated">
         <div className="flex items-center gap-2 min-w-0">
           {index && (
             <span className="text-[13px] text-faint tabular-nums shrink-0">
@@ -36,7 +36,12 @@ export function Section({
         </div>
         {action}
       </header>
-      <div>{children}</div>
+      {/* Inner rounded panel sits below the header, inset from the card edge. */}
+      <div className="p-1.5 pt-0">
+        <div className="rounded-lg ring-1 ring-rule bg-card overflow-hidden">
+          {children}
+        </div>
+      </div>
     </section>
   );
 }
