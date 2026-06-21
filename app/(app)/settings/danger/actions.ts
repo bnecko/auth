@@ -7,7 +7,7 @@ import { requestContextFromHeaders } from "@/lib/server/http";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { revokeSessionsForUser } from "@/lib/server/repositories/sessions";
 import { deactivateAccount } from "@/lib/server/repositories/users";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 
 // Reversible: marks the account deactivated and signs out everywhere. The next
 // successful sign-in clears the flag (see createUserSession), so there is no
@@ -15,6 +15,7 @@ import { getCurrentSession } from "@/lib/server/session";
 export async function deactivateAccountAction() {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
 
   await deactivateAccount(current.user.id);
   await revokeSessionsForUser(current.user.id);

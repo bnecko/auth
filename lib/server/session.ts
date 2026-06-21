@@ -17,6 +17,19 @@ import {
 } from "./repositories/sessions";
 import { clearAccountDormancy } from "./repositories/users";
 import { recordSecurityEvent } from "./repositories/securityEvents";
+import { redirect } from "next/navigation";
+import type { SessionWithUser } from "./types";
+
+// Server actions run on the action POST before the (app) layout re-renders, so
+// the layout's restricted-redirect does NOT gate them. Mutating actions call
+// this right after resolving the session to bounce a restricted user to their
+// /restricted appeal page instead of letting the mutation through. The
+// /restricted area's own reply action deliberately does not call this.
+export function assertNotRestricted(session: SessionWithUser) {
+  if (session.user.restricted) {
+    redirect("/restricted");
+  }
+}
 
 export async function getCurrentSession() {
   const cookieStore = await cookies();

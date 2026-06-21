@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { queryOne } from "@/lib/server/db";
 import { hashToken, randomToken } from "@/lib/server/crypto";
 
@@ -9,6 +9,7 @@ export async function createAppAction(formData: FormData) {
   if (!current) {
     return { error: "unauthorized" };
   }
+  assertNotRestricted(current);
 
   const name = formData.get("name")?.toString().trim();
   const redirectUri = formData.get("redirect_uri")?.toString().trim();

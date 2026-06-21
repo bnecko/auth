@@ -11,7 +11,7 @@ import {
 } from "@/lib/server/repositories/sessions";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { changePasswordForUser } from "@/lib/server/services/auth";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { canRevokeOtherSessions } from "@/lib/sessionPolicy";
 
 export type ChangePasswordState = { error?: string; success?: boolean } | null;
@@ -19,6 +19,7 @@ export type ChangePasswordState = { error?: string; success?: boolean } | null;
 export async function revokeOtherSessionsAction() {
   const current = await getCurrentSession();
   if (!current) return;
+  assertNotRestricted(current);
 
   // Only an established (24h+) or the oldest session may revoke others.
   const sessions = await listSessionsForUser(current.user.id);
@@ -49,6 +50,7 @@ export async function changePasswordAction(
   if (!current) {
     return { error: "Your session has expired. Sign in again." };
   }
+  assertNotRestricted(current);
 
   const currentPassword = String(formData.get("currentPassword") || "");
   const newPassword = String(formData.get("newPassword") || "");
@@ -75,6 +77,7 @@ export async function changePasswordAction(
 export async function revokeAllOAuthGrantsAction() {
   const current = await getCurrentSession();
   if (!current) return;
+  assertNotRestricted(current);
 
   await revokeAuthorizationsForUser(current.user.id);
   await revokeAllOAuthTokensForUser(current.user.id);

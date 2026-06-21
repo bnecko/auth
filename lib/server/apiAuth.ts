@@ -49,7 +49,7 @@ export async function requireAdminStepUp(req: NextRequest) {
 // role-check throws these actions already used.
 export async function requireAdminStepUpSession() {
   const current = await getCurrentSession();
-  if (!current || current.user.role !== "admin") {
+  if (!current || current.user.role !== "admin" || current.user.restricted) {
     throw new Error("forbidden");
   }
   if (!(await isAdminStepUpVerified(current.user.id))) {

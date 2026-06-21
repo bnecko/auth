@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import {
   listSessionsForUser,
@@ -22,6 +22,7 @@ import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 export async function revokeSessionAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) return;
+  assertNotRestricted(current);
 
   const sessionIdStr = formData.get("sessionId");
   if (typeof sessionIdStr !== "string") return;
@@ -49,6 +50,7 @@ export async function revokeSessionAction(formData: FormData) {
 export async function revokeAppAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) return;
+  assertNotRestricted(current);
 
   const appSlug = formData.get("appSlug");
   if (typeof appSlug !== "string") return;
@@ -65,6 +67,7 @@ export async function revokeAppAction(formData: FormData) {
 export async function revokePasskeyAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) return;
+  assertNotRestricted(current);
 
   const credentialId = formData.get("credentialId");
   if (typeof credentialId !== "string" || !credentialId) return;
@@ -85,6 +88,7 @@ export async function revokePasskeyAction(formData: FormData) {
 export async function cancelSubscriptionAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) return;
+  assertNotRestricted(current);
 
   const product = formData.get("product");
   if (typeof product !== "string") return;
