@@ -181,6 +181,19 @@ export async function markLoginChallengeDenied(input: {
   return row ? mapChallenge(row) : null;
 }
 
+// Kill a challenge after too many wrong codes, so even the correct code can no
+// longer complete it - the user must start a fresh login.
+export async function cancelLoginChallenge(publicId: string) {
+  await queryOne<LoginChallengeRow>(
+    `update telegram_login_challenges
+        set status = 'cancelled'
+      where public_id = $1
+        and status in ('pending', 'approved')
+      returning ${challengeSelect}`,
+    [publicId],
+  );
+}
+
 // Final step: verify the 6-digit code against an approved challenge and consume
 // it (approved -> verified) so the same code can't be reused. Scoped to the
 // browser that started the login + the exact code hash.

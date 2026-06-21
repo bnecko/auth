@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { loginChallengeCookieName } from "@/lib/server/config";
-import { badRequest, requestBody } from "@/lib/server/http";
+import { badRequest, json, requestBody, requestContext } from "@/lib/server/http";
 import {
   clearLoginChallengeCookie,
   createUserSession,
 } from "@/lib/server/session";
 import { completeTelegramLoginChallenge } from "@/lib/server/services/auth";
+import { rateLimit } from "@/lib/server/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,14 @@ export async function POST(
   const browserToken = req.cookies.get(loginChallengeCookieName)?.value || "";
   if (!browserToken) {
     return badRequest("verification browser session is missing");
+  }
+
+  // Bound 2FA-code submissions per IP across challenges. The service layer
+  // additionally caps wrong tries against a single challenge.
+  const ip = requestContext(req).ip || "unknown";
+  const rl = await rateLimit(`rl:2fa:ip:${ip}`, 20, 15 * 60 * 1000);
+  if (!rl.success) {
+    return json({ error: "Too many attempts. Please try again later." }, 429);
   }
 
   const body = await requestBody(req);
