@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { authBaseUrl, bearerAdminTelegramId } from "../config";
-import { publicId, randomToken } from "../crypto";
+import { publicId, randomToken, safeEqual } from "../crypto";
 import { requestContext } from "../http";
 import {
   approveBearerRequest,
@@ -138,10 +138,16 @@ export async function decideBearerRequest(input: {
   publicId: string;
   decision: "approve" | "reject";
   adminTelegramId: string;
+  // True only for the in-process admin UI, which has already authenticated and
+  // step-up-verified the admin via requireAdminStepUpSession(). Every other
+  // caller (the Telegram webhook) leaves this false, so its adminTelegramId is
+  // verified against the configured admin id in constant time. There is no
+  // string sentinel an external caller can present to skip this check.
+  viaAdminUi?: boolean;
 }) {
-  const adminId = bearerAdminTelegramId();
-  if (!input.adminTelegramId.startsWith("admin_ui_")) {
-    if (!adminId || input.adminTelegramId !== adminId) {
+  if (!input.viaAdminUi) {
+    const adminId = bearerAdminTelegramId();
+    if (!adminId || !safeEqual(input.adminTelegramId, adminId)) {
       throw new Error("not authorized to decide bearer requests");
     }
   }

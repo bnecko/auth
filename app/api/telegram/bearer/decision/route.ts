@@ -28,6 +28,14 @@ export async function POST(req: NextRequest) {
     return badRequest("id and adminTelegramId are required");
   }
 
+  // Defense in depth: the admin_ui_ sentinel is reserved for the in-process
+  // admin UI and must never arrive over the webhook. decideBearerRequest also
+  // verifies the id against the configured admin (this path is never
+  // pre-authorized), but reject it loudly here too.
+  if (adminTelegramId.startsWith("admin_ui_")) {
+    return forbidden();
+  }
+
   try {
     const result = await decideBearerRequest({
       publicId: requestId,
