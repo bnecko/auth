@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 import { decideBearerRequest } from "@/lib/server/services/bearer";
-import { bearerAdminTelegramId } from "@/lib/server/config";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 
 export async function decideBearerAction(formData: FormData) {
@@ -20,12 +19,13 @@ export async function decideBearerAction(formData: FormData) {
     throw new Error("Invalid decision");
   }
 
-  const adminId = bearerAdminTelegramId() || `admin_ui_${current.user.id}`;
-  
+  // The admin is already authenticated + step-up-verified above, so this path
+  // is pre-authorized. The id is a human-readable audit label, not a credential.
   const result = await decideBearerRequest({
     publicId: requestIdStr,
     decision: decision as "approve" | "reject",
-    adminTelegramId: adminId
+    adminTelegramId: `admin_ui_${current.user.id}`,
+    viaAdminUi: true,
   });
   
   await recordSecurityEvent({
