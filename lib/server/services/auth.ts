@@ -36,6 +36,7 @@ import {
   findPendingLoginChallengeByStartToken,
   markLoginChallengeDenied,
   markLoginChallengeApproved,
+  cancelLoginChallenge,
 } from "../repositories/loginChallenges";
 import { sendTelegramMessage } from "../telegramSend";
 import {
@@ -574,6 +575,12 @@ export async function decideTelegramLogin(input: {
   return challenge;
 }
 
+// The 6-digit code is a 1,000,000-wide space, so it must not be guessable
+// within the challenge's lifetime. Cap wrong tries per challenge and kill the
+// challenge once the cap is hit. The per-IP limiter on the route bounds volume
+// across challenges; this bounds guesses against a single one.
+const MAX_2FA_CODE_ATTEMPTS = 5;
+
 export async function completeTelegramLoginChallenge(
   publicIdValue: string,
   browserToken: string,
@@ -581,6 +588,19 @@ export async function completeTelegramLoginChallenge(
   req: NextRequest,
 ) {
   const context = requestContext(req);
+  const failKey = `2fa:code:fail:${publicIdValue}`;
+
+  if ((await readFailureCount(failKey)) >= MAX_2FA_CODE_ATTEMPTS) {
+    await cancelLoginChallenge(publicIdValue);
+    await recordSecurityEvent({
+      eventType: "login_2fa_failure",
+      result: "too_many_attempts",
+      context,
+      metadata: { challengeId: publicIdValue },
+    });
+    throw new Error("too many incorrect attempts - start a new sign-in");
+  }
+
   const challenge = await completeLoginChallenge({
     publicId: publicIdValue,
     browserToken,
@@ -588,14 +608,20 @@ export async function completeTelegramLoginChallenge(
   });
 
   if (!challenge) {
+    const attempts = await bumpFailureCount(failKey, login2faTtlMinutes() * 60);
+    if (attempts >= MAX_2FA_CODE_ATTEMPTS) {
+      await cancelLoginChallenge(publicIdValue);
+    }
     await recordSecurityEvent({
       eventType: "login_2fa_failure",
       result: "invalid_or_expired",
       context,
-      metadata: { challengeId: publicIdValue },
+      metadata: { challengeId: publicIdValue, attempts },
     });
     throw new Error("incorrect or expired code");
   }
+
+  await clearFailureCount(failKey);
 
   const user = await findUserById(challenge.userId);
   if (!user || user.status === "banned") {
