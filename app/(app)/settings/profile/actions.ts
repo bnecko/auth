@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { updateProfile, requestProfileChange } from "@/lib/server/services/profile";
 
@@ -18,6 +18,7 @@ export async function updateProfileAction(
 ): Promise<ProfileFormState> {
   const current = await getCurrentSession();
   if (!current) return { error: "not signed in" };
+  assertNotRestricted(current);
   try {
     await updateProfile({
       user: current.user,
@@ -44,6 +45,7 @@ export async function requestIdentityChangeAction(
 ): Promise<ProfileFormState> {
   const current = await getCurrentSession();
   if (!current) return { error: "not signed in" };
+  assertNotRestricted(current);
   const field = String(formData.get("field") || "");
   if (field !== "username" && field !== "email") {
     return { error: "invalid field" };

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { query, queryOne } from "@/lib/server/db";
 import { randomToken } from "@/lib/server/crypto";
 import { requestContextFromHeaders } from "@/lib/server/http";
@@ -30,6 +30,7 @@ export async function updateAppAction(formData: FormData) {
   if (!current) {
     throw new Error("Unauthorized");
   }
+  assertNotRestricted(current);
 
   const appId = parseInt(formData.get("app_id")?.toString() || "0", 10);
   if (!appId) throw new Error("Invalid app ID");
@@ -123,6 +124,7 @@ async function assertOwnsApp(appId: number) {
   if (!current) {
     throw new Error("Unauthorized");
   }
+  assertNotRestricted(current);
   const owned = await queryOne<{ id: string; slug: string }>(
     `select id, slug from external_apps where id = $1 and owner_user_id = $2`,
     [appId, current.user.id],

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import {
   findDeviceCodeByUserCode,
   updateDeviceCodeStatus,
@@ -20,6 +20,7 @@ export default async function DevicePage({
   if (!current) {
     redirect(`/login?next=${encodeURIComponent("/device")}`);
   }
+  assertNotRestricted(current);
 
   const resolvedParams = await searchParams;
   const { user_code } = resolvedParams;

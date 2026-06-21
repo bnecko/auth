@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { updateNotificationPrefs } from "@/lib/server/repositories/users";
 import type { ToggleFormState } from "../SettingsToggleForm";
 
@@ -11,6 +11,7 @@ export async function updateNotificationsAction(
 ): Promise<ToggleFormState> {
   const current = await getCurrentSession();
   if (!current) return { error: "not signed in" };
+  assertNotRestricted(current);
   try {
     await updateNotificationPrefs(current.user.id, {
       notifySecurityReceipts: formData.get("notifySecurityReceipts") === "on",

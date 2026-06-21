@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import {
   claimThread,
@@ -40,6 +40,7 @@ export async function createThreadAction(
 ): Promise<{ error?: string }> {
   const current = await getCurrentSession();
   if (!current) redirect("/login?next=/support/new");
+  assertNotRestricted(current);
 
   const kind = String(formData.get("kind") || "issue") as SupportThreadKind;
   const visibility = String(
@@ -72,6 +73,7 @@ export async function editThreadAction(
   const id = String(formData.get("threadId") || "");
   const current = await getCurrentSession();
   if (!current) redirect(`/login?next=${encodeURIComponent(threadPath(id))}`);
+  assertNotRestricted(current);
   try {
     await editThread({
       threadPublicId: id,
@@ -91,6 +93,7 @@ export async function deleteThreadAction(formData: FormData) {
   const id = String(formData.get("threadId") || "");
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await deleteThread({ threadPublicId: id, user: current.user, context: await ctx() });
   redirect("/support/mine");
 }
@@ -100,6 +103,7 @@ export async function deleteMessageAction(formData: FormData) {
   const messageId = String(formData.get("messageId") || "");
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await deleteMessage({
     threadPublicId: id,
     messagePublicId: messageId,
@@ -113,6 +117,7 @@ export async function publishThreadAction(formData: FormData) {
   const id = String(formData.get("threadId") || "");
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await publishThread({ threadPublicId: id, user: current.user, context: await ctx() });
   revalidatePath(threadPath(id));
 }
@@ -121,6 +126,7 @@ export async function starAction(formData: FormData) {
   const id = String(formData.get("threadId") || "");
   const current = await getCurrentSession();
   if (!current) redirect(`/login?next=${encodeURIComponent(threadPath(id))}`);
+  assertNotRestricted(current);
   await toggleStar({ threadPublicId: id, user: current.user });
   revalidatePath(threadPath(id));
   revalidatePath("/support");
@@ -132,6 +138,7 @@ export async function replyAction(formData: FormData) {
   const internal = formData.get("internal") === "on";
   const current = await getCurrentSession();
   if (!current) redirect(`/login?next=${encodeURIComponent(threadPath(id))}`);
+  assertNotRestricted(current);
   await postReply({
     threadPublicId: id,
     user: current.user,
@@ -146,6 +153,7 @@ export async function claimAction(formData: FormData) {
   const id = String(formData.get("threadId") || "");
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await claimThread({ threadPublicId: id, user: current.user, context: await ctx() });
   revalidatePath(threadPath(id));
 }
@@ -154,6 +162,7 @@ export async function unclaimAction(formData: FormData) {
   const id = String(formData.get("threadId") || "");
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await unclaimThread({ threadPublicId: id, user: current.user, context: await ctx() });
   revalidatePath(threadPath(id));
 }
@@ -163,6 +172,7 @@ export async function statusAction(formData: FormData) {
   const status = String(formData.get("status") || "") as SupportThreadStatus;
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await setStatus({
     threadPublicId: id,
     user: current.user,
@@ -177,6 +187,7 @@ export async function inviteAction(formData: FormData) {
   const username = String(formData.get("username") || "");
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  assertNotRestricted(current);
   await inviteSupporter({
     threadPublicId: id,
     user: current.user,
