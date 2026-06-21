@@ -567,20 +567,61 @@ async function sweepRestrictedInactive() {
 // identity in `bans` first (so a recreated account stays blocked even after the
 // row is gone), then delete the user, which cascades to their data.
 async function sweepPendingDeletions() {
+  const days = Number(process.env.DELETION_GRACE_DAYS || 30);
+  let due;
   try {
-    const days = Number(process.env.DELETION_GRACE_DAYS || 30);
-    const due = await pool.query(
-      `select id, public_id, telegram_id
+    due = await pool.query(
+      `select id
          from users
         where deletion_requested_at is not null
           and deletion_requested_at < now() - make_interval(days => $1)
         limit 200`,
       [days],
     );
-    for (const row of due.rows) {
-      if (row.telegram_id) {
-        const valueHash = createHash("sha256").update(row.telegram_id).digest("hex");
-        await pool.query(
+  } catch (err) {
+    logger.error("deletion_sweep_error", { error: err });
+    return;
+  }
+
+  let purged = 0;
+  for (const { id } of due.rows) {
+    // Each purge is its own transaction with a re-check under a row lock.
+    // Signing in during the window clears deletion_requested_at
+    // (createUserSession), so a user who cancelled between the scan above and
+    // this delete must NOT be purged - the FOR UPDATE re-check enforces that
+    // atomically.
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const locked = await client.query(
+        `select public_id, telegram_id
+           from users
+          where id = $1
+            and deletion_requested_at is not null
+            and deletion_requested_at < now() - make_interval(days => $2)
+          for update`,
+        [id, days],
+      );
+      if (locked.rowCount === 0) {
+        await client.query("rollback");
+        continue;
+      }
+      const { public_id: publicId, telegram_id: telegramId } = locked.rows[0];
+
+      // "Delete my account" implies erasure: strip PII (IP / user-agent /
+      // country / metadata) from this user's audit rows now, while user_id
+      // still resolves - the delete below SET NULLs them, so they'd otherwise
+      // survive the 90-day retention window carrying personal data.
+      await client.query(
+        `update security_events
+            set ip = '', user_agent = '', country = '', metadata = '{}'::jsonb
+          where user_id = $1`,
+        [id],
+      );
+
+      if (telegramId) {
+        const valueHash = createHash("sha256").update(telegramId).digest("hex");
+        await client.query(
           `insert into bans (kind, user_id, value_hash, reason, created_by_user_id)
            values ('telegram_id', null, $1, 'account deleted', null)
            on conflict (kind, value_hash) where revoked_at is null and value_hash is not null
@@ -588,20 +629,28 @@ async function sweepPendingDeletions() {
           [valueHash],
         );
       }
-      // Recorded before the delete; security_events.user_id is ON DELETE SET
-      // NULL, so the audit row survives the cascade (public_id kept in metadata).
-      await pool.query(
+      await client.query(
         `insert into security_events (user_id, event_type, result, ip, user_agent, country, metadata)
          values ($1, 'account_purged', 'ok', '', 'worker', '', $2::jsonb)`,
-        [row.id, JSON.stringify({ publicId: row.public_id, days })],
+        [id, JSON.stringify({ publicId, days })],
       );
-      await pool.query(`delete from users where id = $1`, [row.id]);
+      await client.query(`delete from users where id = $1`, [id]);
+      await client.query("commit");
+      purged += 1;
+    } catch (err) {
+      try {
+        await client.query("rollback");
+      } catch {
+        // ignore rollback failure; the connection is released below
+      }
+      logger.error("deletion_sweep_error", { error: err, userId: id });
+    } finally {
+      client.release();
     }
-    if (due.rows.length > 0) {
-      logger.info("account_purge", { count: due.rows.length });
-    }
-  } catch (err) {
-    logger.error("deletion_sweep_error", { error: err });
+  }
+
+  if (purged > 0) {
+    logger.info("account_purge", { count: purged });
   }
 }
 
