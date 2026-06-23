@@ -10,16 +10,20 @@ import {
   emailExists,
   findPasswordHashById,
   findUserById,
+  setEmailVerified,
   updateUserProfile,
   usernameExists,
 } from "../repositories/users";
 import {
   createProfileChangeRequest,
+  findApprovedEmailChangeForUser,
   findPendingProfileChangeRequest,
   markProfileChangeApproved,
+  markProfileChangeCompleted,
   markProfileChangeDenied,
   type ProfileChangeField,
 } from "../repositories/profileChanges";
+import { requestEmailCode, verifyEmailCode } from "../emailVerification";
 import { parseProfileEdit, validateIdentityField } from "../validation";
 import type { TelegramIdentity, User } from "../types";
 
@@ -167,11 +171,35 @@ export async function decideProfileChange(input: {
     return { status: "denied" as const, field: request.field };
   }
 
-  const applied =
-    request.field === "username"
-      ? await applyUsernameChange(request.userId, request.newValue)
-      : await applyEmailChange(request.userId, request.newValue);
+  // Email changes don't apply on approval: Telegram has authorized the change,
+  // but the user must still prove ownership of the NEW address with a 6-digit
+  // code (completeEmailChange). 'approved' is the transient awaiting-code state.
+  if (request.field === "email") {
+    if (await emailExists(request.newValue)) {
+      await markProfileChangeDenied(request.publicId);
+      await recordSecurityEvent({
+        userId: request.userId,
+        eventType: "profile_change_decision",
+        result: "conflict",
+        context: input.context,
+        metadata: { field: "email" },
+      });
+      return { status: "conflict" as const, field: "email" as const };
+    }
+    await markProfileChangeApproved(request.publicId);
+    await requestEmailCode(request.newValue, "change");
+    await recordSecurityEvent({
+      userId: request.userId,
+      eventType: "profile_change_decision",
+      result: "email_code_sent",
+      context: input.context,
+      metadata: { field: "email" },
+    });
+    return { status: "email_code_sent" as const, field: "email" as const };
+  }
 
+  // Username changes apply immediately on approval (no ownership step).
+  const applied = await applyUsernameChange(request.userId, request.newValue);
   if (!applied) {
     // Lost the uniqueness race between request and approval.
     await markProfileChangeDenied(request.publicId);
@@ -180,9 +208,9 @@ export async function decideProfileChange(input: {
       eventType: "profile_change_decision",
       result: "conflict",
       context: input.context,
-      metadata: { field: request.field },
+      metadata: { field: "username" },
     });
-    return { status: "conflict" as const, field: request.field };
+    return { status: "conflict" as const, field: "username" as const };
   }
 
   await markProfileChangeApproved(request.publicId);
@@ -191,7 +219,46 @@ export async function decideProfileChange(input: {
     eventType: "profile_change_decision",
     result: "applied",
     context: input.context,
-    metadata: { field: request.field },
+    metadata: { field: "username" },
   });
-  return { status: "applied" as const, field: request.field };
+  return { status: "applied" as const, field: "username" as const };
+}
+
+// Final step of an email change: the user enters the code we sent to the new
+// address. Verifies it, applies the change, and marks the new email verified.
+export async function completeEmailChange(input: {
+  userId: number;
+  code: string;
+  context: RequestContext;
+}) {
+  const request = await findApprovedEmailChangeForUser(input.userId);
+  if (!request) {
+    throw new Error("no email change is awaiting confirmation");
+  }
+
+  const ok = await verifyEmailCode(request.newValue, "change", input.code);
+  if (!ok) {
+    await recordSecurityEvent({
+      userId: input.userId,
+      eventType: "email_change_confirm",
+      result: "invalid_code",
+      context: input.context,
+    });
+    throw new Error("incorrect or expired code");
+  }
+
+  const applied = await applyEmailChange(input.userId, request.newValue);
+  if (!applied) {
+    // The address was taken between approval and confirmation.
+    throw new Error("that email is no longer available");
+  }
+  await setEmailVerified(input.userId);
+  await markProfileChangeCompleted(request.publicId);
+  await recordSecurityEvent({
+    userId: input.userId,
+    eventType: "email_change_confirm",
+    result: "applied",
+    context: input.context,
+  });
+  return { ok: true as const };
 }

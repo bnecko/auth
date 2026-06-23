@@ -6,9 +6,17 @@ import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { Alert } from "@/components/Alert";
 import { getCurrentSession } from "@/lib/server/session";
-import { listPendingProfileChangesForUser } from "@/lib/server/repositories/profileChanges";
+import {
+  listPendingProfileChangesForUser,
+  findApprovedEmailChangeForUser,
+} from "@/lib/server/repositories/profileChanges";
 import { telegramPublicRef } from "@/lib/server/telegramRef";
-import { ProfileEditForm, IdentityChangeForm } from "./ProfileEditForm";
+import {
+  ProfileEditForm,
+  IdentityChangeForm,
+  EmailVerifyForm,
+  EmailChangeConfirmForm,
+} from "./ProfileEditForm";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +25,7 @@ export default async function ProfilePage() {
   if (!current) redirect("/login");
   const u = current.user;
   const pending = await listPendingProfileChangesForUser(u.id);
+  const approvedEmailChange = await findApprovedEmailChangeForUser(u.id);
   const hasTelegram = !!u.telegramId;
   const ref = telegramPublicRef(u.telegramId);
 
@@ -58,7 +67,29 @@ export default async function ProfilePage() {
       </Section>
 
       <Section title="Email" hint="Private - sign-in identifier">
-        <IdentityChangeForm field="email" current={u.email} hasTelegram={hasTelegram} />
+        <Row>
+          <RowLabel>{u.email}</RowLabel>
+          <RowValue>
+            {u.emailVerifiedAt ? (
+              <Tag tone="success">Verified</Tag>
+            ) : (
+              <Tag tone="warning">Unverified</Tag>
+            )}
+          </RowValue>
+          <span />
+        </Row>
+        {approvedEmailChange ? (
+          <EmailChangeConfirmForm newEmail={approvedEmailChange.newValue} />
+        ) : (
+          <>
+            {!u.emailVerifiedAt && (
+              <div className="px-4 py-3">
+                <EmailVerifyForm />
+              </div>
+            )}
+            <IdentityChangeForm field="email" current={u.email} hasTelegram={hasTelegram} />
+          </>
+        )}
       </Section>
 
       <Section title="Other" hint="Managed elsewhere">

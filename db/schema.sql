@@ -41,7 +41,7 @@ create table profile_change_requests (
   new_value text not null,
   new_value_normalized text not null,
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'denied', 'expired', 'cancelled')),
+    check (status in ('pending', 'approved', 'denied', 'expired', 'cancelled', 'completed')),
   ip text,
   user_agent text,
   created_at timestamptz not null default now(),

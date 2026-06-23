@@ -8,7 +8,11 @@ import { Identicon } from "@/components/Identicon";
 import {
   updateProfileAction,
   requestIdentityChangeAction,
+  requestEmailVerificationAction,
+  confirmEmailVerificationAction,
+  confirmEmailChangeAction,
   type ProfileFormState,
+  type EmailVerifyState,
 } from "./actions";
 
 const PRESET_COUNT = 8;
@@ -96,6 +100,72 @@ export function ProfileEditForm({
   );
 }
 
+const codeFieldProps = {
+  name: "code",
+  inputMode: "numeric" as const,
+  autoComplete: "one-time-code",
+  placeholder: "123456",
+  maxLength: 6,
+  required: true,
+};
+
+// Flow A: verify the account's current email. Send a code, then enter it.
+export function EmailVerifyForm() {
+  const [sendState, sendAction, sending] = useActionState<EmailVerifyState, FormData>(
+    requestEmailVerificationAction,
+    {},
+  );
+  const [confirmState, confirmAction, confirming] = useActionState<EmailVerifyState, FormData>(
+    confirmEmailVerificationAction,
+    {},
+  );
+
+  if (!sendState.sent) {
+    return (
+      <form action={sendAction}>
+        {sendState.error && <Alert tone="danger">{sendState.error}</Alert>}
+        <Button type="submit" size="sm" variant="secondary" loading={sending}>
+          Verify email
+        </Button>
+      </form>
+    );
+  }
+
+  return (
+    <form action={confirmAction} className="space-y-3">
+      <Alert tone="info">We emailed a 6-digit code. Enter it to verify your email.</Alert>
+      {confirmState.error && <Alert tone="danger">{confirmState.error}</Alert>}
+      <Field label="Verification code" {...codeFieldProps} />
+      <Button type="submit" size="sm" loading={confirming}>
+        Confirm
+      </Button>
+    </form>
+  );
+}
+
+// Flow B: a Telegram-approved email change is waiting for the code we sent to
+// the new address. Enter it to apply the change.
+export function EmailChangeConfirmForm({ newEmail }: { newEmail: string }) {
+  const [state, action, pending] = useActionState<EmailVerifyState, FormData>(
+    confirmEmailChangeAction,
+    {},
+  );
+
+  return (
+    <form action={action} className="space-y-3 px-4 py-4">
+      <Alert tone="info">
+        Approved in Telegram. We emailed a code to{" "}
+        <span className="text-fg">{newEmail}</span> - enter it to finish changing your email.
+      </Alert>
+      {state.error && <Alert tone="danger">{state.error}</Alert>}
+      <Field label="Verification code" {...codeFieldProps} />
+      <Button type="submit" size="sm" loading={pending}>
+        Confirm new email
+      </Button>
+    </form>
+  );
+}
+
 export function IdentityChangeForm({
   field,
   current,
@@ -124,7 +194,9 @@ export function IdentityChangeForm({
       {state.error && <Alert tone="danger">{state.error}</Alert>}
       {state.ok && state.field === field && (
         <Alert tone="success">
-          Check Telegram and approve the change. It applies once you confirm.
+          {field === "email"
+            ? "Check Telegram and approve, then refresh this page to enter the code we email to your new address."
+            : "Check Telegram and approve the change. It applies once you confirm."}
         </Alert>
       )}
       <Field

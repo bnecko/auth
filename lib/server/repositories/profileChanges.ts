@@ -6,7 +6,8 @@ export type ProfileChangeStatus =
   | "approved"
   | "denied"
   | "expired"
-  | "cancelled";
+  | "cancelled"
+  | "completed";
 
 export type ProfileChangeRequest = {
   id: number;
@@ -102,6 +103,32 @@ export async function findPendingProfileChangeRequest(publicId: string) {
     `select ${select}
        from profile_change_requests
       where public_id = $1 and status = 'pending' and expires_at > now()`,
+    [publicId],
+  );
+  return row ? map(row) : null;
+}
+
+// An email change that Telegram has authorized but whose new address still
+// needs a 6-digit code (status='approved', not yet 'completed'). At most one
+// active per user. Drives the code-entry form on the settings page.
+export async function findApprovedEmailChangeForUser(userId: number) {
+  const row = await queryOne<ProfileChangeRow>(
+    `select ${select}
+       from profile_change_requests
+      where user_id = $1 and field = 'email' and status = 'approved' and expires_at > now()
+      order by created_at desc
+      limit 1`,
+    [userId],
+  );
+  return row ? map(row) : null;
+}
+
+export async function markProfileChangeCompleted(publicId: string) {
+  const row = await queryOne<ProfileChangeRow>(
+    `update profile_change_requests
+        set status = 'completed', decided_at = now()
+      where public_id = $1 and status = 'approved'
+      returning ${select}`,
     [publicId],
   );
   return row ? map(row) : null;
