@@ -27,6 +27,7 @@ import {
   markRegistrationVerified,
 } from "../repositories/registrationRequests";
 import { beginRelinkApproval, decideRelink } from "../relinkChallenge";
+import { requestEmailCode, verifyEmailCode } from "../emailVerification";
 import { isTelegramIdBanned } from "../repositories/bans";
 import { recordSuspicionEvent } from "../repositories/suspicion";
 import {
@@ -808,8 +809,21 @@ export async function decideTelegramRelink(input: {
   return result;
 }
 
+// Send the registration email code once Telegram approval has landed. Sending
+// here (not at sign-up) gives the code a fresh window and avoids emailing people
+// who abandon before approving. Scoped to a real, not-yet-completed request.
+export async function sendRegistrationEmailCode(verificationId: string) {
+  const request = await findRegistrationRequest(verificationId);
+  if (!request || (request.status !== "pending" && request.status !== "verified")) {
+    return { sent: false };
+  }
+  const res = await requestEmailCode(request.email, "register");
+  return { sent: res.sent, throttled: res.throttled };
+}
+
 export async function completeVerifiedRegistration(
   verificationId: string,
+  code: string,
   req: NextRequest,
 ) {
   const context = requestContext(req);
@@ -830,6 +844,18 @@ export async function completeVerifiedRegistration(
     throw new Error("telegram verification missing");
   }
 
+  // Prove ownership of the email before the account is created. The code was
+  // sent to request.email when Telegram approval landed (sendRegistrationEmailCode).
+  if (!(await verifyEmailCode(request.email, "register", code))) {
+    await recordSecurityEvent({
+      eventType: "register_attempt",
+      result: "email_code_invalid",
+      context,
+      metadata: { requestId: request.publicId },
+    });
+    throw new Error("incorrect or expired email code");
+  }
+
   const telegram: TelegramIdentity = {
     id: request.telegramId,
     firstName: request.firstName,
@@ -845,6 +871,7 @@ export async function completeVerifiedRegistration(
     dob: request.dob,
     passwordHash: request.passwordHash,
     telegram,
+    emailVerified: true,
   });
 
   await completeRegistrationRequest(request.publicId, user.id);
