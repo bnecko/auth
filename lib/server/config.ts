@@ -18,6 +18,18 @@ export function authBaseUrl() {
   return env("AUTH_BASE_URL") || "http://localhost:3000";
 }
 
+export function resendApiKey() {
+  return env("RESEND_API_KEY");
+}
+
+export function emailFromAddress() {
+  return env("EMAIL_FROM_ADDRESS") || "bottleneck <noreply@bneck.com>";
+}
+
+export function emailVerificationTtlMinutes() {
+  return Number(env("EMAIL_VERIFICATION_TTL_MINUTES") || 10);
+}
+
 export function isProduction() {
   return process.env.NODE_ENV === "production";
 }

@@ -38,6 +38,9 @@ export type CreateUserInput = {
   dob: string | null;
   passwordHash: string;
   telegram?: TelegramIdentity | null;
+  // Stamp email_verified_at at insert when the email was code-verified during
+  // sign-up (registration flow). Defaults to unverified.
+  emailVerified?: boolean;
 };
 
 function mapUser(row: UserRow): User {
@@ -250,8 +253,21 @@ export async function applyUsernameChange(userId: number, username: string) {
   }
 }
 
-// Apply an email change. The new email is treated as unverified (there is no
-// email-verification flow yet), so email_verified_at is cleared.
+// Mark the user's current email as verified (after a code challenge succeeds).
+export async function setEmailVerified(userId: number) {
+  const row = await queryOne<UserRow>(
+    `update users
+        set email_verified_at = now(), updated_at = now()
+      where id = $1
+      returning ${userSelect}`,
+    [userId],
+  );
+  return row ? mapUser(row) : null;
+}
+
+// Apply an email change. The new email is treated as unverified until the user
+// proves ownership via a code (callers re-stamp email_verified_at on success),
+// so email_verified_at is cleared here.
 export async function applyEmailChange(userId: number, email: string) {
   try {
     const row = await queryOne<UserRow>(
@@ -327,13 +343,14 @@ export async function createUser(input: CreateUserInput) {
        bio,
        email,
        email_normalized,
+       email_verified_at,
        dob,
        password_hash,
        telegram_id,
        telegram_username,
        telegram_verified_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8::date, $9, $10, $11, $12)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12, $13)
      returning ${userSelect}`,
     [
       input.publicId,
@@ -343,6 +360,7 @@ export async function createUser(input: CreateUserInput) {
       input.bio,
       input.email,
       normalizeIdentifier(input.email),
+      input.emailVerified ? new Date().toISOString() : null,
       input.dob,
       input.passwordHash,
       input.telegram?.id || null,
