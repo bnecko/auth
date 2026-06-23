@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Field } from "@/components/Field";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
@@ -119,6 +120,12 @@ export function EmailVerifyForm() {
     confirmEmailVerificationAction,
     {},
   );
+  const router = useRouter();
+  // The Verified badge + this form's visibility are server-rendered from
+  // emailVerifiedAt, so refresh the route once the code is accepted.
+  useEffect(() => {
+    if (confirmState.ok) router.refresh();
+  }, [confirmState.ok, router]);
 
   if (!sendState.sent) {
     return (
@@ -150,6 +157,12 @@ export function EmailChangeConfirmForm({ newEmail }: { newEmail: string }) {
     confirmEmailChangeAction,
     {},
   );
+  const router = useRouter();
+  // The applied email + Verified badge are server-rendered, so refresh once the
+  // change is confirmed (this form is then gone on re-render).
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state.ok, router]);
 
   return (
     <form action={action} className="space-y-3 px-4 py-4">

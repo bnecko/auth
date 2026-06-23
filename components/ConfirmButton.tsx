@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Button } from "./Button";
 
 type Tone = "danger" | "warning" | "neutral";
@@ -90,6 +91,7 @@ export function ConfirmButton({
   tone?: Tone;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -163,7 +165,12 @@ export function ConfirmButton({
                 confirmLabel={confirmLabel}
                 tone={tone}
                 onCancel={() => setOpen(false)}
-                onSettled={() => setOpen(false)}
+                onSettled={() => {
+                  setOpen(false);
+                  // The action revalidated server-side; refresh so the list /
+                  // status the action changed updates without a manual reload.
+                  router.refresh();
+                }}
               />
             </form>
           </div>
