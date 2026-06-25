@@ -85,6 +85,10 @@ export async function createSession(input: {
   return mapSession(row);
 }
 
+// Resolving a session also excludes banned users: pages and server actions
+// gate on session presence alone (only the bearer/REST APIs re-check status),
+// so treating a banned principal as logged-out here is the single chokepoint
+// that keeps a ban enforced across the whole authenticated surface.
 export async function findSessionByToken(token: string) {
   const row = await queryOne<SessionUserRow>(
     `update sessions s
@@ -95,6 +99,7 @@ export async function findSessionByToken(token: string) {
         and s.revoked_at is null
         and s.expires_at > $2
         and s.last_seen_at > now() - make_interval(secs => $3)
+        and u.status <> 'banned'
       returning
         s.id as session_id,
         s.user_id,
