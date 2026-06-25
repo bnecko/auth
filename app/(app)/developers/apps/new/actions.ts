@@ -33,6 +33,11 @@ export async function createAppAction(formData: FormData) {
 
   const clientId = `app_${randomToken(16)}`;
   const clientSecret = `sec_${randomToken(32)}`;
+  // The api key (activation/bearer API) and the OAuth client secret guard
+  // different surfaces, so they are independent secrets - leaking one must not
+  // authenticate the other. The api key satisfies the not-null column here; it
+  // is the request-bearer flow that issues an api key to the user.
+  const apiKey = `sec_${randomToken(32)}`;
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + randomToken(4);
 
   const row = await queryOne<{ id: string }>(
@@ -51,11 +56,12 @@ export async function createAppAction(formData: FormData) {
       oauth_profile_version,
       status,
       owner_user_id
-    ) values ($1, $2, $3, $4, $4, $5, 'confidential', 'client_secret_post', $6, $7, true, 'bn-oauth-2026-05', 'active', $8) returning id`,
+    ) values ($1, $2, $3, $4, $5, $6, 'confidential', 'client_secret_post', $7, $8, true, 'bn-oauth-2026-05', 'active', $9) returning id`,
     [
       clientId,
       name,
       slug,
+      hashToken(apiKey),
       hashToken(clientSecret),
       [redirectUri],
       ["authorization_code", "refresh_token", "client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
