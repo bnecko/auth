@@ -29,11 +29,14 @@ export async function approveOAuthClientRegistrationAction(formData: FormData) {
   const clientSecret = request.clientType === "confidential"
     ? `sec_${randomToken(32)}`
     : null;
+  // The api key and the OAuth client secret authenticate different surfaces, so
+  // they must stay independent - never reuse the client secret as the api key.
+  const apiKey = `sec_${randomToken(32)}`;
   const approved = await approveOAuthClientRegistrationRequest({
     id,
     publicId: request.publicId,
     slug: slugFor(request.clientName),
-    apiKey: clientSecret || `sec_${randomToken(32)}`,
+    apiKey,
     clientSecret,
     reviewedByUserId: current.user.id,
   });

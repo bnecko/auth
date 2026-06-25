@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import { CircleHelp, ShieldCheck, Boxes } from "lucide-react";
 import { Section } from "@/components/Section";
 
-export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "FAQ — bottleneck",
+  description: "Answers to common questions about bottleneck accounts, security, and OAuth apps.",
+};
 
 function QA({ q, a }: { q: string; a: string }) {
   return (
@@ -23,15 +27,15 @@ export default function FaqPage() {
       <Section title="Account" icon={CircleHelp}>
         <QA
           q="How do I create an account?"
-          a="Choose Create account on the sign-in page, fill in your details, and confirm with Telegram to finish."
+          a="Choose Create account on the sign-in page, fill in your details, accept the Terms, Privacy Policy, and Rules, and confirm with Telegram to finish."
         />
         <QA
           q="Where do I update my profile?"
-          a="Open Profile in the sidebar to edit your name, bio, and the details you share with connected apps."
+          a="Open your Profile from your account to edit your name, bio, and the details you share with connected apps."
         />
         <QA
           q="How do I sign out everywhere?"
-          a="Go to Sessions and choose Revoke others to end every session except the one you are using."
+          a="Open Sessions in your account and choose Revoke others to end every session except the one you are using."
         />
       </Section>
 
@@ -53,7 +57,7 @@ export default function FaqPage() {
       <Section title="Developers" icon={Boxes}>
         <QA
           q="How do I connect an app with OAuth?"
-          a="Register an app under Developer → OAuth apps, then use the authorization and token endpoints. The OAuth docs page has the full reference and a test lab."
+          a="Register an app from the developer dashboard, then use the authorization and token endpoints. The documentation page has the discovery endpoint and the full reference."
         />
         <QA
           q="What is an API bearer token?"

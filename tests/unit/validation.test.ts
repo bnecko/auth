@@ -9,6 +9,7 @@ describe('validation utils', () => {
         username: 'john_doe',
         email: 'john@example.com',
         password: 'superSecretPassword123!',
+        accept_terms: 'true',
       };
 
       const result = parseRegistrationInput(payload);
@@ -17,6 +18,20 @@ describe('validation utils', () => {
       expect(result.input.username).toBe('john_doe');
       expect(result.input.email).toBe('john@example.com');
       expect(result.input.password).toBe('superSecretPassword123!');
+      expect(result.input.acceptedTerms).toBe(true);
+    });
+
+    it('requires accepting the terms', () => {
+      const payload = {
+        firstName: 'John',
+        username: 'john_doe',
+        email: 'john@example.com',
+        password: 'superSecretPassword123!',
+      };
+
+      const result = parseRegistrationInput(payload);
+      expect(result.errors).toHaveProperty('acceptTerms');
+      expect(result.input.acceptedTerms).toBe(false);
     });
 
     it('returns errors for missing or short fields', () => {

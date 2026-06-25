@@ -166,16 +166,19 @@ export async function createExternalApp(input: {
   ownerUserId: number;
   apiKey: string;
 }) {
+  // Bearer/activation apps authenticate only via their api key. They are not
+  // OAuth confidential clients (no redirect URIs, no client_credentials grant),
+  // so oauth_client_secret_hash is left null rather than reusing the api-key
+  // hash - the two surfaces must not share a secret.
   const row = await queryOne<ExternalAppRow>(
     `insert into external_apps (
        public_id,
        name,
        slug,
        owner_user_id,
-       api_key_hash,
-       oauth_client_secret_hash
+       api_key_hash
      )
-     values ($1, $2, $3, $4, $5, $5)
+     values ($1, $2, $3, $4, $5)
      returning
        ${externalAppSelect}`,
     [

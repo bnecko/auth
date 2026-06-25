@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTelegramLogin } from "@/lib/server/telegram";
 import { findUserByTelegramId, linkTelegram } from "@/lib/server/repositories/users";
+import { isTelegramIdBanned } from "@/lib/server/repositories/bans";
 import { createUserSession, getSessionFromRequest } from "@/lib/server/session";
 import { authBaseUrl } from "@/lib/server/config";
 import { requestContext } from "@/lib/server/http";
@@ -41,6 +42,14 @@ export async function GET(req: NextRequest) {
   const user = await findUserByTelegramId(telegram.id);
   if (!user) {
     return NextResponse.redirect(new URL("/register?error=telegram_unlinked", base));
+  }
+  // Every other login sink (password, passkey, OAuth, bot-push 2FA) rejects a
+  // banned principal before issuing a session. This branch resolves the user
+  // straight from a Telegram-signed payload the banned owner can re-issue at
+  // will, so it must enforce the same gate - including the telegram_id ban that
+  // outlives account recreation - or a ban can be self-served away.
+  if (user.status === "banned" || (await isTelegramIdBanned(telegram.id))) {
+    return NextResponse.redirect(new URL("/login?error=telegram", base));
   }
 
   const res = NextResponse.redirect(new URL("/", base));
