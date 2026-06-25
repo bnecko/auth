@@ -141,7 +141,7 @@ export default async function LandingPage() {
           </Link>
           <nav className="flex items-center gap-1.5">
             <Link
-              href="/developers/oauth"
+              href="/docs"
               className="hidden sm:inline-flex h-8 px-3 items-center rounded-md text-[13px] text-secondary hover:text-fg transition-colors"
             >
               Docs
@@ -183,7 +183,7 @@ export default async function LandingPage() {
               Create account <ArrowRight size={15} />
             </Button>
           </Link>
-          <Link href="/developers/oauth">
+          <Link href="/docs">
             <Button variant="secondary">Read the docs</Button>
           </Link>
         </div>
@@ -232,7 +232,7 @@ export default async function LandingPage() {
               result and read the approved profile — scopes the user declines come back null.
             </p>
             <Link
-              href="/developers/oauth"
+              href="/docs"
               className="mt-5 inline-flex items-center gap-1.5 text-[14px] text-accent-strong hover:text-fg transition-colors"
             >
               Read the SDK docs <ArrowRight size={14} />
@@ -288,7 +288,7 @@ export default async function LandingPage() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-rule">
-        <div className="mx-auto w-full max-w-[1080px] px-6 py-12 grid gap-10 sm:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="mx-auto w-full max-w-[1080px] px-6 py-12 grid gap-10 sm:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2 select-none mb-3">
               <Monogram size={20} />
@@ -306,7 +306,7 @@ export default async function LandingPage() {
             <ul className="space-y-2 text-[13px]">
               <li><Link href="/register" className="text-secondary hover:text-fg transition-colors">Create account</Link></li>
               <li><Link href="/login" className="text-secondary hover:text-fg transition-colors">Sign in</Link></li>
-              <li><Link href="/developers/oauth" className="text-secondary hover:text-fg transition-colors">Documentation</Link></li>
+              <li><Link href="/docs" className="text-secondary hover:text-fg transition-colors">Documentation</Link></li>
             </ul>
           </div>
           <div>
@@ -326,6 +326,16 @@ export default async function LandingPage() {
                   Telegram
                 </a>
               </li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-[12px] font-medium uppercase tracking-wider text-faint mb-3">
+              Legal
+            </div>
+            <ul className="space-y-2 text-[13px]">
+              <li><Link href="/terms" className="text-secondary hover:text-fg transition-colors">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="text-secondary hover:text-fg transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/rules" className="text-secondary hover:text-fg transition-colors">Rules</Link></li>
             </ul>
           </div>
         </div>

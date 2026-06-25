@@ -1,5 +1,6 @@
 import { query, queryOne } from "../db";
 import { normalizeIdentifier } from "../crypto";
+import { TERMS_VERSION } from "../terms";
 import type { TelegramIdentity, User, UserRole, UserStatus } from "../types";
 
 type UserRow = {
@@ -348,9 +349,11 @@ export async function createUser(input: CreateUserInput) {
        password_hash,
        telegram_id,
        telegram_username,
-       telegram_verified_at
+       telegram_verified_at,
+       terms_accepted_at,
+       terms_version
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12, $13)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12, $13, now(), $14)
      returning ${userSelect}`,
     [
       input.publicId,
@@ -366,6 +369,7 @@ export async function createUser(input: CreateUserInput) {
       input.telegram?.id || null,
       input.telegram?.username || null,
       input.telegram ? new Date().toISOString() : null,
+      TERMS_VERSION,
     ],
   );
 

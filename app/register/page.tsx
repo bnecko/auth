@@ -14,6 +14,7 @@ type FieldErrors = Partial<{
   email: string;
   dob: string;
   password: string;
+  acceptTerms: string;
   form: string;
 }>;
 
@@ -29,6 +30,11 @@ export default function RegisterPage() {
     const formData = new FormData(e.currentTarget);
     if (formData.has("turnstileToken") && !formData.get("turnstileToken")) {
       setErrors({ form: "Please wait for the security check to finish." });
+      setLoading(false);
+      return;
+    }
+    if (!formData.get("accept_terms")) {
+      setErrors({ acceptTerms: "You must accept the Terms, Privacy Policy, and Rules to continue." });
       setLoading(false);
       return;
     }
@@ -120,6 +126,23 @@ export default function RegisterPage() {
           required
         />
         <TurnstileField />
+        <label className="flex items-start gap-2.5 text-[13px] text-secondary">
+          <input
+            type="checkbox"
+            name="accept_terms"
+            value="true"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-rule accent-[var(--accent)]"
+          />
+          <span>
+            I agree to the{" "}
+            <Link href="/terms" target="_blank" className="text-accent-strong hover:text-fg transition-colors">Terms of Service</Link>,{" "}
+            <Link href="/privacy" target="_blank" className="text-accent-strong hover:text-fg transition-colors">Privacy Policy</Link>, and{" "}
+            <Link href="/rules" target="_blank" className="text-accent-strong hover:text-fg transition-colors">Rules</Link>, and confirm the details above are accurate.
+          </span>
+        </label>
+        {errors.acceptTerms && (
+          <p className="text-[12px] text-danger -mt-2">{errors.acceptTerms}</p>
+        )}
         <Button type="submit" loading={loading}>
           Verify with Telegram
         </Button>

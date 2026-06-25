@@ -7,6 +7,7 @@ export type RegistrationInput = {
   email: string;
   dob: string | null;
   password: string;
+  acceptedTerms: boolean;
   turnstileToken?: string;
 };
 
@@ -27,6 +28,7 @@ function optionalString(value: unknown) {
 }
 
 export function parseRegistrationInput(body: Record<string, unknown>) {
+  const acceptTermsRaw = body.accept_terms ?? body.acceptTerms;
   const input: RegistrationInput = {
     firstName: asString(body.first_name || body.firstName),
     username: asString(body.username),
@@ -34,10 +36,16 @@ export function parseRegistrationInput(body: Record<string, unknown>) {
     email: asString(body.email),
     dob: optionalString(body.dob),
     password: asString(body.password),
+    acceptedTerms:
+      acceptTermsRaw === true || acceptTermsRaw === "true" || acceptTermsRaw === "on",
     turnstileToken: asString(body.turnstileToken || body["cf-turnstile-response"]),
   };
 
   const errors: Record<string, string> = {};
+
+  if (!input.acceptedTerms) {
+    errors.acceptTerms = "You must accept the Terms, Privacy Policy, and Rules to continue";
+  }
 
   if (!input.firstName || input.firstName.length > 80) {
     errors.firstName = "first name is required";
