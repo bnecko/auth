@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
-import { getSessionFromRequest } from "@/lib/server/session";
+import { requireUser } from "@/lib/server/apiAuth";
 import { createWebauthnCredential } from "@/lib/server/repositories/webauthn";
 import { getRpID, getOrigin } from "@/lib/server/webauthn";
 import redis from "@/lib/server/redis";
@@ -12,9 +12,9 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSessionFromRequest(req);
-    if (!session) {
-      return json({ error: "unauthorized" }, 401);
+    const { response, session } = await requireUser(req);
+    if (response) {
+      return response;
     }
     const body = await requestBody(req);
     const expectedChallenge = await redis.get(`webauthn:challenge:${session.user.id}`);

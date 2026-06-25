@@ -1,14 +1,14 @@
 import { type NextRequest } from "next/server";
-import { getSessionFromRequest } from "@/lib/server/session";
+import { requireUser } from "@/lib/server/apiAuth";
 import { verifyRelinkOtp, createRelinkChallenge } from "@/lib/server/relinkChallenge";
-import { forbidden, json, requestBody } from "@/lib/server/http";
+import { json, requestBody } from "@/lib/server/http";
 import { env } from "@/lib/server/config";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req);
-  if (!session) return forbidden();
+  const { response, session } = await requireUser(req);
+  if (response) return response;
 
   const body = await requestBody(req);
   const code = typeof body.code === "string" ? body.code : "";
