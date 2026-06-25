@@ -1,8 +1,8 @@
 import { type NextRequest } from "next/server";
-import { getSessionFromRequest } from "@/lib/server/session";
+import { requireUser } from "@/lib/server/apiAuth";
 import { createRelinkOtp } from "@/lib/server/relinkChallenge";
 import { sendTelegramMessage } from "@/lib/server/telegramSend";
-import { forbidden, json, tooManyRequests, requestContext } from "@/lib/server/http";
+import { json, tooManyRequests, requestContext } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
 
 export const runtime = "nodejs";
@@ -16,8 +16,8 @@ const IP_LIMIT = 10;
 const IP_WINDOW_MS = 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req);
-  if (!session) return forbidden();
+  const { response, session } = await requireUser(req);
+  if (response) return response;
 
   const { user } = session;
   const ctx = requestContext(req);

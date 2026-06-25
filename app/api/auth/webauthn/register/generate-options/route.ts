@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { generateRegistrationOptions, type AuthenticatorTransport } from "@simplewebauthn/server";
-import { getSessionFromRequest } from "@/lib/server/session";
+import { requireUser } from "@/lib/server/apiAuth";
 import { findWebauthnCredentialsByUser } from "@/lib/server/repositories/webauthn";
 import { getRpID, rpName } from "@/lib/server/webauthn";
 import redis from "@/lib/server/redis";
@@ -10,9 +10,9 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSessionFromRequest(req);
-    if (!session) {
-      return json({ error: "unauthorized" }, 401);
+    const { response, session } = await requireUser(req);
+    if (response) {
+      return response;
     }
     const userCredentials = await findWebauthnCredentialsByUser(session.user.id);
 
