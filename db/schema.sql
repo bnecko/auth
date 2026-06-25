@@ -26,6 +26,8 @@ create table users (
   public_show_telegram boolean not null default true,
   role text not null default 'user' check (role in ('user', 'admin')),
   status text not null default 'active' check (status in ('pending', 'active', 'limited', 'banned')),
+  terms_accepted_at timestamptz,
+  terms_version text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
