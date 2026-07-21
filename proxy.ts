@@ -24,7 +24,7 @@ export function nonce() {
   return btoa(binary);
 }
 
-export function contentSecurityPolicy(scriptNonce: string) {
+export function contentSecurityPolicy(scriptNonce: string, extraFormAction: string[] = []) {
   const scriptSources = [
     "'self'",
     "https://challenges.cloudflare.com",
@@ -50,7 +50,7 @@ export function contentSecurityPolicy(scriptNonce: string) {
     "default-src 'self'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
-    "form-action 'self'",
+    `form-action ${["'self'", ...extraFormAction].join(" ")}`,
     "img-src 'self' data: https://t.me",
     `script-src ${scriptSources.join(" ")}`,
     "frame-src 'self' https://challenges.cloudflare.com https://telegram.org https://oauth.telegram.org",
@@ -254,6 +254,24 @@ function legacyDomainResponse(req: NextRequest): Response {
   });
 }
 
+// The OAuth consent form on /oauth/authorize posts to /api/oauth/authorize/approve, which
+// 303-redirects to the client's registered redirect_uri (an external origin). form-action is
+// enforced across that redirect, so the consent page's CSP must allow the client's origin.
+// The redirect_uri is re-validated against the client allowlist before any code is issued, so
+// widening form-action to its origin here only affects where this one consent form may navigate,
+// not which redirect_uri actually receives an authorization code.
+function consentFormActionOrigins(req: NextRequest): string[] {
+  if (req.nextUrl.pathname !== "/oauth/authorize") return [];
+  const redirectUri = req.nextUrl.searchParams.get("redirect_uri");
+  if (!redirectUri) return [];
+  try {
+    const { origin } = new URL(redirectUri);
+    return origin.startsWith("https://") ? [origin] : [];
+  } catch {
+    return [];
+  }
+}
+
 export function proxy(req: NextRequest, event: NextFetchEvent) {
   const host = (req.headers.get("host") || "").split(":")[0].toLowerCase();
   if (host === LEGACY_DOMAIN) {
@@ -284,7 +302,10 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
   res.headers.set("x-pathname", req.nextUrl.pathname);
   res.headers.set("x-nonce", scriptNonce);
   res.headers.set("x-request-id", requestId);
-  res.headers.set("Content-Security-Policy", contentSecurityPolicy(scriptNonce));
+  res.headers.set(
+    "Content-Security-Policy",
+    contentSecurityPolicy(scriptNonce, consentFormActionOrigins(req)),
+  );
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

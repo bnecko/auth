@@ -79,6 +79,19 @@ describe('contentSecurityPolicy()', () => {
     expect(devPolicy['style-src']).toContain("'unsafe-inline'");
   });
 
+  it('form-action defaults to self only', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const policy = parse(contentSecurityPolicy('n'));
+    expect(policy['form-action']).toEqual(["'self'"]);
+  });
+
+  it('adds extra form-action origins for the OAuth consent redirect', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const policy = parse(contentSecurityPolicy('n', ['https://readme.bottleneck.cc']));
+    expect(policy['form-action']).toContain("'self'");
+    expect(policy['form-action']).toContain('https://readme.bottleneck.cc');
+  });
+
   it('allows Turnstile and Telegram script and frame sources', () => {
     vi.stubEnv('NODE_ENV', 'production');
     const policy = parse(contentSecurityPolicy('n'));
