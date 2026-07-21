@@ -140,7 +140,7 @@ services:
         max-file: "3"
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.6.0
     restart: unless-stopped
     command:
       - tunnel
