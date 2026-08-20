@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { randomToken } from "@/lib/server/crypto";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import {
+  findExternalAppById,
+  hasOwnerRevokedExternalApp,
+  setExternalAppStatus,
+} from "@/lib/server/repositories/externalApps";
+import {
   approveOAuthClientRegistrationRequest,
   denyOAuthClientRegistrationRequest,
   findOAuthClientRegistrationRequestById,
@@ -50,6 +55,37 @@ export async function approveOAuthClientRegistrationAction(formData: FormData) {
     result: "approved",
     context: requestContextFromHeaders(await headers()),
     metadata: { requestId: request.publicId, clientId: request.publicId },
+  });
+
+  revalidatePath("/admin/oauth-clients");
+}
+
+export async function setExternalAppStatusAction(formData: FormData) {
+  const current = await requireAdminStepUpSession();
+
+  const appId = Number(formData.get("app_id") || 0);
+  const status = formData.get("status")?.toString();
+  if (status !== "active" && status !== "disabled") {
+    throw new Error("Invalid status");
+  }
+  const app = appId ? await findExternalAppById(appId) : null;
+  if (!app) {
+    throw new Error("App not found");
+  }
+
+  // The owner permanently revoked this key through the bearer flow; an admin
+  // re-enable would silently resurrect a credential its owner believes dead.
+  if (status === "active" && (await hasOwnerRevokedExternalApp(appId))) {
+    throw new Error("The owner revoked this app; it cannot be re-enabled.");
+  }
+
+  await setExternalAppStatus(appId, status);
+  await recordSecurityEvent({
+    userId: current.user.id,
+    eventType: "oauth_client_status",
+    result: status,
+    context: requestContextFromHeaders(await headers()),
+    metadata: { appId, appSlug: app.slug, clientId: app.publicId },
   });
 
   revalidatePath("/admin/oauth-clients");

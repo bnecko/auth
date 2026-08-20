@@ -52,7 +52,11 @@ export default function RequestBearerPage() {
             <p className="text-[14px] text-muted max-w-prose">
               Describe your app and why it needs an API bearer. An admin
               reviews each request manually - you'll see the result on
-              your dashboard.
+              your dashboard. If you own the app, creating it at{" "}
+              <Link href="/developers/apps/new" className="text-accent-strong hover:text-fg transition-colors">
+                /developers/apps/new
+              </Link>{" "}
+              issues an API key instantly instead.
             </p>
           </header>
 

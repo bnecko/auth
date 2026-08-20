@@ -40,7 +40,7 @@ Each external app needs:
 - allowed return URL prefixes
 - optional required subscription product
 
-The API key is shown only once when issued. Store only its SHA-256 hash in `external_apps.api_key_hash`.
+The API key is issued self-serve at app creation (`/developers/apps/new`) alongside the OAuth client secret, and shown only once. Store only its SHA-256 hash in `external_apps.api_key_hash`. The `/request-bearer` admin-approval flow still works but is no longer required.
 
 Example hash:
 

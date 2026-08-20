@@ -700,19 +700,27 @@ claims = jwt.decode(
                 </p>
 
                 <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
-                  Requesting a key
+                  Getting a key
                 </h3>
                 <p>
-                  Visit{" "}
+                  Creating an application at{" "}
+                  <a
+                    href="/developers/apps/new"
+                    className="text-accent-strong hover:text-fg transition-colors"
+                  >
+                    /developers/apps/new
+                  </a>{" "}
+                  issues an API key instantly alongside the OAuth client
+                  secret, shown once at creation. Alternatively,{" "}
                   <a
                     href="/request-bearer"
                     className="text-accent-strong hover:text-fg transition-colors"
                   >
                     /request-bearer
                   </a>{" "}
-                  and describe your application. An admin reviews and approves
-                  the request via Telegram. Once approved, the plaintext key is
-                  available once from your dashboard.
+                  submits a request for admin review via Telegram; once
+                  approved, the plaintext key is available once from your
+                  dashboard.
                 </p>
 
                 <h3 className="text-[13px] font-medium text-fg mt-6 mb-2">
