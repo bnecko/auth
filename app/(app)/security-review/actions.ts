@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getCurrentSession } from "@/lib/server/session";
+import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { canHandleSecurity, canRestrict } from "@/lib/server/supporterAuth";
 import { findUserByIdentifier } from "@/lib/server/repositories/users";
@@ -22,6 +22,7 @@ async function ctx() {
 export async function dismissSuspicionAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current || !(await canHandleSecurity(current.user))) redirect("/");
+  assertNotRestricted(current);
   const id = String(formData.get("suspicionId") || "");
   await setSuspicionStatus({
     publicId: id,
@@ -34,6 +35,7 @@ export async function dismissSuspicionAction(formData: FormData) {
 export async function restrictFromQueueAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current || !(await canRestrict(current.user))) redirect("/");
+  assertNotRestricted(current);
   const suspicionId = String(formData.get("suspicionId") || "");
   const userId = Number(formData.get("userId") || 0);
   const triggerType = String(formData.get("triggerType") || "manual");
@@ -54,6 +56,7 @@ export async function restrictFromQueueAction(formData: FormData) {
 export async function restrictManualAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current || !(await canRestrict(current.user))) redirect("/");
+  assertNotRestricted(current);
   const username = String(formData.get("username") || "").trim();
   const reason = String(formData.get("reason") || "").trim() || null;
   const target = await findUserByIdentifier(username);
@@ -71,6 +74,7 @@ export async function restrictManualAction(formData: FormData) {
 export async function liftRestrictionAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current || !(await canRestrict(current.user))) redirect("/");
+  assertNotRestricted(current);
   const id = String(formData.get("restrictionId") || "");
   await unrestrictUser({ restrictionPublicId: id, actor: current.user, context: await ctx() });
   redirect("/security-review");
@@ -79,6 +83,7 @@ export async function liftRestrictionAction(formData: FormData) {
 export async function securityReplyAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current || !(await canHandleSecurity(current.user))) redirect("/");
+  assertNotRestricted(current);
   const restrictionId = String(formData.get("restrictionId") || "");
   const body = String(formData.get("body") || "");
   const internal = formData.get("internal") === "on";
