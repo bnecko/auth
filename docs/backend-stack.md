@@ -80,7 +80,7 @@ Telegram:
 - `GET /telegram/callback`
   - Used by Telegram Login Widget
   - Verifies Telegram signature
-  - Links Telegram identity to account
+  - Signs in the account already linked to that Telegram identity (single-use payload). Does not link: a signed-in hitter is redirected to the `/relink` bot-approval flow, which is the only path that binds a Telegram identity.
 
 - `POST /telegram/bot/verify`
   - Optional route for bot-based verification
