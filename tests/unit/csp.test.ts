@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { contentSecurityPolicy, nonce } from '../../proxy';
+import { consentFormActionOrigin, contentSecurityPolicy, nonce } from '../../proxy';
 
 describe('nonce()', () => {
   it('returns a base64 string with non-trivial entropy', () => {
@@ -100,5 +100,30 @@ describe('contentSecurityPolicy()', () => {
     expect(policy['frame-src']).toContain('https://challenges.cloudflare.com');
     expect(policy['frame-src']).toContain('https://telegram.org');
     expect(policy['frame-src']).toContain('https://oauth.telegram.org');
+  });
+});
+
+describe('consentFormActionOrigin()', () => {
+  it('keeps https origins and drops the path', () => {
+    expect(consentFormActionOrigin('https://app.example/cb?x=1')).toBe('https://app.example');
+  });
+
+  it('keeps http loopback origins with their port', () => {
+    expect(consentFormActionOrigin('http://localhost:3000/callback')).toBe('http://localhost:3000');
+    expect(consentFormActionOrigin('http://127.0.0.1:8080/cb')).toBe('http://127.0.0.1:8080');
+  });
+
+  it('rejects http on non-loopback hosts', () => {
+    expect(consentFormActionOrigin('http://app.example/cb')).toBeNull();
+  });
+
+  it('rejects non-http schemes and malformed values', () => {
+    expect(consentFormActionOrigin('ftp://localhost/cb')).toBeNull();
+    expect(consentFormActionOrigin('custom-scheme://cb')).toBeNull();
+    expect(consentFormActionOrigin('not a url')).toBeNull();
+  });
+
+  it('rejects origins that would split the CSP directive', () => {
+    expect(consentFormActionOrigin('https://evil.example;script-src/cb')).toBeNull();
   });
 });

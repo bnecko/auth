@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 
+import { findPushedRequest } from "@/lib/server/repositories/oauth";
+
 // Security headers applied to every response. Notes:
 //
 // - frame-ancestors / X-Frame-Options: none of the auth pages should be
@@ -254,25 +256,62 @@ function legacyDomainResponse(req: NextRequest): Response {
   });
 }
 
-// The OAuth consent form on /oauth/authorize posts to /api/oauth/authorize/approve, which
-// 303-redirects to the client's registered redirect_uri (an external origin). form-action is
-// enforced across that redirect, so the consent page's CSP must allow the client's origin.
-// The redirect_uri is re-validated against the client allowlist before any code is issued, so
-// widening form-action to its origin here only affects where this one consent form may navigate,
-// not which redirect_uri actually receives an authorization code.
-function consentFormActionOrigins(req: NextRequest): string[] {
-  if (req.nextUrl.pathname !== "/oauth/authorize") return [];
-  const redirectUri = req.nextUrl.searchParams.get("redirect_uri");
-  if (!redirectUri) return [];
+// http is only acceptable for loopback clients, mirroring the redirect URI
+// rule enforced at app registration ("https unless localhost").
+export function consentFormActionOrigin(redirectUri: string): string | null {
   try {
-    const { origin } = new URL(redirectUri);
-    return origin.startsWith("https://") ? [origin] : [];
+    const parsed = new URL(redirectUri);
+    const loopback =
+      parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+    if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback)) {
+      return null;
+    }
+    // new URL() lets some hostname oddities (a semicolon, for one) survive
+    // into .origin, which would split the form-action directive once
+    // serialized into the CSP header. Emit only plain scheme://host:port.
+    return /^https?:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(parsed.origin)
+      ? parsed.origin
+      : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-export function proxy(req: NextRequest, event: NextFetchEvent) {
+// The OAuth consent form on /oauth/authorize posts to /api/oauth/authorize/approve, which
+// 303-redirects to the client's registered redirect_uri (an external origin). form-action is
+// enforced across that redirect, so the consent page's CSP must allow the client's origin.
+// PAR clients (RFC 9126) arrive with only client_id + request_uri, so their redirect_uri
+// has to be read from the pushed request instead of the query string.
+// The redirect_uri is re-validated against the client allowlist before any code is issued, so
+// widening form-action to its origin here only affects where this one consent form may navigate,
+// not which redirect_uri actually receives an authorization code.
+export async function consentFormActionOrigins(req: NextRequest): Promise<string[]> {
+  if (req.nextUrl.pathname !== "/oauth/authorize") return [];
+  const requestUri = req.nextUrl.searchParams.get("request_uri");
+  let redirectUri: string | null;
+  if (requestUri) {
+    // request_uri wins over any query redirect_uri, mirroring
+    // getOAuthAuthorizeView: the consent form targets the pushed request's
+    // redirect_uri, so the CSP must derive from the same source or a crafted
+    // link carrying both params would render an approve form the policy
+    // then blocks.
+    try {
+      redirectUri = (await findPushedRequest(requestUri))?.redirectUri ?? null;
+    } catch {
+      // Best effort: without the lookup the consent page falls back to
+      // form-action 'self' (the pre-PAR-fix behavior), and the page render
+      // itself will surface the database failure.
+      return [];
+    }
+  } else {
+    redirectUri = req.nextUrl.searchParams.get("redirect_uri");
+  }
+  if (!redirectUri) return [];
+  const origin = consentFormActionOrigin(redirectUri);
+  return origin ? [origin] : [];
+}
+
+export async function proxy(req: NextRequest, event: NextFetchEvent) {
   const host = (req.headers.get("host") || "").split(":")[0].toLowerCase();
   if (host === LEGACY_DOMAIN) {
     return req.nextUrl.pathname.startsWith("/api/")
@@ -304,7 +343,7 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
   res.headers.set("x-request-id", requestId);
   res.headers.set(
     "Content-Security-Policy",
-    contentSecurityPolicy(scriptNonce, consentFormActionOrigins(req)),
+    contentSecurityPolicy(scriptNonce, await consentFormActionOrigins(req)),
   );
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");
