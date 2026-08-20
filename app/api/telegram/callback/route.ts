@@ -1,13 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTelegramLogin } from "@/lib/server/telegram";
-import { findUserByTelegramId, linkTelegram } from "@/lib/server/repositories/users";
+import { findUserByTelegramId } from "@/lib/server/repositories/users";
 import { isTelegramIdBanned } from "@/lib/server/repositories/bans";
 import { createUserSession, getSessionFromRequest } from "@/lib/server/session";
 import { authBaseUrl } from "@/lib/server/config";
-import { requestContext } from "@/lib/server/http";
-import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
+import { hashToken } from "@/lib/server/crypto";
+import redis from "@/lib/server/redis";
 
 export const runtime = "nodejs";
+
+// Matches the freshness window verifyTelegramLogin allows, so a signed payload
+// is single-use across its entire validity, not just once per short burst.
+const LOGIN_PAYLOAD_TTL_SECONDS = 86400;
 
 export async function GET(req: NextRequest) {
   const payload = Object.fromEntries(req.nextUrl.searchParams.entries());
@@ -17,26 +21,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=telegram", base));
   }
 
+  // Never link a Telegram account from this bare GET. Linking goes through the
+  // /relink bot-approval flow, which binds the action to an interactive Approve
+  // in the user's own Telegram. Auto-linking here was a CSRF account-takeover:
+  // a cross-site GET carries the victim's SameSite=Lax session cookie, so an
+  // attacker could bind their own Telegram identity onto a logged-in, unlinked
+  // victim and then replay the same payload with no session to log in as them.
   const current = await getSessionFromRequest(req);
   if (current) {
-    // linkTelegram refuses to overwrite an existing link or to bind a TG id
-    // already used by another account. A null return surfaces both cases to
-    // the user; the intent is to make this path safe against CSRF where an
-    // attacker's signed Telegram payload would otherwise rebind the victim
-    // account to the attacker's TG identity on a cross-site GET.
-    const linked = await linkTelegram(current.user.id, telegram);
-    await recordSecurityEvent({
-      userId: current.user.id,
-      eventType: "telegram_2fa_link",
-      result: linked ? "success" : "failure",
-      context: requestContext(req),
-      metadata: { telegramId: telegram.id },
-    });
-    const url = new URL("/", base);
-    if (!linked) {
-      url.searchParams.set("error", "telegram_link_failed");
-    }
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL("/relink", base));
+  }
+
+  // Single-use the signed payload: a captured login payload must not be
+  // replayable within its freshness window. SET NX returns null if the key
+  // already exists, i.e. this exact payload was already presented.
+  const fresh = await redis.set(
+    `tg:login:used:${hashToken(String(payload.hash))}`,
+    "1",
+    "EX",
+    LOGIN_PAYLOAD_TTL_SECONDS,
+    "NX",
+  );
+  if (fresh === null) {
+    return NextResponse.redirect(new URL("/login?error=telegram", base));
   }
 
   const user = await findUserByTelegramId(telegram.id);
