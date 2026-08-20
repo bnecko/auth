@@ -74,9 +74,9 @@ export function AppSettingsForm({
           </code>
           {secret && (
             <p className="mt-1.5 text-[12px]">
-              This app shared one credential for both surfaces, so the API key
-              was rotated together with the client secret. The old value no
-              longer works as an API key.
+              This app shared one credential for both surfaces, so both were
+              rotated together. The old value no longer works as an API key;
+              as a client secret it expires after the 7-day grace window.
             </p>
           )}
         </Alert>

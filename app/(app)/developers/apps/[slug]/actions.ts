@@ -84,6 +84,30 @@ export async function updateAppAction(formData: FormData) {
   }
 
   if (action === "rotate_api_key") {
+    // Mirror of the rotate_secret co-rotation: on a pre-split shared
+    // credential, rotating only the api key would leave the outgoing value
+    // alive as the OAuth client secret, so it must die on that surface too
+    // (with the usual grace window). The conditional surface rotates first:
+    // if the sequence fails midway, the shared hash is parked in the grace
+    // table, the sharing stays detectable, and a retry completes both.
+    let newSecret: string | undefined;
+    if (app.api_key_shared_with_oauth) {
+      newSecret = `sec_${randomToken(32)}`;
+      await rotateExternalAppOAuthSecret({
+        appId,
+        currentSecretHash: app.oauth_client_secret_hash,
+        newSecret,
+        previousExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      await recordSecurityEvent({
+        userId: current.user.id,
+        eventType: "oauth_client_secret",
+        result: "rotated",
+        context: requestContextFromHeaders(await headers()),
+        metadata: { appId, appSlug: app.slug, reason: "shared_with_api_key" },
+      });
+    }
+
     const newApiKey = `sec_${randomToken(32)}`;
     await rotateExternalAppApiKey(appId, newApiKey);
     await recordSecurityEvent({
@@ -93,8 +117,9 @@ export async function updateAppAction(formData: FormData) {
       context: requestContextFromHeaders(await headers()),
       metadata: { appId, appSlug: app.slug },
     });
+
     revalidatePath(`/developers/apps/${app.slug}`);
-    return { apiKey: newApiKey };
+    return { apiKey: newApiKey, clientSecret: newSecret };
   }
 
   if (action === "update_oauth_version") {
