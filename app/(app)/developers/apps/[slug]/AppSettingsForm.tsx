@@ -16,6 +16,7 @@ export function AppSettingsForm({
   oauthProfileVersion: string;
 }) {
   const [secret, setSecret] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
 
@@ -32,16 +33,23 @@ export function AppSettingsForm({
   }
 
   async function rotate(formData: FormData) {
-    setBusy("rotate");
+    const isKeyRotation = formData.get("action") === "rotate_api_key";
+    setBusy(isKeyRotation ? "rotate_key" : "rotate");
     setError("");
-    setSecret("");
+    // Clear only what this action can replace: a standalone api key rotation
+    // must not wipe a still-uncopied client secret from the screen.
+    if (!isKeyRotation) setSecret("");
+    setApiKey("");
     try {
       const result = await updateAppAction(formData);
-      if (result?.clientSecret) {
+      if (result && "clientSecret" in result && result.clientSecret) {
         setSecret(result.clientSecret);
       }
+      if (result && "apiKey" in result && result.apiKey) {
+        setApiKey(result.apiKey);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to rotate secret");
+      setError(err instanceof Error ? err.message : "failed to rotate");
     } finally {
       setBusy("");
     }
@@ -56,6 +64,21 @@ export function AppSettingsForm({
           <code className="block font-mono select-all text-accent-strong break-all">
             {secret}
           </code>
+        </Alert>
+      )}
+      {apiKey && (
+        <Alert tone="warning">
+          <div className="mb-1.5 text-[13px] font-medium">New API key</div>
+          <code className="block font-mono select-all text-accent-strong break-all">
+            {apiKey}
+          </code>
+          {secret && (
+            <p className="mt-1.5 text-[12px]">
+              This app shared one credential for both surfaces, so the API key
+              was rotated together with the client secret. The old value no
+              longer works as an API key.
+            </p>
+          )}
         </Alert>
       )}
 
@@ -142,6 +165,25 @@ export function AppSettingsForm({
               loading={busy === "rotate"}
             >
               {busy === "rotate" ? "Rotating…" : "Rotate"}
+            </Button>
+          </form>
+        </div>
+        <div className="flex items-center justify-between py-3 px-1 gap-4 border-t border-rule">
+          <div className="min-w-0">
+            <div className="text-[14px] text-fg mb-1">Rotate API key</div>
+            <div className="text-[13px] text-muted">
+              The previous key stops working immediately.
+            </div>
+          </div>
+          <form action={rotate}>
+            <input type="hidden" name="app_id" value={appId} />
+            <input type="hidden" name="action" value="rotate_api_key" />
+            <Button
+              type="submit"
+              variant="danger"
+              loading={busy === "rotate_key"}
+            >
+              {busy === "rotate_key" ? "Rotating…" : "Rotate"}
             </Button>
           </form>
         </div>

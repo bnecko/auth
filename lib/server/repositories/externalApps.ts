@@ -159,6 +159,30 @@ export async function rotateExternalAppOAuthSecret(input: {
   }
 }
 
+// Immediate cutover, no grace window: the api key rotation paths are
+// owner-initiated compromise response, where the old key must stop
+// authenticating the activation/bearer API at once.
+export async function rotateExternalAppApiKey(appId: number, newApiKey: string) {
+  await query(
+    `update external_apps
+        set api_key_hash = $2,
+            updated_at = now()
+      where id = $1`,
+    [appId, hashToken(newApiKey)],
+  );
+
+  // A Telegram bearer approval stashes the plaintext key until the owner's
+  // one-time reveal. Without this refresh, rotating before that reveal would
+  // burn the reveal on the old, already-dead key.
+  await query(
+    `update bearer_requests
+        set plaintext_key = $2
+      where external_app_id = $1
+        and plaintext_key is not null`,
+    [appId, newApiKey],
+  );
+}
+
 export async function createExternalApp(input: {
   publicId: string;
   name: string;
@@ -220,12 +244,28 @@ export async function findExternalAppSecretHashForOwner(
   appId: number,
   ownerUserId: number,
 ) {
+  // api_key_shared_with_oauth also checks the grace table: a pre-split app
+  // whose owner rotated the client secret before the api-key co-rotation
+  // shipped has its shared hash parked in external_app_oauth_secrets while
+  // api_key_hash still holds it, so equality with the current secret hash
+  // alone would miss that cohort. Expiry is deliberately ignored: any
+  // historic OAuth secret equal to the api key proves pre-split sharing.
   return queryOne<{
     slug: string;
     oauth_client_secret_hash: string | null;
     oauth_profile_version: string;
+    api_key_shared_with_oauth: boolean;
   }>(
-    `select slug, oauth_client_secret_hash, oauth_profile_version
+    `select slug,
+            oauth_client_secret_hash,
+            oauth_profile_version,
+            (api_key_hash = oauth_client_secret_hash
+              or exists (
+                select 1
+                  from external_app_oauth_secrets s
+                 where s.external_app_id = external_apps.id
+                   and s.secret_hash = api_key_hash
+              )) as api_key_shared_with_oauth
        from external_apps
       where id = $1 and owner_user_id = $2`,
     [appId, ownerUserId],

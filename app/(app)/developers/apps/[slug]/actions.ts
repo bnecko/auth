@@ -8,6 +8,7 @@ import { randomToken } from "@/lib/server/crypto";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import {
   findExternalAppSecretHashForOwner,
+  rotateExternalAppApiKey,
   rotateExternalAppOAuthSecret,
   updateExternalAppOAuthProfileVersion,
 } from "@/lib/server/repositories/externalApps";
@@ -44,6 +45,25 @@ export async function updateAppAction(formData: FormData) {
   const action = formData.get("action")?.toString();
 
   if (action === "rotate_secret") {
+    // Apps created before the api-key/client-secret split share one secret
+    // across both surfaces, so rotating the client secret alone would leave
+    // the outgoing secret valid as an api key indefinitely. Rotate the api
+    // key first: if the sequence fails midway, the shared state is intact
+    // and a retry still co-rotates. The OAuth side keeps its usual 7-day
+    // grace; the api key cuts over immediately.
+    let newApiKey: string | undefined;
+    if (app.api_key_shared_with_oauth) {
+      newApiKey = `sec_${randomToken(32)}`;
+      await rotateExternalAppApiKey(appId, newApiKey);
+      await recordSecurityEvent({
+        userId: current.user.id,
+        eventType: "app_api_key",
+        result: "rotated",
+        context: requestContextFromHeaders(await headers()),
+        metadata: { appId, appSlug: app.slug, reason: "shared_with_oauth_secret" },
+      });
+    }
+
     const newSecret = `sec_${randomToken(32)}`;
     await rotateExternalAppOAuthSecret({
       appId,
@@ -58,8 +78,23 @@ export async function updateAppAction(formData: FormData) {
       context: requestContextFromHeaders(await headers()),
       metadata: { appId, appSlug: app.slug },
     });
+
     revalidatePath(`/developers/apps/${app.slug}`);
-    return { clientSecret: newSecret };
+    return { clientSecret: newSecret, apiKey: newApiKey };
+  }
+
+  if (action === "rotate_api_key") {
+    const newApiKey = `sec_${randomToken(32)}`;
+    await rotateExternalAppApiKey(appId, newApiKey);
+    await recordSecurityEvent({
+      userId: current.user.id,
+      eventType: "app_api_key",
+      result: "rotated",
+      context: requestContextFromHeaders(await headers()),
+      metadata: { appId, appSlug: app.slug },
+    });
+    revalidatePath(`/developers/apps/${app.slug}`);
+    return { apiKey: newApiKey };
   }
 
   if (action === "update_oauth_version") {
