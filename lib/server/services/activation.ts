@@ -207,7 +207,12 @@ export async function getActivationForUser(token: string, user: User) {
     return null;
   }
 
-  const expired = Date.parse(activation.expiresAt) <= Date.now();
+  // A disabled app's already-issued links must die with it: without this,
+  // admin-disabling an abusive app leaves every sent activation link
+  // consentable until its TTL runs out.
+  const expired =
+    Date.parse(activation.expiresAt) <= Date.now() ||
+    activation.app.status !== "active";
   const requiredProduct = activation.app.requiredProduct;
   const subscriptionOk = requiredProduct
     ? await hasActiveSubscription(user.id, requiredProduct)
@@ -234,6 +239,10 @@ export async function approveActivationForUser(
   }
 
   if (Date.parse(activation.expiresAt) <= Date.now()) {
+    throw new ActivationError("expired", "activation expired", 410);
+  }
+
+  if (activation.app.status !== "active") {
     throw new ActivationError("expired", "activation expired", 410);
   }
 

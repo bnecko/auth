@@ -235,3 +235,38 @@ describeDb('Activation requests: createExternalActivationRequest', () => {
     expect(res.headers.get('location')).toContain(`/activate?token=${created.token}`);
   });
 });
+
+describeDb('Activation requests: disabled app cutoff', () => {
+  it('renders in-flight activation links expired once the app is disabled', async () => {
+    const { getActivationForUser } = await import('@/lib/server/services/activation');
+    const { findExternalAppByApiKey, setExternalAppStatus } = await import('@/lib/server/repositories/externalApps');
+    const { apiKey } = await seedApp();
+
+    const created = await createExternalActivationRequest(
+      apiKey,
+      { requestedSubject: 'cutoff-user', scopes: ['profile:read'] },
+      makeRequest(),
+    );
+
+    const suffix = randomToken(6).toLowerCase();
+    const user = await createUser({
+      publicId: publicId('usr'),
+      firstName: 'Cutoff',
+      username: `cut_${suffix}`,
+      bio: null,
+      email: `cut_${suffix}@example.com`,
+      dob: null,
+      passwordHash: 'x',
+      telegram: null,
+    });
+
+    const before = await getActivationForUser(created.token, user);
+    expect(before?.expired).toBe(false);
+
+    const app = await findExternalAppByApiKey(apiKey);
+    await setExternalAppStatus(app!.id, 'disabled');
+
+    const after = await getActivationForUser(created.token, user);
+    expect(after?.expired).toBe(true);
+  });
+});

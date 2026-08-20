@@ -15,6 +15,7 @@ export function ClientForm() {
     slug: string;
     clientId: string;
     clientSecret: string;
+    apiKey: string;
   } | null>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -47,7 +48,7 @@ export function ClientForm() {
           Credentials issued
         </h2>
         <p className="text-[13px] text-muted mb-7">
-          Copy your client secret now - it will never be shown again
+          Copy your client secret and API key now - they will never be shown again
         </p>
 
         <div className="bg-card border border-rule rounded-lg divide-y divide-rule mb-8">
@@ -68,6 +69,18 @@ export function ClientForm() {
             </code>
             <p className="mt-2 text-[12px] text-accent-strong flex items-baseline gap-1.5">
               <span>Shown once - store immediately</span>
+            </p>
+          </div>
+          <div className="px-4 py-3">
+            <label className="block text-[12px] text-muted mb-1">
+              API key
+            </label>
+            <code className="block text-[13.5px] text-accent-strong select-all break-all">
+              {created.apiKey}
+            </code>
+            <p className="mt-2 text-[12px] text-muted">
+              Authenticates the activation and authorizations API - keep it
+              server-side, separate from the client secret
             </p>
           </div>
         </div>

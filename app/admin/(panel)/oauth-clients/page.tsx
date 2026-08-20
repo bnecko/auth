@@ -1,16 +1,19 @@
 import { Empty, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { listExternalAppsForAdmin } from "@/lib/server/repositories/externalApps";
 import { listPendingOAuthClientRegistrationRequests } from "@/lib/server/repositories/oauthClientRegistrations";
 import {
   approveOAuthClientRegistrationAction,
   denyOAuthClientRegistrationAction,
+  setExternalAppStatusAction,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOAuthClientsPage() {
   const requests = await listPendingOAuthClientRegistrationRequests();
+  const apps = await listExternalAppsForAdmin();
 
   return (
     <>
@@ -116,6 +119,68 @@ export default async function AdminOAuthClientsPage() {
                     confirmLabel="Deny"
                   />
                 </div>
+              </div>
+            ))
+          )}
+        </Section>
+      </div>
+
+      <div className="mt-8" data-mount-row>
+        <Section
+          index="2.0"
+          title="Live applications"
+          hint="Disable abusive clients"
+        >
+          {apps.length === 0 ? (
+            <Empty>No applications</Empty>
+          ) : (
+            apps.map(app => (
+              <div
+                key={app.id}
+                className="border-t border-rule first:border-t-0 py-3 px-1 flex items-center gap-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-[15px] text-fg truncate">{app.name}</span>
+                    <Tag tone={app.status === "active" ? "success" : "danger"}>
+                      {app.status}
+                    </Tag>
+                    {app.revokedByOwner && (
+                      <Tag tone="danger">revoked by owner</Tag>
+                    )}
+                  </div>
+                  <div className="mt-1 text-meta text-muted break-all">
+                    {app.publicId}{" "}
+                    <span className="text-faint">·</span>{" "}
+                    {app.ownerUsername || "no owner"}
+                  </div>
+                </div>
+                <div className="text-meta text-faint shrink-0 tabular-nums">
+                  {app.createdAt.slice(0, 10)}
+                </div>
+                {app.status === "active" ? (
+                  <ConfirmButton
+                    action={setExternalAppStatusAction}
+                    fields={{ app_id: app.id, status: "disabled" }}
+                    label="Disable"
+                    triggerVariant="danger"
+                    tone="danger"
+                    title={`Disable ${app.name}?`}
+                    message="The app immediately stops authenticating on every surface: OAuth, activation API, and logout."
+                    confirmLabel="Disable"
+                  />
+                ) : app.revokedByOwner ? null : (
+                  <ConfirmButton
+                    action={setExternalAppStatusAction}
+                    fields={{ app_id: app.id, status: "active" }}
+                    label="Enable"
+                    triggerVariant="secondary"
+                    tone="neutral"
+                    title={`Re-enable ${app.name}?`}
+                    message="The app's existing credentials start working again."
+                    confirmLabel="Enable"
+                  />
+                )}
               </div>
             ))
           )}

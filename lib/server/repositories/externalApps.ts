@@ -195,6 +195,63 @@ export async function createExternalApp(input: {
   return mapExternalApp(row);
 }
 
+export async function countActiveExternalAppsForOwner(ownerUserId: number) {
+  const row = await queryOne<{ count: string }>(
+    `select count(*) as count
+       from external_apps
+      where owner_user_id = $1 and status = 'active'`,
+    [ownerUserId],
+  );
+  return Number(row?.count || 0);
+}
+
+export async function listExternalAppsForAdmin() {
+  // revoked_by_owner marks apps the owner permanently revoked through the
+  // bearer flow; the admin panel must not offer to re-enable those.
+  const rows = await query<{
+    id: string;
+    public_id: string;
+    name: string;
+    slug: string;
+    status: "active" | "disabled";
+    owner_username: string | null;
+    revoked_by_owner: boolean;
+    created_at: string;
+  }>(
+    `select a.id, a.public_id, a.name, a.slug, a.status,
+            u.username as owner_username,
+            exists (
+              select 1 from bearer_requests br
+               where br.external_app_id = a.id and br.status = 'revoked'
+            ) as revoked_by_owner,
+            a.created_at::text
+       from external_apps a
+       left join users u on u.id = a.owner_user_id
+      order by a.created_at desc`,
+  );
+  return rows.map(row => ({
+    id: Number(row.id),
+    publicId: row.public_id,
+    name: row.name,
+    slug: row.slug,
+    status: row.status,
+    ownerUsername: row.owner_username,
+    revokedByOwner: row.revoked_by_owner,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function hasOwnerRevokedExternalApp(appId: number) {
+  const row = await queryOne<{ exists: boolean }>(
+    `select exists (
+       select 1 from bearer_requests
+        where external_app_id = $1 and status = 'revoked'
+     ) as exists`,
+    [appId],
+  );
+  return Boolean(row?.exists);
+}
+
 export async function findExternalAppById(id: number) {
   const row = await queryOne<ExternalAppRow>(
     `select
