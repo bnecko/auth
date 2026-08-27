@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import * as activation from "./activation";
 import { buildAuthorizationUrl, generatePkcePair } from "./pkce";
-import { DEFAULT_TIMEOUT_MS, request, type Transport } from "./transport";
+import { DEFAULT_TIMEOUT_MS, requestJson, requestVoid, type Transport } from "./transport";
 import type {
   ActivationRequestResponse,
   ActivationStatusResponse,
@@ -47,9 +47,16 @@ export class BottleneckAuthClient {
   private readonly tokenEndpointAuthMethod: TokenEndpointAuthMethod;
 
   constructor(options: BottleneckAuthClientOptions) {
+    // Wrapped in an arrow so the transport never invokes an injected fetch
+    // as a method of the transport object: this-sensitive implementations
+    // (an unbound browser fetch, an instrumented client's method) throw
+    // Illegal invocation when called with a foreign receiver.
+    const fetchImpl = options.fetch;
     this.transport = {
       issuer: options.issuer.replace(/\/+$/, ""),
-      fetch: options.fetch ?? ((input, init) => fetch(input, init)),
+      fetch: fetchImpl
+        ? (input, init) => fetchImpl(input, init)
+        : (input, init) => fetch(input, init),
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     };
     this.clientId = options.clientId;
@@ -66,6 +73,11 @@ export class BottleneckAuthClient {
     if (this.tokenEndpointAuthMethod !== "none" && !this.clientSecret) {
       throw new Error(
         `clientSecret is required for ${this.tokenEndpointAuthMethod}`,
+      );
+    }
+    if (this.tokenEndpointAuthMethod !== "none" && !this.clientId) {
+      throw new Error(
+        `clientId is required for ${this.tokenEndpointAuthMethod}`,
       );
     }
   }
@@ -114,29 +126,27 @@ export class BottleneckAuthClient {
     return this.postToken(form, options);
   }
 
-  async userinfo(
+  userinfo(
     accessToken: string,
     options?: RequestOptions,
   ): Promise<UserInfoResponse> {
-    const response = await request(
+    return requestJson<UserInfoResponse>(
       this.transport,
       "/api/oauth/userinfo",
       { headers: { authorization: `Bearer ${accessToken}` } },
       options,
     );
-    return (await response.json()) as UserInfoResponse;
   }
 
-  async introspect(
+  introspect(
     token: string,
     options?: RequestOptions,
   ): Promise<IntrospectResponse> {
-    const response = await this.postClientAuthenticated(
+    return this.postClientAuthenticated<IntrospectResponse>(
       "/api/oauth/introspect",
       new URLSearchParams({ token }),
       options,
     );
-    return (await response.json()) as IntrospectResponse;
   }
 
   // RFC 7009 revocation. Revoking a refresh token also revokes the access
@@ -149,7 +159,13 @@ export class BottleneckAuthClient {
     if (input.tokenTypeHint) {
       body.set("token_type_hint", input.tokenTypeHint);
     }
-    await this.postClientAuthenticated("/api/oauth/revoke", body, options);
+    const headers = this.clientAuthHeaders("/api/oauth/revoke", body);
+    await requestVoid(
+      this.transport,
+      "/api/oauth/revoke",
+      { method: "POST", headers, body },
+      options,
+    );
   }
 
   createActivationRequest(
@@ -203,23 +219,38 @@ export class BottleneckAuthClient {
     return activation.listAuthorizations(this.transport, input, options);
   }
 
-  private async postToken(
+  private postToken(
     form: Record<string, string>,
     options?: RequestOptions,
   ): Promise<TokenResponse> {
-    const response = await this.postClientAuthenticated(
+    return this.postClientAuthenticated<TokenResponse>(
       "/api/oauth/token",
       new URLSearchParams(form),
       options,
     );
-    return (await response.json()) as TokenResponse;
   }
 
-  private postClientAuthenticated(
+  private postClientAuthenticated<T>(
     path: string,
     body: URLSearchParams,
     options?: RequestOptions,
-  ) {
+  ): Promise<T> {
+    const headers = this.clientAuthHeaders(path, body);
+    return requestJson<T>(
+      this.transport,
+      path,
+      { method: "POST", headers, body },
+      options,
+    );
+  }
+
+  // Adds the configured client authentication to a form-encoded request:
+  // Basic header, or credentials in the body. Mutates body for the post and
+  // none methods.
+  private clientAuthHeaders(
+    path: string,
+    body: URLSearchParams,
+  ): Record<string, string> {
     if (!this.clientId) {
       throw new Error(`clientId is required for ${path}`);
     }
@@ -244,7 +275,7 @@ export class BottleneckAuthClient {
         body.set("client_id", this.clientId);
         break;
     }
-    return request(this.transport, path, { method: "POST", headers, body }, options);
+    return headers;
   }
 }
 
@@ -263,6 +294,12 @@ export function verifyWebhookSignature(input: {
   signature: string;
   toleranceSeconds?: number;
 }) {
+  // Header values arrive from untrusted requests, so a missing or non-string
+  // signature must fail verification rather than throw from Buffer.from; the
+  // timestamp regex already fails closed the same way.
+  if (typeof input.signature !== "string") {
+    return false;
+  }
   if (!/^\d+$/.test(input.timestamp)) {
     return false;
   }

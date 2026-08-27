@@ -31,6 +31,19 @@ test("createActivationRequest sends the Idempotency-Key header when given", asyn
   assert.equal(JSON.parse(call.body).requestedSubject, "local-1");
 });
 
+// The server silently skips idempotency for out-of-range keys instead of
+// rejecting them, so the SDK has to fail fast.
+test("out-of-range idempotencyKey is rejected before any request", async () => {
+  const { calls, fetchImpl } = capture({}, 201);
+  const client = new BottleneckAuthClient({ issuer: "https://auth.test", fetch: fetchImpl });
+
+  await assert.rejects(
+    client.createActivationRequest({ apiKey: "sec_x", idempotencyKey: "abc" }),
+    /idempotencyKey must be 8-255 characters/,
+  );
+  assert.equal(calls.length, 0);
+});
+
 test("createActivationRequest omits the Idempotency-Key header by default", async () => {
   const { calls, fetchImpl } = capture({ id: "act_1", token: "t", activationUrl: "u", expiresAt: "e" }, 201);
   const client = new BottleneckAuthClient({ issuer: "https://auth.test", fetch: fetchImpl });

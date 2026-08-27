@@ -1,4 +1,4 @@
-import { request, type Transport } from "./transport";
+import { requestJson, type Transport } from "./transport";
 import type {
   ActivationRequestResponse,
   ActivationStatusResponse,
@@ -25,9 +25,15 @@ export async function createActivationRequest(
 ): Promise<ActivationRequestResponse> {
   const headers: Record<string, string> = bearer(input.apiKey);
   if (input.idempotencyKey) {
+    // The server treats keys outside this range as absent rather than
+    // rejecting them, which would silently drop the retry protection the
+    // caller opted into.
+    if (input.idempotencyKey.length < 8 || input.idempotencyKey.length > 255) {
+      throw new Error("idempotencyKey must be 8-255 characters");
+    }
     headers["idempotency-key"] = input.idempotencyKey;
   }
-  const response = await request(
+  return requestJson<ActivationRequestResponse>(
     transport,
     "/api/activation-requests",
     {
@@ -42,7 +48,6 @@ export async function createActivationRequest(
     },
     options,
   );
-  return (await response.json()) as ActivationRequestResponse;
 }
 
 export async function getActivationStatus(
@@ -50,13 +55,12 @@ export async function getActivationStatus(
   input: { apiKey: string; id: string },
   options?: RequestOptions,
 ): Promise<ActivationStatusResponse> {
-  const response = await request(
+  return requestJson<ActivationStatusResponse>(
     transport,
     `/api/activation-requests/${encodeURIComponent(input.id)}`,
     { headers: { authorization: `Bearer ${input.apiKey}` } },
     options,
   );
-  return (await response.json()) as ActivationStatusResponse;
 }
 
 export async function cancelActivationRequest(
@@ -64,13 +68,12 @@ export async function cancelActivationRequest(
   input: { apiKey: string; id: string },
   options?: RequestOptions,
 ): Promise<CancelActivationResponse> {
-  const response = await request(
+  return requestJson<CancelActivationResponse>(
     transport,
     `/api/activation-requests/${encodeURIComponent(input.id)}/cancel`,
     { method: "POST", headers: bearer(input.apiKey) },
     options,
   );
-  return (await response.json()) as CancelActivationResponse;
 }
 
 export async function revokeActivation(
@@ -78,13 +81,12 @@ export async function revokeActivation(
   input: { apiKey: string; id: string },
   options?: RequestOptions,
 ): Promise<RevokeActivationResponse> {
-  const response = await request(
+  return requestJson<RevokeActivationResponse>(
     transport,
     `/api/activation-requests/${encodeURIComponent(input.id)}/revoke`,
     { method: "POST", headers: bearer(input.apiKey) },
     options,
   );
-  return (await response.json()) as RevokeActivationResponse;
 }
 
 export async function getAppConfig(
@@ -92,13 +94,12 @@ export async function getAppConfig(
   input: { apiKey: string },
   options?: RequestOptions,
 ): Promise<AppConfigResponse> {
-  const response = await request(
+  return requestJson<AppConfigResponse>(
     transport,
     "/api/apps/me",
     { headers: { authorization: `Bearer ${input.apiKey}` } },
     options,
   );
-  return (await response.json()) as AppConfigResponse;
 }
 
 export async function listActivationRequests(
@@ -115,13 +116,12 @@ export async function listActivationRequests(
   }
   const qs = params.toString();
   const query = qs ? `?${qs}` : "";
-  const response = await request(
+  return requestJson<ListActivationRequestsResponse>(
     transport,
     `/api/activation-requests${query}`,
     { headers: { authorization: `Bearer ${input.apiKey}` } },
     options,
   );
-  return (await response.json()) as ListActivationRequestsResponse;
 }
 
 export async function listAuthorizations(
@@ -129,11 +129,10 @@ export async function listAuthorizations(
   input: { apiKey: string },
   options?: RequestOptions,
 ): Promise<ListAuthorizationsResponse> {
-  const response = await request(
+  return requestJson<ListAuthorizationsResponse>(
     transport,
     "/api/authorizations",
     { headers: { authorization: `Bearer ${input.apiKey}` } },
     options,
   );
-  return (await response.json()) as ListAuthorizationsResponse;
 }

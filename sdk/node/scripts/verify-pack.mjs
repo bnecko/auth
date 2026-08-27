@@ -5,9 +5,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const sdkDir = resolve(new URL("..", import.meta.url).pathname);
+const sdkDir = fileURLToPath(new URL("..", import.meta.url));
 
 function run(cmd, args, cwd) {
   return execFileSync(cmd, args, { cwd, encoding: "utf8" });

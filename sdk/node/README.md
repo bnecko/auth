@@ -42,6 +42,8 @@ Every network method also accepts a trailing options argument:
 Use when your app wants Bottleneck to authenticate a user once and return a short-lived activation result. The user clicks through Bottleneck, you poll for status.
 
 ```ts
+import { randomUUID } from "node:crypto";
+
 const apiKey = process.env.BOTTLENECK_AUTH_API_KEY!;
 
 const created = await auth.createActivationRequest({
@@ -49,9 +51,9 @@ const created = await auth.createActivationRequest({
   requestedSubject: "local-user-42",
   scopes: ["profile:read", "email:read"],
   returnUrl: "https://app.example.com/auth/return",
-  // Safe to retry the create on a network error: the same key returns the
-  // original response instead of minting a duplicate request.
-  idempotencyKey: crypto.randomUUID(),
+  // Safe to retry the create on a network error: the same key (8-255 chars)
+  // returns the original response instead of minting a duplicate request.
+  idempotencyKey: randomUUID(),
 });
 
 // Redirect the user to created.activationUrl, then poll:
@@ -75,10 +77,16 @@ await auth.revokeActivation({ apiKey, id: created.id });
 // Validate your redirect allowlist and scopes before sending users in.
 const config = await auth.getAppConfig({ apiKey });
 
-// Recover a request id you lost, or reconcile your authorized users.
+// Look up recent requests for a subject, or spot-check authorizations.
 const { requests } = await auth.listActivationRequests({ apiKey, subject: "local-user-42" });
 const { authorizations } = await auth.listAuthorizations({ apiKey });
 ```
+
+Both list endpoints return only the most recent rows (50 requests, 200
+authorizations) and have no pagination yet, so treat them as a recent-activity
+view: absence from the list is not evidence that a request or grant is gone.
+Keep your own records (or the webhook feed) as the source of truth for
+reconciliation.
 
 ## OAuth 2.1 + PKCE
 
@@ -191,9 +199,12 @@ Failed requests throw `BottleneckAuthError`:
 - `retryAfterSeconds`: set on `429` responses from the `Retry-After` header.
 - `responseBody`: the parsed error body.
 
-Transport failures (DNS, refused connection) throw with `code: "network_error"`
-and the underlying error as `cause`; timeouts throw with `code: "timeout"`.
-Aborting via your own `AbortSignal` rethrows your abort reason unchanged.
+Transport failures (DNS, refused connection, a connection dropped while the
+body streams) throw with `code: "network_error"` and the underlying error as
+`cause`; timeouts throw with `code: "timeout"`, and cover the whole request
+including reading the response body. A `2xx` response whose body is not valid
+JSON throws with `code: "invalid_response"`. Aborting via your own
+`AbortSignal` rethrows your abort reason unchanged.
 
 ```ts
 import { BottleneckAuthError } from "@bottleneck/auth-sdk";

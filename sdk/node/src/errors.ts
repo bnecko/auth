@@ -22,15 +22,23 @@ export class BottleneckAuthError extends Error {
     this.responseBody = input.responseBody;
     this.retryAfterSeconds = input.retryAfterSeconds;
   }
+
+  // The package ships parallel ESM and CJS builds, so one process can hold
+  // two copies of this class (an ESM app plus a CJS dependency both loading
+  // the SDK). Matching on name keeps the documented instanceof check working
+  // when an error thrown by one copy is tested against the other.
+  static [Symbol.hasInstance](value: unknown): value is BottleneckAuthError {
+    return value instanceof Error && value.name === "BottleneckAuthError";
+  }
 }
 
-export async function throwFromResponse(response: Response): Promise<never> {
+export function throwFromResponse(response: Response, bodyText: string): never {
   let body: unknown = null;
   let code = "request_failed";
   let message = `${response.status} ${response.statusText}`;
 
   try {
-    body = await response.json();
+    body = JSON.parse(bodyText);
   } catch {
     // Body wasn't JSON; keep the default message.
   }

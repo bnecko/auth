@@ -158,3 +158,14 @@ test("secret-based method without a secret is rejected at construction", () => {
     /clientSecret is required/,
   );
 });
+
+test("secret without clientId is rejected at construction", () => {
+  assert.throws(
+    () =>
+      new BottleneckAuthClient({
+        issuer: "https://auth.test",
+        clientSecret: "shh",
+      }),
+    /clientId is required/,
+  );
+});

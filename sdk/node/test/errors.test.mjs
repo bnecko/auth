@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { BottleneckAuthClient, BottleneckAuthError } from "../dist/index.js";
 
 function clientWith(response) {
@@ -78,4 +79,16 @@ test("non-JSON error body falls back to status text", async () => {
   assert.equal(err.code, "request_failed");
   assert.equal(err.status, 502);
   assert.equal(err.message, "502 Bad Gateway");
+});
+
+// The package ships parallel ESM and CJS builds; an ESM app and a CJS
+// dependency loading the SDK in the same process get two class objects, and
+// the documented instanceof check has to hold across them.
+test("instanceof works on errors thrown by the parallel CJS build", () => {
+  const require = createRequire(import.meta.url);
+  const cjs = require("../dist/index.cjs");
+  const err = new cjs.BottleneckAuthError({ status: 400, code: "x", message: "x" });
+
+  assert.ok(err instanceof BottleneckAuthError);
+  assert.ok(!(new Error("plain") instanceof BottleneckAuthError));
 });

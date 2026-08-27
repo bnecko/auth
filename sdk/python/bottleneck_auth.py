@@ -54,4 +54,9 @@ def verify_webhook_signature(secret, timestamp, body, signature, tolerance_secon
         f"{timestamp}.{body}".encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
-    return hmac.compare_digest(expected, signature)
+    try:
+        return hmac.compare_digest(expected, signature)
+    except TypeError:
+        # A missing header (None) or a non-ASCII signature fails
+        # verification, not the caller.
+        return False

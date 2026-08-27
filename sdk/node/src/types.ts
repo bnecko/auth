@@ -100,6 +100,8 @@ export type ActivationRequestSummary = {
   expiresAt: string;
 };
 
+// The server returns at most the 50 most recent matching requests and has no
+// pagination yet, so absence from this list does not mean a request is gone.
 export type ListActivationRequestsResponse = {
   requests: ActivationRequestSummary[];
 };
@@ -110,6 +112,9 @@ export type AuthorizationSummary = {
   createdAt: string;
 };
 
+// The server returns at most the 200 most recent authorizations and has no
+// pagination yet, so this is not a complete set for reconciliation once an
+// app grows past that.
 export type ListAuthorizationsResponse = {
   authorizations: AuthorizationSummary[];
 };

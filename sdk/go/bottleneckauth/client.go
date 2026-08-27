@@ -33,10 +33,13 @@ func (c Client) Userinfo(accessToken string, out any) error {
 func (c Client) Introspect(token string, out any) error {
 	body := url.Values{"token": []string{token}}
 	// client_secret_post: self-service apps are registered with this method,
-	// and the server rejects Basic auth for them.
-	if c.ClientID != "" && c.ClientSecret != "" {
+	// and the server rejects Basic auth for them. Public clients still have
+	// to identify themselves with client_id alone.
+	if c.ClientID != "" {
 		body.Set("client_id", c.ClientID)
-		body.Set("client_secret", c.ClientSecret)
+		if c.ClientSecret != "" {
+			body.Set("client_secret", c.ClientSecret)
+		}
 	}
 	req, err := http.NewRequest("POST", strings.TrimRight(c.Issuer, "/")+"/api/oauth/introspect", bytes.NewBufferString(body.Encode()))
 	if err != nil {

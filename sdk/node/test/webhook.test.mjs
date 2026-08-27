@@ -95,3 +95,14 @@ test("signature of a different length is rejected", () => {
     false,
   );
 });
+
+// A request without the signature header reaches the verifier as undefined
+// (the README example casts the header); that must fail verification, not
+// throw at the receiver.
+test("a missing signature is rejected, not thrown", () => {
+  const timestamp = String(nowSeconds());
+  assert.equal(
+    verifyWebhookSignature({ secret, timestamp, body, signature: undefined }),
+    false,
+  );
+});
