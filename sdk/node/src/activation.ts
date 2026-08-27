@@ -1,9 +1,14 @@
-import { throwFromResponse } from "./errors";
+import { request, type Transport } from "./transport";
 import type {
   ActivationRequestResponse,
   ActivationStatusResponse,
+  AppConfigResponse,
   CancelActivationResponse,
   CreateActivationRequestInput,
+  ListActivationRequestsResponse,
+  ListAuthorizationsResponse,
+  RequestOptions,
+  RevokeActivationResponse,
 } from "./types";
 
 function bearer(apiKey: string) {
@@ -14,49 +19,121 @@ function bearer(apiKey: string) {
 }
 
 export async function createActivationRequest(
-  issuer: string,
+  transport: Transport,
   input: CreateActivationRequestInput,
+  options?: RequestOptions,
 ): Promise<ActivationRequestResponse> {
-  const response = await fetch(`${issuer}/api/activation-requests`, {
-    method: "POST",
-    headers: bearer(input.apiKey),
-    body: JSON.stringify({
-      requestedSubject: input.requestedSubject,
-      scopes: input.scopes,
-      returnUrl: input.returnUrl,
-      callbackUrl: input.callbackUrl,
-    }),
-  });
-  if (!response.ok) {
-    await throwFromResponse(response);
+  const headers: Record<string, string> = bearer(input.apiKey);
+  if (input.idempotencyKey) {
+    headers["idempotency-key"] = input.idempotencyKey;
   }
+  const response = await request(
+    transport,
+    "/api/activation-requests",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        requestedSubject: input.requestedSubject,
+        scopes: input.scopes,
+        returnUrl: input.returnUrl,
+        callbackUrl: input.callbackUrl,
+      }),
+    },
+    options,
+  );
   return (await response.json()) as ActivationRequestResponse;
 }
 
 export async function getActivationStatus(
-  issuer: string,
+  transport: Transport,
   input: { apiKey: string; id: string },
+  options?: RequestOptions,
 ): Promise<ActivationStatusResponse> {
-  const response = await fetch(
-    `${issuer}/api/activation-requests/${encodeURIComponent(input.id)}`,
+  const response = await request(
+    transport,
+    `/api/activation-requests/${encodeURIComponent(input.id)}`,
     { headers: { authorization: `Bearer ${input.apiKey}` } },
+    options,
   );
-  if (!response.ok) {
-    await throwFromResponse(response);
-  }
   return (await response.json()) as ActivationStatusResponse;
 }
 
 export async function cancelActivationRequest(
-  issuer: string,
+  transport: Transport,
   input: { apiKey: string; id: string },
+  options?: RequestOptions,
 ): Promise<CancelActivationResponse> {
-  const response = await fetch(
-    `${issuer}/api/activation-requests/${encodeURIComponent(input.id)}/cancel`,
+  const response = await request(
+    transport,
+    `/api/activation-requests/${encodeURIComponent(input.id)}/cancel`,
     { method: "POST", headers: bearer(input.apiKey) },
+    options,
   );
-  if (!response.ok) {
-    await throwFromResponse(response);
-  }
   return (await response.json()) as CancelActivationResponse;
+}
+
+export async function revokeActivation(
+  transport: Transport,
+  input: { apiKey: string; id: string },
+  options?: RequestOptions,
+): Promise<RevokeActivationResponse> {
+  const response = await request(
+    transport,
+    `/api/activation-requests/${encodeURIComponent(input.id)}/revoke`,
+    { method: "POST", headers: bearer(input.apiKey) },
+    options,
+  );
+  return (await response.json()) as RevokeActivationResponse;
+}
+
+export async function getAppConfig(
+  transport: Transport,
+  input: { apiKey: string },
+  options?: RequestOptions,
+): Promise<AppConfigResponse> {
+  const response = await request(
+    transport,
+    "/api/apps/me",
+    { headers: { authorization: `Bearer ${input.apiKey}` } },
+    options,
+  );
+  return (await response.json()) as AppConfigResponse;
+}
+
+export async function listActivationRequests(
+  transport: Transport,
+  input: { apiKey: string; subject?: string; status?: string },
+  options?: RequestOptions,
+): Promise<ListActivationRequestsResponse> {
+  const params = new URLSearchParams();
+  if (input.subject) {
+    params.set("subject", input.subject);
+  }
+  if (input.status) {
+    params.set("status", input.status);
+  }
+  const qs = params.toString();
+  const query = qs ? `?${qs}` : "";
+  const response = await request(
+    transport,
+    `/api/activation-requests${query}`,
+    { headers: { authorization: `Bearer ${input.apiKey}` } },
+    options,
+  );
+  return (await response.json()) as ListActivationRequestsResponse;
+}
+
+export async function listAuthorizations(
+  transport: Transport,
+  input: { apiKey: string },
+  options?: RequestOptions,
+): Promise<ListAuthorizationsResponse> {
+  const response = await request(
+    transport,
+    "/api/authorizations",
+    { headers: { authorization: `Bearer ${input.apiKey}` } },
+    options,
+  );
+  return (await response.json()) as ListAuthorizationsResponse;
 }
