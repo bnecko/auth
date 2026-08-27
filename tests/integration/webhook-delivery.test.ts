@@ -186,6 +186,38 @@ describeDb('webhook delivery loop', () => {
     expect(row?.seconds_until_next).toBeLessThanOrEqual(worker.RETRY_DELAYS_SECONDS[1]);
   });
 
+  it('re-signs every retry attempt with a fresh timestamp', async () => {
+    responseStatus = 500;
+    const { deliveryId, deliveryPublicId, endpointId, secret, url } = await seedPendingDelivery('/resign');
+    const row = {
+      id: deliveryId,
+      public_id: deliveryPublicId,
+      event_type: 'activation.approved',
+      payload: { id: 'act_test' },
+      webhook_endpoint_id: endpointId,
+      url,
+      secret,
+    };
+
+    await worker.deliverOne({ ...row, attempt_count: 0 });
+    await worker.deliverOne({ ...row, attempt_count: 1 });
+
+    // The SDK rejects timestamps older than 300s while retry delays run to
+    // 24h, so deliveries stay verifiable only because each attempt is
+    // stamped and signed at send time. Freezing the timestamp across
+    // attempts would silently break every late retry at SDK consumers.
+    expect(received).toHaveLength(2);
+    const now = Math.floor(Date.now() / 1000);
+    for (const attempt of received) {
+      const ts = Number(attempt.headers['x-bottleneck-timestamp']);
+      expect(Math.abs(now - ts)).toBeLessThanOrEqual(5);
+      const expected = createHmac('sha256', secret)
+        .update(`${ts}.${attempt.body}`)
+        .digest('hex');
+      expect(attempt.headers['x-bottleneck-signature']).toBe(expected);
+    }
+  });
+
   it('marks a delivery failed after the maximum number of attempts', async () => {
     responseStatus = 500;
     const { deliveryId, deliveryPublicId, endpointId, secret, url } = await seedPendingDelivery('/exhaust');
