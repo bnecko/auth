@@ -1,8 +1,8 @@
 {
   "name": "@bottleneck/auth-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Server-side SDK for Bottleneck Auth — activation broker and OAuth 2.1 + PKCE helpers.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/bnecko/auth.git",
@@ -22,19 +22,33 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run typecheck && npm run build"
+    "test": "npm run build && node --test test/*.test.mjs test/*.test.cjs",
+    "test:pack": "node scripts/verify-pack.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test"
   },
   "engines": {
     "node": ">=18.17"

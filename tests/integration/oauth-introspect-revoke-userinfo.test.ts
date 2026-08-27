@@ -263,3 +263,32 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
     expect(afterBan.active).toBe(false);
   });
 });
+
+// Needs only the database, not OIDC signing keys, so it is gated separately
+// from the token-issuing suite above. The SDK maps the envelope's `error`
+// into BottleneckAuthError.code and documents it as a stable machine code,
+// so the route must never put prose there.
+const describeDb = hasDb ? describe : describe.skip;
+
+describeDb('userinfo route error envelope', () => {
+  it('userinfo 401 for a missing token carries a stable error code', async () => {
+    const { GET } = await import('@/app/api/oauth/userinfo/route');
+    const res = await GET(new NextRequest('http://localhost/api/oauth/userinfo'));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_request');
+    expect(body.error_description).toBe('missing bearer token');
+  });
+
+  it('userinfo 401 for an invalid token carries a stable error code', async () => {
+    const { GET } = await import('@/app/api/oauth/userinfo/route');
+    const res = await GET(
+      new NextRequest('http://localhost/api/oauth/userinfo', {
+        headers: { authorization: 'Bearer not-a-real-token' },
+      }),
+    );
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_token');
+  });
+});

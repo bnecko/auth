@@ -7,14 +7,15 @@ import { verifyWebhookSignature } from '../../sdk/node/src/index';
 // a published SDK release will not be able to verify our deliveries.
 describe('webhook signing roundtrip', () => {
   const secret = 'whsec_test_0123456789abcdef';
-  const timestamp = 1715528400;
   const body = JSON.stringify({ id: 'whd_xyz', type: 'activation.approved', data: { foo: 'bar' } });
+  const timestamp = () => Math.floor(Date.now() / 1000);
 
   it('SDK verifyWebhookSignature accepts the server signature', () => {
-    const signature = signWebhookPayload({ secret, timestamp, body });
+    const ts = timestamp();
+    const signature = signWebhookPayload({ secret, timestamp: ts, body });
     const ok = verifyWebhookSignature({
       secret,
-      timestamp: String(timestamp),
+      timestamp: String(ts),
       body,
       signature,
     });
@@ -22,23 +23,25 @@ describe('webhook signing roundtrip', () => {
   });
 
   it('rejects a tampered body', () => {
-    const signature = signWebhookPayload({ secret, timestamp, body });
+    const ts = timestamp();
+    const signature = signWebhookPayload({ secret, timestamp: ts, body });
     expect(
       verifyWebhookSignature({
         secret,
-        timestamp: String(timestamp),
+        timestamp: String(ts),
         body: body.replace('approved', 'denied'),
         signature,
       }),
     ).toBe(false);
   });
 
-  it('rejects a different timestamp', () => {
-    const signature = signWebhookPayload({ secret, timestamp, body });
+  it('rejects a signature replayed under a different timestamp', () => {
+    const ts = timestamp();
+    const signature = signWebhookPayload({ secret, timestamp: ts, body });
     expect(
       verifyWebhookSignature({
         secret,
-        timestamp: String(timestamp + 60),
+        timestamp: String(ts + 60),
         body,
         signature,
       }),
@@ -46,20 +49,39 @@ describe('webhook signing roundtrip', () => {
   });
 
   it('rejects a wrong secret', () => {
-    const signature = signWebhookPayload({ secret, timestamp, body });
+    const ts = timestamp();
+    const signature = signWebhookPayload({ secret, timestamp: ts, body });
     expect(
       verifyWebhookSignature({
         secret: 'whsec_different',
-        timestamp: String(timestamp),
+        timestamp: String(ts),
         body,
         signature,
       }),
     ).toBe(false);
   });
 
+  it('rejects a validly signed delivery outside the freshness window', () => {
+    const ts = timestamp() - 600;
+    const signature = signWebhookPayload({ secret, timestamp: ts, body });
+    expect(
+      verifyWebhookSignature({ secret, timestamp: String(ts), body, signature }),
+    ).toBe(false);
+    expect(
+      verifyWebhookSignature({
+        secret,
+        timestamp: String(ts),
+        body,
+        signature,
+        toleranceSeconds: 900,
+      }),
+    ).toBe(true);
+  });
+
   it('signature is deterministic for the same inputs', () => {
-    const a = signWebhookPayload({ secret, timestamp, body });
-    const b = signWebhookPayload({ secret, timestamp, body });
+    const ts = timestamp();
+    const a = signWebhookPayload({ secret, timestamp: ts, body });
+    const b = signWebhookPayload({ secret, timestamp: ts, body });
     expect(a).toBe(b);
     expect(a).toMatch(/^[a-f0-9]{64}$/);
   });

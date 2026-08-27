@@ -220,7 +220,9 @@ Authorization: Bearer <app-api-key>
 ```
 
 Lists your app's own requests, newest first, optionally filtered by
-`requestedSubject` and `status`. Use this to recover a request id you lost.
+`requestedSubject` and `status`. Use this to look up a recent request id you
+lost. Returns at most the 50 most recent matches with no pagination, so
+absence from the list does not mean a request is gone.
 
 ```json
 {
@@ -246,7 +248,9 @@ Authorization: Bearer <app-api-key>
 ```
 
 The standing grants users have given your app: `subject` is the user's public
-id, plus the granted scopes.
+id, plus the granted scopes. Returns at most the 200 most recent grants with
+no pagination, so treat it as a recent-activity view rather than a complete
+set to reconcile against.
 
 ```json
 {
@@ -410,7 +414,15 @@ if (!ok) {
 }
 ```
 
-Reject any request older than ~5 minutes by comparing `X-Bottleneck-Timestamp` against your wall clock — this is your replay protection.
+The helper also enforces freshness: a delivery whose timestamp is more than
+five minutes from your wall clock fails verification even with a valid
+signature — this is the replay protection. Pass `toleranceSeconds` to tune the
+window. If you verify by hand instead, apply the same timestamp check
+yourself.
+
+Within the freshness window a delivery can still arrive twice (see
+[Retries](#retries-and-idempotency)). Deduplicate on the `X-Bottleneck-Delivery`
+id.
 
 ### Retries and idempotency
 

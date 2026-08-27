@@ -137,6 +137,40 @@ describeDb('Activation requests: createExternalActivationRequest', () => {
     expect(body.profile).toBeNull();
   });
 
+  it('status payload matches the SDK ActivationStatusResponse key set', async () => {
+    const { apiKey } = await seedApp();
+    const created = await createExternalActivationRequest(
+      apiKey,
+      { scopes: ['profile:read'] },
+      makeRequest(),
+    );
+
+    const { GET } = await import('@/app/api/activation-requests/[id]/route');
+    const req = new NextRequest('http://localhost/api/activation-requests/x', {
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+    const res = await GET(req, { params: Promise.resolve({ id: created.id }) });
+    expect(res.status).toBe(200);
+
+    // Contract tripwire: any field added to or removed from this payload must
+    // be mirrored in ActivationStatusResponse (sdk/node/src/types.ts) before
+    // this list is updated. The SDK omitting `revoked` shipped exactly this
+    // kind of silent drift once already.
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(Object.keys(body).sort()).toEqual([
+      'approvedUserId',
+      'deniedReason',
+      'expiresAt',
+      'id',
+      'profile',
+      'revoked',
+      'status',
+    ]);
+    expect(body.status).toBe('pending');
+    expect(body.revoked).toBe(false);
+    expect(body.deniedReason).toBeNull();
+  });
+
   it('getAppForApiKey exposes the app config for pre-flight validation', async () => {
     const { apiKey } = await seedApp(['https://example.com/cb/']);
     const me = await getAppForApiKey(apiKey);
