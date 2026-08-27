@@ -220,7 +220,9 @@ Authorization: Bearer <app-api-key>
 ```
 
 Lists your app's own requests, newest first, optionally filtered by
-`requestedSubject` and `status`. Use this to recover a request id you lost.
+`requestedSubject` and `status`. Use this to look up a recent request id you
+lost. Returns at most the 50 most recent matches with no pagination, so
+absence from the list does not mean a request is gone.
 
 ```json
 {
@@ -246,7 +248,9 @@ Authorization: Bearer <app-api-key>
 ```
 
 The standing grants users have given your app: `subject` is the user's public
-id, plus the granted scopes.
+id, plus the granted scopes. Returns at most the 200 most recent grants with
+no pagination, so treat it as a recent-activity view rather than a complete
+set to reconcile against.
 
 ```json
 {
