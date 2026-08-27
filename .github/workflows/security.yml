@@ -53,6 +53,11 @@ jobs:
 
   sdk:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The full engines range: the floor the package claims, plus the
+        # current LTS lines.
+        node-version: ["18.17", "20", "22"]
     defaults:
       run:
         working-directory: sdk/node
@@ -60,9 +65,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version-file: .nvmrc
+          node-version: ${{ matrix.node-version }}
           cache: npm
           cache-dependency-path: sdk/node/package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run build
+      - run: npm test
+      - run: npm run test:pack
