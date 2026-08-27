@@ -410,7 +410,15 @@ if (!ok) {
 }
 ```
 
-Reject any request older than ~5 minutes by comparing `X-Bottleneck-Timestamp` against your wall clock — this is your replay protection.
+The helper also enforces freshness: a delivery whose timestamp is more than
+five minutes from your wall clock fails verification even with a valid
+signature — this is the replay protection. Pass `toleranceSeconds` to tune the
+window. If you verify by hand instead, apply the same timestamp check
+yourself.
+
+Within the freshness window a delivery can still arrive twice (see
+[Retries](#retries-and-idempotency)). Deduplicate on the `X-Bottleneck-Delivery`
+id.
 
 ### Retries and idempotency
 
