@@ -25,6 +25,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   tone = "neutral",
   busy = false,
+  confirmDisabled = false,
   formId,
   onConfirm,
   onClose,
@@ -38,6 +39,7 @@ export function ConfirmDialog({
   cancelLabel?: string;
   tone?: Tone;
   busy?: boolean;
+  confirmDisabled?: boolean;
   formId?: string;
   onConfirm?: () => void;
   onClose: () => void;
@@ -92,6 +94,7 @@ export function ConfirmDialog({
             variant={confirmVariant[tone]}
             size="sm"
             loading={busy}
+            disabled={confirmDisabled}
             onClick={onConfirm}
           >
             {confirmLabel}

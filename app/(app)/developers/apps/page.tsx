@@ -68,6 +68,9 @@ export default async function DeveloperAppsPage() {
                   <span className="text-fg group-hover:text-accent-strong transition-colors truncate">
                     {app.name}
                   </span>
+                  {app.status === "frozen" && (
+                    <Tag tone="warning">Frozen</Tag>
+                  )}
                   {app.status === "disabled" && (
                     <Tag tone="danger">Disabled</Tag>
                   )}

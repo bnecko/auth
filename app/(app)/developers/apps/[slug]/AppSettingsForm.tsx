@@ -3,88 +3,86 @@
 import { useState } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
+import { Field } from "@/components/Field";
 import { Section } from "@/components/Section";
 import { updateAppAction } from "./actions";
 
+const SCOPE_OPTIONS = [
+  { value: "openid", label: "OpenID Connect (issues ID tokens)" },
+  { value: "profile", label: "Public profile" },
+  { value: "email", label: "Email address" },
+  { value: "birthdate", label: "Date of birth" },
+  { value: "telegram", label: "Telegram identity" },
+  { value: "profile:read", label: "Public profile (API read)" },
+  { value: "email:read", label: "Email address (API read)" },
+  { value: "dob:read", label: "Date of birth (API read)" },
+  { value: "subscription:read", label: "Subscription status (API read)" },
+  { value: "telegram:read", label: "Telegram identity (API read)" },
+];
+
+const GRANT_OPTIONS = [
+  { value: "authorization_code", label: "Authorization code" },
+  { value: "refresh_token", label: "Refresh token" },
+  { value: "client_credentials", label: "Client credentials" },
+  { value: "urn:ietf:params:oauth:grant-type:device_code", label: "Device code" },
+];
+
+const checkboxClass =
+  "appearance-none w-4 h-4 rounded border border-rule bg-transparent " +
+  "checked:bg-accent checked:border-accent transition-colors shrink-0 translate-y-0.5";
+
 export function AppSettingsForm({
   appId,
+  name,
   redirectUris,
+  postLogoutRedirectUris,
   oauthProfileVersion,
+  allowedScopes,
+  allowedGrantTypes,
+  issueRefreshTokens,
 }: {
   appId: number;
+  name: string;
   redirectUris: string[];
+  postLogoutRedirectUris: string[];
   oauthProfileVersion: string;
+  allowedScopes: string[];
+  allowedGrantTypes: string[];
+  issueRefreshTokens: boolean;
 }) {
-  const [secret, setSecret] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
 
-  async function save(formData: FormData) {
-    setBusy("save");
-    setError("");
-    try {
-      await updateAppAction(formData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to save app");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function rotate(formData: FormData) {
-    const isKeyRotation = formData.get("action") === "rotate_api_key";
-    setBusy(isKeyRotation ? "rotate_key" : "rotate");
-    setError("");
-    // Clear only what this action can replace: a standalone api key rotation
-    // must not wipe a still-uncopied client secret from the screen.
-    if (!isKeyRotation) setSecret("");
-    setApiKey("");
-    try {
-      const result = await updateAppAction(formData);
-      if (result && "clientSecret" in result && result.clientSecret) {
-        setSecret(result.clientSecret);
+  function save(key: string) {
+    return async (formData: FormData) => {
+      setBusy(key);
+      setError("");
+      try {
+        await updateAppAction(formData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "failed to save app");
+      } finally {
+        setBusy("");
       }
-      if (result && "apiKey" in result && result.apiKey) {
-        setApiKey(result.apiKey);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to rotate");
-    } finally {
-      setBusy("");
-    }
+    };
   }
 
   return (
     <div className="space-y-2">
       {error && <Alert tone="danger">{error}</Alert>}
-      {secret && (
-        <Alert tone="warning">
-          <div className="mb-1.5 text-[13px] font-medium">New client secret</div>
-          <code className="block font-mono select-all text-accent-strong break-all">
-            {secret}
-          </code>
-        </Alert>
-      )}
-      {apiKey && (
-        <Alert tone="warning">
-          <div className="mb-1.5 text-[13px] font-medium">New API key</div>
-          <code className="block font-mono select-all text-accent-strong break-all">
-            {apiKey}
-          </code>
-          {secret && (
-            <p className="mt-1.5 text-[12px]">
-              This app shared one credential for both surfaces, so both were
-              rotated together. The old value no longer works as an API key;
-              as a client secret it expires after the 7-day grace window.
-            </p>
-          )}
-        </Alert>
-      )}
 
       <Section index="2.0" title="Configuration" hint="OAuth client details">
-        <form action={save} className="space-y-5 py-3 px-1">
+        <form action={save("config")} className="space-y-5 py-3 px-1">
           <input type="hidden" name="app_id" value={appId} />
+
+          <Field
+            label="App name"
+            name="name"
+            defaultValue={name}
+            required
+            maxLength={50}
+            hint="Shown to users on the consent screen. The slug and client ID do not change."
+          />
 
           <div>
             <label className="block text-[13px] text-muted mb-1">
@@ -102,7 +100,22 @@ export function AppSettingsForm({
           </div>
 
           <div>
-            <Button type="submit" loading={busy === "save"}>
+            <label className="block text-[13px] text-muted mb-1">
+              Post-logout redirect URIs
+            </label>
+            <textarea
+              name="post_logout_redirect_uris"
+              rows={2}
+              defaultValue={postLogoutRedirectUris.join("\n")}
+              className="w-full bg-card border border-rule rounded-md px-3 py-2 text-[13px] text-fg placeholder:text-faint focus:outline-hidden focus:border-accent transition-colors resize-y leading-relaxed"
+            />
+            <p className="text-[12px] text-muted mt-2">
+              One per line. Where users may land after RP-initiated logout. Optional.
+            </p>
+          </div>
+
+          <div>
+            <Button type="submit" loading={busy === "config"}>
               Save changes
             </Button>
           </div>
@@ -111,10 +124,107 @@ export function AppSettingsForm({
 
       <Section
         index="2.1"
+        title="Permissions"
+        hint="Scopes and grant types this client may use"
+      >
+        <form action={save("permissions")} className="space-y-5 py-3 px-1">
+          <input type="hidden" name="app_id" value={appId} />
+          <input type="hidden" name="action" value="update_permissions" />
+
+          <div>
+            <label className="block text-[13px] text-muted mb-2">
+              Allowed scopes
+            </label>
+            <div className="border-t border-rule sm:grid sm:grid-cols-2 sm:gap-x-6">
+              {SCOPE_OPTIONS.map(opt => (
+                <label
+                  key={opt.value}
+                  className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    name="scopes"
+                    value={opt.value}
+                    defaultChecked={allowedScopes.includes(opt.value)}
+                    className={checkboxClass}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] text-fg group-hover:text-accent-strong transition-colors">
+                      {opt.label}
+                    </span>
+                    <code className="block text-[11px] text-muted font-mono">
+                      {opt.value}
+                    </code>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-[12px] text-muted mt-2">
+              Authorization requests outside this list are rejected with invalid_scope.
+              Removing a scope does not revoke grants users already approved.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-[13px] text-muted mb-2">
+              Allowed grant types
+            </label>
+            <div className="border-t border-rule">
+              {GRANT_OPTIONS.map(opt => (
+                <label
+                  key={opt.value}
+                  className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    name="grant_types"
+                    value={opt.value}
+                    defaultChecked={allowedGrantTypes.includes(opt.value)}
+                    className={checkboxClass}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] text-fg group-hover:text-accent-strong transition-colors">
+                      {opt.label}
+                    </span>
+                    <code className="block text-[11px] text-muted font-mono break-all">
+                      {opt.value}
+                    </code>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <label className="flex items-baseline gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              name="issue_refresh_tokens"
+              defaultChecked={issueRefreshTokens}
+              className={checkboxClass}
+            />
+            <span className="min-w-0">
+              <span className="block text-[13px] text-fg group-hover:text-accent-strong transition-colors">
+                Issue refresh tokens
+              </span>
+              <span className="block text-[12px] text-muted">
+                Also requires the refresh token grant. Turning this off stops new
+                refresh tokens; existing ones keep rotating until revoked.
+              </span>
+            </span>
+          </label>
+
+          <Button type="submit" loading={busy === "permissions"}>
+            Save permissions
+          </Button>
+        </form>
+      </Section>
+
+      <Section
+        index="2.2"
         title="OAuth version"
         hint="Compatibility profile"
       >
-        <form action={save} className="space-y-5 py-3 px-1">
+        <form action={save("version")} className="space-y-5 py-3 px-1">
           <input type="hidden" name="app_id" value={appId} />
           <input type="hidden" name="action" value="update_oauth_version" />
           <div>
@@ -142,51 +252,10 @@ export function AppSettingsForm({
             </p>
           </div>
 
-          <Button type="submit" loading={busy === "save"}>
+          <Button type="submit" loading={busy === "version"}>
             Save OAuth version
           </Button>
         </form>
-      </Section>
-
-      <Section index="2.2" title="Danger zone" hint="Destructive operations">
-        <div className="flex items-center justify-between py-3 px-1 gap-4">
-          <div className="min-w-0">
-            <div className="text-[14px] text-fg mb-1">Rotate client secret</div>
-            <div className="text-[13px] text-muted">
-              The previous secret remains valid for 7 days.
-            </div>
-          </div>
-          <form action={rotate}>
-            <input type="hidden" name="app_id" value={appId} />
-            <input type="hidden" name="action" value="rotate_secret" />
-            <Button
-              type="submit"
-              variant="danger"
-              loading={busy === "rotate"}
-            >
-              {busy === "rotate" ? "Rotating…" : "Rotate"}
-            </Button>
-          </form>
-        </div>
-        <div className="flex items-center justify-between py-3 px-1 gap-4 border-t border-rule">
-          <div className="min-w-0">
-            <div className="text-[14px] text-fg mb-1">Rotate API key</div>
-            <div className="text-[13px] text-muted">
-              The previous key stops working immediately.
-            </div>
-          </div>
-          <form action={rotate}>
-            <input type="hidden" name="app_id" value={appId} />
-            <input type="hidden" name="action" value="rotate_api_key" />
-            <Button
-              type="submit"
-              variant="danger"
-              loading={busy === "rotate_key"}
-            >
-              {busy === "rotate_key" ? "Rotating…" : "Rotate"}
-            </Button>
-          </form>
-        </div>
       </Section>
     </div>
   );

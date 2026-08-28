@@ -212,6 +212,11 @@ Returns the calling app's own configuration so you can validate before sending u
 }
 ```
 
+`status` is `active`, `frozen` (suspended by the app owner from the developer
+dashboard, reversible), or `disabled` (suspended by an admin). Anything other
+than `active` rejects the api key with a 401 and blocks every OAuth flow,
+including previously issued tokens, until the app is reinstated.
+
 ## List Activation Requests
 
 ```http
