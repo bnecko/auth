@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2026-08-28
+
+First release published through the automated pipeline (npm trusted
+publishing with provenance). No code changes since 0.3.0; the packaged
+README no longer describes the package as unpublished.
+
 ## 0.3.0 — 2026-08-28
 
 First public release.
