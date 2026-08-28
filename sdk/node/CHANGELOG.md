@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.3.0 — 2026-08-27
+## 0.3.0 — 2026-08-28
 
-Not yet published to npm; this is the version targeted for the first public release.
+First public release.
 
 ### Breaking
 

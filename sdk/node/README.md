@@ -2,10 +2,6 @@
 
 Server-side SDK for Bottleneck Auth. Covers the activation broker flow, OAuth 2.1 + PKCE, and webhook verification.
 
-> Not yet published to npm. Until the first release lands you can build a local
-> tarball with `npm pack` in this directory and install that; the command below
-> applies once the package is on the registry.
-
 ```sh
 npm install @bottleneck/auth-sdk
 ```
