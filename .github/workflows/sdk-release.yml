@@ -1,16 +1,20 @@
-# Publishes @bottleneck/auth-sdk to npm when an sdk-node-v* tag is pushed.
-# Uses npm trusted publishing (OIDC) with provenance: no NPM_TOKEN secret,
-# but the package must have this repository + workflow configured as a
-# trusted publisher on npmjs.com first.
+# Publishes @bottleneck/auth-sdk to npm when a version bump lands on master.
+# Uses npm trusted publishing (OIDC) with provenance: no NPM_TOKEN secret; the
+# package has this repository + workflow configured as a trusted publisher on
+# npmjs.com. A push that leaves the version at the already-published value is
+# a no-op, so docs-only SDK changes never release. A successful publish also
+# pushes a sdk-node-v<version> tag for traceability.
 name: sdk-release
 
 on:
   push:
-    tags:
-      - "sdk-node-v*"
+    branches:
+      - master
+    paths:
+      - "sdk/node/**"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -29,14 +33,27 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
           cache-dependency-path: sdk/node/package-lock.json
-      - name: Check tag matches package version
+      - name: Skip when the version is already on the registry
+        id: gate
         run: |
           version=$(node -p "require('./package.json').version")
-          [ "${GITHUB_REF_NAME}" = "sdk-node-v${version}" ] || {
-            echo "tag ${GITHUB_REF_NAME} does not match package version ${version}" >&2
-            exit 1
-          }
-      - run: npm ci
-      - run: npm run test:pack
+          published=$(npm view "@bottleneck/auth-sdk@${version}" version 2>/dev/null || true)
+          if [ "$published" = "$version" ]; then
+            echo "version ${version} is already published; nothing to do"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.publish == 'true'
+        run: npm ci
+      - if: steps.gate.outputs.publish == 'true'
+        run: npm run test:pack
       # prepublishOnly runs typecheck and the test suite; prepack builds.
-      - run: npm publish
+      - if: steps.gate.outputs.publish == 'true'
+        run: npm publish
+      - name: Tag the release
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          git tag "sdk-node-v${{ steps.gate.outputs.version }}"
+          git push origin "sdk-node-v${{ steps.gate.outputs.version }}"
