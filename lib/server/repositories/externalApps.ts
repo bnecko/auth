@@ -20,7 +20,7 @@ type ExternalAppRow = {
   jwks_uri: string | null;
   jwks: Record<string, unknown> | null;
   required_product: string | null;
-  status: "active" | "disabled";
+  status: ExternalApp["status"];
 };
 
 function mapExternalApp(row: ExternalAppRow): ExternalApp {
@@ -220,10 +220,12 @@ export async function createExternalApp(input: {
 }
 
 export async function countActiveExternalAppsForOwner(ownerUserId: number) {
+  // Frozen apps count toward the cap: the owner can thaw them at any time,
+  // so freezing must not free up slots. Admin-disabled apps do not count.
   const row = await queryOne<{ count: string }>(
     `select count(*) as count
        from external_apps
-      where owner_user_id = $1 and status = 'active'`,
+      where owner_user_id = $1 and status in ('active', 'frozen')`,
     [ownerUserId],
   );
   return Number(row?.count || 0);
@@ -237,7 +239,7 @@ export async function listExternalAppsForAdmin() {
     public_id: string;
     name: string;
     slug: string;
-    status: "active" | "disabled";
+    status: ExternalApp["status"];
     owner_username: string | null;
     revoked_by_owner: boolean;
     created_at: string;
@@ -343,4 +345,106 @@ export async function updateExternalAppOAuthProfileVersion(input: {
     [input.appId, input.ownerUserId, input.version],
   );
   return row;
+}
+
+export async function updateExternalAppDetailsForOwner(input: {
+  appId: number;
+  ownerUserId: number;
+  name: string;
+  allowedRedirectUrls: string[];
+  postLogoutRedirectUrls: string[];
+}) {
+  const row = await queryOne<{ slug: string }>(
+    `update external_apps
+        set name = $3,
+            allowed_redirect_urls = $4,
+            post_logout_redirect_urls = $5,
+            updated_at = now()
+      where id = $1 and owner_user_id = $2
+      returning slug`,
+    [
+      input.appId,
+      input.ownerUserId,
+      input.name,
+      input.allowedRedirectUrls,
+      input.postLogoutRedirectUrls,
+    ],
+  );
+  return row;
+}
+
+export async function updateExternalAppPermissionsForOwner(input: {
+  appId: number;
+  ownerUserId: number;
+  allowedScopes: string[];
+  allowedGrantTypes: string[];
+  issueRefreshTokens: boolean;
+}) {
+  const row = await queryOne<{ slug: string }>(
+    `update external_apps
+        set allowed_scopes = $3,
+            allowed_grant_types = $4,
+            issue_refresh_tokens = $5,
+            updated_at = now()
+      where id = $1 and owner_user_id = $2
+      returning slug`,
+    [
+      input.appId,
+      input.ownerUserId,
+      input.allowedScopes,
+      input.allowedGrantTypes,
+      input.issueRefreshTokens,
+    ],
+  );
+  return row;
+}
+
+// Guarded transition: only flips between active and frozen, so an owner
+// can never resurrect an app an admin disabled. Returns null when the app
+// is not owned by the caller or is not in the expected source state.
+export async function setExternalAppFrozenForOwner(input: {
+  appId: number;
+  ownerUserId: number;
+  frozen: boolean;
+}) {
+  const row = await queryOne<{ slug: string }>(
+    `update external_apps
+        set status = $3, updated_at = now()
+      where id = $1 and owner_user_id = $2 and status = $4
+      returning slug`,
+    [
+      input.appId,
+      input.ownerUserId,
+      input.frozen ? "frozen" : "active",
+      input.frozen ? "active" : "frozen",
+    ],
+  );
+  return row;
+}
+
+// Permanent removal. FK cascades take the OAuth secrets, authorization
+// codes, access/refresh tokens, PAR and device codes, assertion jtis,
+// activation requests, app authorizations, and webhook endpoints with the
+// row. bearer_requests survive as history (external_app_id goes null), so
+// any stashed plaintext api key is cleared first: a credential must not
+// outlive its app, even a dead copy held for the one-time reveal.
+export async function deleteExternalAppForOwner(appId: number, ownerUserId: number) {
+  await query(
+    `update bearer_requests
+        set plaintext_key = null
+      where external_app_id = $1
+        and plaintext_key is not null
+        and exists (
+          select 1 from external_apps a
+           where a.id = $1 and a.owner_user_id = $2
+        )`,
+    [appId, ownerUserId],
+  );
+  const row = await queryOne<{ id: string }>(
+    `delete from external_apps
+      where id = $1 and owner_user_id = $2
+      returning id`,
+    [appId, ownerUserId],
+  );
+  return Boolean(row);
 }

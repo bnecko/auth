@@ -142,7 +142,15 @@ export default async function AdminOAuthClientsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2 flex-wrap">
                     <span className="text-[15px] text-fg truncate">{app.name}</span>
-                    <Tag tone={app.status === "active" ? "success" : "danger"}>
+                    <Tag
+                      tone={
+                        app.status === "active"
+                          ? "success"
+                          : app.status === "frozen"
+                            ? "warning"
+                            : "danger"
+                      }
+                    >
                       {app.status}
                     </Tag>
                     {app.revokedByOwner && (
@@ -158,7 +166,7 @@ export default async function AdminOAuthClientsPage() {
                 <div className="text-meta text-faint shrink-0 tabular-nums">
                   {app.createdAt.slice(0, 10)}
                 </div>
-                {app.status === "active" ? (
+                {app.status !== "disabled" ? (
                   <ConfirmButton
                     action={setExternalAppStatusAction}
                     fields={{ app_id: app.id, status: "disabled" }}

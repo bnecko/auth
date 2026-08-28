@@ -29,6 +29,9 @@ Each OAuth client is an `external_apps` row.
 PKCE S256 is required for all authorization-code exchanges.
 Client policy is enforced per app: grant types, scopes, token endpoint auth
 method, and refresh-token issuance are configured on the `external_apps` row.
+Owners manage these from the developer dashboard, which can also freeze an
+app (owner-reversible suspension) or delete it outright; a frozen, disabled,
+or deleted client fails every flow, and its issued tokens stop validating.
 
 ## Client authentication methods
 

@@ -91,13 +91,16 @@ create table external_apps (
   jwks_uri text,
   jwks jsonb,
   required_product text,
-  status text not null default 'active' check (status in ('active', 'disabled')),
+  status text not null default 'active' check (status in ('active', 'frozen', 'disabled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 comment on column external_apps.oauth_client_secret_hash is
   'Hash of the current client secret. Confidential clients using client_secret_basic or client_secret_post have a value; public clients and private_key_jwt/none auth are null. Rotated secrets move to external_app_oauth_secrets with an expiry.';
+
+comment on column external_apps.status is
+  'active: live. frozen: suspended by the owner, owner-reversible. disabled: suspended by an admin; the owner cannot re-enable it. Anything other than active blocks all OAuth flows, issued tokens, and the activation API.';
 
 create table external_app_oauth_secrets (
   id bigserial primary key,

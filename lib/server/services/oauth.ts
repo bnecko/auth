@@ -214,7 +214,7 @@ export function redirectUriAllowed(redirectUri: string, allowed: readonly string
   });
 }
 
-const OAUTH_SCOPES = new Set([
+export const OAUTH_SCOPE_LIST = [
   "openid",
   "profile",
   "email",
@@ -225,7 +225,16 @@ const OAUTH_SCOPES = new Set([
   "dob:read",
   "subscription:read",
   "telegram:read",
-]);
+] as const;
+
+const OAUTH_SCOPES = new Set<string>(OAUTH_SCOPE_LIST);
+
+export const OAUTH_GRANT_TYPES = [
+  "authorization_code",
+  "refresh_token",
+  "client_credentials",
+  "urn:ietf:params:oauth:grant-type:device_code",
+] as const;
 
 export function parseOAuthScopes(scope: string) {
   if (!scope) {
@@ -1314,12 +1323,7 @@ export function oauthServerMetadata() {
     response_modes_supported: ["query"],
     device_authorization_endpoint: `${issuer}/api/oauth/device/code`,
     pushed_authorization_request_endpoint: `${issuer}/api/oauth/par`,
-    grant_types_supported: [
-      "authorization_code",
-      "refresh_token",
-      "client_credentials",
-      "urn:ietf:params:oauth:grant-type:device_code",
-    ],
+    grant_types_supported: [...OAUTH_GRANT_TYPES],
     token_endpoint_auth_methods_supported: [
       "client_secret_basic",
       "client_secret_post",
@@ -1335,18 +1339,7 @@ export function oauthServerMetadata() {
       legacyOAuthProfileVersion,
     ],
     oauth_profile_version_current: currentOAuthProfileVersion,
-    scopes_supported: [
-      "openid",
-      "profile",
-      "email",
-      "birthdate",
-      "telegram",
-      "profile:read",
-      "email:read",
-      "dob:read",
-      "subscription:read",
-      "telegram:read",
-    ],
+    scopes_supported: [...OAUTH_SCOPE_LIST],
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["RS256"],
     claims_supported: [

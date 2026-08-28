@@ -16,6 +16,9 @@
   --color-accent-dim: var(--accent-dim);
   --color-accent-strong: var(--accent-strong);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-border: var(--danger-border);
+  --color-danger-strong: var(--danger-strong);
   --color-ok: var(--ok);
   --color-info: var(--info);
 
@@ -93,6 +96,12 @@
      would fail contrast. */
   --accent-strong: #9a6300;
   --danger: #e5484d;
+  /* Pastel danger surface for destructive controls and danger-zone cards:
+     soft red fill, hairline red border, and a deep red that passes contrast
+     on the pastel ground. Matches the Alert/Tag danger tint. */
+  --danger-soft: #fdecec;
+  --danger-border: #f3c2c2;
+  --danger-strong: #9f1c25;
   --ok: #2f9e44;
   --info: #056dff;
 }

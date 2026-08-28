@@ -58,7 +58,12 @@ export default async function DangerZonePage() {
         </Row>
       </Section>
 
-      <Section title="Delete" icon={TriangleAlert} hint="Permanent after a 30-day grace period">
+      <Section
+        title="Delete"
+        icon={TriangleAlert}
+        hint="Permanent after a 30-day grace period"
+        tone="danger"
+      >
         <DeleteAccountFlow hasTelegram={!!current.user.telegramId} />
       </Section>
     </>

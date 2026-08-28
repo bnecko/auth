@@ -79,6 +79,12 @@ export async function setExternalAppStatusAction(formData: FormData) {
     throw new Error("The owner revoked this app; it cannot be re-enabled.");
   }
 
+  // Frozen is the owner's own suspension. Admin enable must not silently
+  // resurrect an app its owner deliberately paused; disabling it is fine.
+  if (status === "active" && app.status === "frozen") {
+    throw new Error("The owner froze this app; only the owner can unfreeze it.");
+  }
+
   await setExternalAppStatus(appId, status);
   await recordSecurityEvent({
     userId: current.user.id,

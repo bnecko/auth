@@ -15,8 +15,9 @@ const sizes: Record<Size, string> = {
 };
 
 // Primary is the one filled control: the accent on a dark label. Secondary is
-// a bordered white surface, ghost is borderless until hover, danger reads in
-// red and only commits its border on intent.
+// a bordered white surface, ghost is borderless until hover. Danger wears its
+// pastel red at rest so a destructive control is recognizable before it is
+// hovered, not only on intent.
 const styles: Record<Variant, string> = {
   primary:
     "bg-accent text-fg hover:brightness-95 " +
@@ -30,9 +31,9 @@ const styles: Record<Variant, string> = {
     "hover:bg-hover hover:text-fg " +
     "disabled:text-muted",
   danger:
-    "bg-transparent text-danger border border-rule " +
-    "hover:border-danger hover:bg-danger/5 " +
-    "disabled:text-muted",
+    "bg-danger-soft text-danger-strong border border-danger-border " +
+    "hover:brightness-95 hover:border-danger " +
+    "disabled:bg-hover disabled:text-muted disabled:border-rule disabled:brightness-100",
 };
 
 function Spinner() {

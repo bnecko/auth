@@ -5,6 +5,7 @@ import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { getCurrentSession } from "@/lib/server/session";
 import { queryOne } from "@/lib/server/db";
 import { listWebhookEndpointsForApp } from "@/lib/server/repositories/webhooks";
+import { AppDangerZone } from "./AppDangerZone";
 import { AppSettingsForm } from "./AppSettingsForm";
 import { CopyValue } from "./CopyValue";
 import { WebhookEndpointsSection } from "./WebhookEndpointsSection";
@@ -28,11 +29,17 @@ export default async function AppSettingsPage({
     name: string;
     public_id: string;
     allowed_redirect_urls: string[];
+    post_logout_redirect_urls: string[];
+    allowed_scopes: string[];
+    allowed_grant_types: string[];
+    issue_refresh_tokens: boolean;
     oauth_profile_version: string;
-    status: string;
+    status: "active" | "frozen" | "disabled";
     created_at: string;
   }>(
-    `select id, name, public_id, allowed_redirect_urls, oauth_profile_version, status, created_at::text
+    `select id, name, public_id, allowed_redirect_urls, post_logout_redirect_urls,
+            allowed_scopes, allowed_grant_types, issue_refresh_tokens,
+            oauth_profile_version, status, created_at::text
      from external_apps
      where slug = $1 and owner_user_id = $2`,
     [slug, current.user.id],
@@ -59,6 +66,9 @@ export default async function AppSettingsPage({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[12px] text-muted">App settings</span>
+            {app.status === "frozen" && (
+              <Tag tone="warning">Frozen</Tag>
+            )}
             {app.status === "disabled" && (
               <Tag tone="danger">Disabled</Tag>
             )}
@@ -108,8 +118,13 @@ export default async function AppSettingsPage({
       <div>
         <AppSettingsForm
           appId={app.id}
+          name={app.name}
           redirectUris={app.allowed_redirect_urls}
+          postLogoutRedirectUris={app.post_logout_redirect_urls}
           oauthProfileVersion={app.oauth_profile_version}
+          allowedScopes={app.allowed_scopes}
+          allowedGrantTypes={app.allowed_grant_types}
+          issueRefreshTokens={app.issue_refresh_tokens}
         />
       </div>
 
@@ -124,6 +139,10 @@ export default async function AppSettingsPage({
             createdAt: e.createdAt,
           }))}
         />
+      </div>
+
+      <div>
+        <AppDangerZone appId={app.id} slug={slug} status={app.status} />
       </div>
     </>
   );

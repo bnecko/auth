@@ -43,6 +43,11 @@ export type SessionWithUser = {
   user: User;
 };
 
+// frozen is the owner-set suspension (reversible from the dashboard);
+// disabled is admin-set and out of the owner's reach. Both block every
+// OAuth flow and the activation API, which only accept status active.
+export type ExternalAppStatus = "active" | "frozen" | "disabled";
+
 export type ExternalApp = {
   id: number;
   publicId: string;
@@ -65,7 +70,7 @@ export type ExternalApp = {
   issueRefreshTokens: boolean;
   oauthProfileVersion: string;
   requiredProduct: string | null;
-  status: "active" | "disabled";
+  status: ExternalAppStatus;
 };
 
 export type ActivationRequest = {
