@@ -156,8 +156,8 @@ export async function updateAppAction(formData: FormData) {
   }
 
   if (action === "update_permissions") {
-    const scopes = formData.getAll("scopes").map(String);
-    const grantTypes = formData.getAll("grant_types").map(String);
+    const scopes = [...new Set(formData.getAll("scopes").map(String))];
+    const grantTypes = [...new Set(formData.getAll("grant_types").map(String))];
     const knownScopes = new Set<string>(OAUTH_SCOPE_LIST);
     const knownGrants = new Set<string>(OAUTH_GRANT_TYPES);
     if (scopes.length === 0 || scopes.some(s => !knownScopes.has(s))) {
