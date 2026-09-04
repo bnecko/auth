@@ -29,7 +29,9 @@ docker compose logs app | grep '"level":"error"'
 3. Restart the failed dependency, then the app:
    `docker compose restart db && docker compose up -d app`.
 4. If the app crash-loops at boot with "missing required environment
-   variables", a secret is unset — see `.env` against `.env.example`.
+   variables", or the bot with "<NAME> is required", a secret is unset — see
+   `.env` against `.env.example`. `docker compose` refusing to start with
+   "set <NAME>" is the same cause.
 
 ### Webhook backlog or an auto-disabled endpoint
 - `webhook_endpoint_auto_disabled` in the worker logs (and a Telegram alert if
