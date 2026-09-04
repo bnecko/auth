@@ -16,13 +16,15 @@ Long-polls Telegram (`getUpdates`), so it does not need a public URL. Only the a
 - `TELEGRAM_BOT_TOKEN` - from BotFather
 - `TELEGRAM_BOT_WEBHOOK_SECRET` - must match the auth service's value
 - `AUTH_INTERNAL_URL` - default `http://localhost:3000`, set to `http://app:3000` in compose
+- `BEARER_ADMIN_TELEGRAM_ID` - Telegram user id allowed to approve or reject bearer
+  requests; must match the auth service's value, or every decision is refused
 
 The bot username (`TELEGRAM_BOT_USERNAME`) is only needed by the auth service to build the start link.
 
 ## Run
 
 ```
-TELEGRAM_BOT_TOKEN=... TELEGRAM_BOT_WEBHOOK_SECRET=... npm start
+TELEGRAM_BOT_TOKEN=... TELEGRAM_BOT_WEBHOOK_SECRET=... BEARER_ADMIN_TELEGRAM_ID=... npm start
 ```
 
 Only one instance can long-poll a bot at a time.

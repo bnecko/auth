@@ -1,7 +1,7 @@
 const botToken = required("TELEGRAM_BOT_TOKEN");
 const webhookSecret = required("TELEGRAM_BOT_WEBHOOK_SECRET");
 const authBaseUrl = process.env.AUTH_INTERNAL_URL || "http://localhost:3000";
-const bearerAdminTelegramId = process.env.BEARER_ADMIN_TELEGRAM_ID || "BEARER_ADMIN_TG_ID";
+const bearerAdminTelegramId = required("BEARER_ADMIN_TELEGRAM_ID");
 const analyticsChatId = process.env.TELEGRAM_ANALYTICS_CHAT_ID;
 const analyticsThreadId = process.env.TELEGRAM_ANALYTICS_THREAD_ID;
 const apiBase = `https://api.telegram.org/bot${botToken}`;

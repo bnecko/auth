@@ -124,6 +124,10 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_WEBHOOK_SECRET: ${TELEGRAM_BOT_WEBHOOK_SECRET:?set TELEGRAM_BOT_WEBHOOK_SECRET}
       AUTH_INTERNAL_URL: http://app:3000
+      # The bot is the sole handler of the bearer approve/reject callbacks and
+      # accepts a decision only from this id, so an unset value silently
+      # rejects every tap. Mandatory here rather than defaulted.
+      BEARER_ADMIN_TELEGRAM_ID: ${BEARER_ADMIN_TELEGRAM_ID:?set BEARER_ADMIN_TELEGRAM_ID}
       TELEGRAM_ANALYTICS_CHAT_ID: ${TELEGRAM_ANALYTICS_CHAT_ID:-}
       TELEGRAM_ANALYTICS_THREAD_ID: ${TELEGRAM_ANALYTICS_THREAD_ID:-}
     depends_on:
