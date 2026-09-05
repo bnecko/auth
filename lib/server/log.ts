@@ -10,7 +10,20 @@ const MAX_DEPTH = 6;
 
 function redact(value: unknown, depth = 0): unknown {
   if (value == null || depth > MAX_DEPTH) return value;
-  if (value instanceof Error) return { name: value.name, message: value.message };
+  if (value instanceof Error) {
+    // Stack, code and cause carry the diagnosis: which frame threw, which
+    // subsystem (pg's 57P01, undici's ECONNRESET), and what fetch's opaque
+    // "fetch failed" was actually caused by. The cause goes back through
+    // redact so a secret nested in it is still masked.
+    const { code, cause } = value as { code?: unknown; cause?: unknown };
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+      ...(typeof code === "string" ? { code } : {}),
+      ...(cause === undefined ? {} : { cause: redact(cause, depth + 1) }),
+    };
+  }
   if (Array.isArray(value)) return value.map(item => redact(item, depth + 1));
   if (typeof value === "object") {
     const out: Record<string, unknown> = {};

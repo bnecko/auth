@@ -8,7 +8,18 @@ const MAX_DEPTH = 6;
 
 function redact(value, depth = 0) {
   if (value == null || depth > MAX_DEPTH) return value;
-  if (value instanceof Error) return { name: value.name, message: value.message };
+  if (value instanceof Error) {
+    // Mirrors lib/server/log.ts: stack, code and cause are what make an
+    // error diagnosable; cause is redacted recursively.
+    const { code, cause } = value;
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+      ...(typeof code === "string" ? { code } : {}),
+      ...(cause === undefined ? {} : { cause: redact(cause, depth + 1) }),
+    };
+  }
   if (Array.isArray(value)) return value.map(item => redact(item, depth + 1));
   if (typeof value === "object") {
     const out = {};

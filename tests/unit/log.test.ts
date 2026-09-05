@@ -17,8 +17,22 @@ describe('log redaction', () => {
     });
   });
 
-  it('serializes Error to name and message only', () => {
-    expect(_redactForTests(new Error('boom'))).toEqual({ name: 'Error', message: 'boom' });
+  it('serializes an Error with the fields needed to diagnose it', () => {
+    const serialized = _redactForTests(new Error('boom')) as Record<string, unknown>;
+    expect(serialized.name).toBe('Error');
+    expect(serialized.message).toBe('boom');
+    expect(serialized.stack).toContain('boom');
+    expect(serialized).not.toHaveProperty('code');
+    expect(serialized).not.toHaveProperty('cause');
+  });
+
+  it('keeps a string error code and redacts secrets inside the cause', () => {
+    const err = new Error('fetch failed', { cause: { token: 'sk-live', host: 'api.example.com' } });
+    (err as { code?: string }).code = 'ECONNRESET';
+
+    const serialized = _redactForTests(err) as Record<string, unknown>;
+    expect(serialized.code).toBe('ECONNRESET');
+    expect(serialized.cause).toEqual({ token: '[redacted]', host: 'api.example.com' });
   });
 
   it('passes primitives through', () => {
