@@ -89,8 +89,14 @@ With `REDIS_URL` set, rate-limit counters live in Redis and are shared across
 test files within one run, so a test that exercises a rate-limited path must
 use keys unique to itself.
 
-CI (`.github/workflows/security.yml`) runs the unit and integration suites,
-the Playwright end-to-end scenarios against Postgres and Redis services, `npm audit`,
+`npm run test:e2e` starts the dev server on port 3100 by itself. Set
+`PLAYWRIGHT_BASE_URL` to point the suite at an already-running server
+instead (CI sets it to the booted production image).
+
+CI (`.github/workflows/security.yml`) runs the unit and integration suites
+against Postgres and Redis services, boots the production runner image
+against the same services and runs the Playwright end-to-end scenarios
+against it, and runs `npm audit`,
 the migration smoke test, the production build, and both Docker image builds
 on every push. The `sdk` job separately builds and type-checks the Node SDK.
 
