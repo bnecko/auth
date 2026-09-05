@@ -40,8 +40,12 @@ docker compose logs app | grep '"level":"error"'
 - Inspect: `docker compose exec -T db psql -U auth -d auth -c "select id,url,status,consecutive_failures from webhook_endpoints where status='disabled';"`
 - Re-enable after the receiver is fixed:
   `update webhook_endpoints set status='active', consecutive_failures=0 where id=<id>;`
-- Pending deliveries retry automatically via `next_attempt_at`; no manual
-  requeue is needed.
+- Disabling an endpoint (auto or by its owner) cancels its queued deliveries,
+  so re-enabling does not replay them. Replay what matters from
+  `/admin/webhooks?status=cancelled` with Retry, which is offered only while
+  the endpoint is active. Anything left cancelled is purged after 30 days.
+- Deliveries for an active endpoint retry automatically via `next_attempt_at`;
+  no manual requeue is needed.
 
 ### Rate-limiting acting up
 - Per-IP limiting depends on `TRUSTED_PROXY=cf` (the app trusts

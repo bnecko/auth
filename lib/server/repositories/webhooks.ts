@@ -162,16 +162,30 @@ export async function findWebhookEndpointByPublicId(publicId: string) {
   return row ? mapEndpoint(row) : null;
 }
 
+// Disabling also cancels the endpoint's queued deliveries: the worker only
+// claims deliveries whose endpoint is active, so anything left pending would
+// never be delivered and never be purged (the hygiene sweep deletes terminal
+// rows only). The owner replays what matters from the admin page after
+// re-enabling the endpoint.
 export async function disableWebhookEndpoint(publicId: string, appId: number) {
   const row = await queryOne<EndpointRow>(
-    `update webhook_endpoints
-        set status = 'disabled',
-            disabled_at = now(),
-            updated_at = now()
-      where public_id = $1
-        and external_app_id = $2
-        and status = 'active'
-      returning ${endpointSelect}`,
+    `with disabled as (
+       update webhook_endpoints
+          set status = 'disabled',
+              disabled_at = now(),
+              updated_at = now()
+        where public_id = $1
+          and external_app_id = $2
+          and status = 'active'
+        returning ${endpointSelect}
+     ),
+     cancelled as (
+       update webhook_deliveries
+          set status = 'cancelled', next_attempt_at = null
+        where status = 'pending'
+          and webhook_endpoint_id in (select id from disabled)
+     )
+     select * from disabled`,
     [publicId, appId],
   );
   return row ? mapEndpoint(row) : null;
@@ -282,6 +296,9 @@ export async function listRecentWebhookDeliveries(input: {
   }));
 }
 
+// Cancelled rows are replayable (that is the point of cancelling rather than
+// deleting them), but only once the endpoint is active again: re-queueing a
+// delivery the claim can never pick up just recreates the stuck row.
 export async function retryWebhookDelivery(publicId: string) {
   const row = await queryOne<DeliveryRow>(
     `update webhook_deliveries
@@ -289,7 +306,13 @@ export async function retryWebhookDelivery(publicId: string) {
             next_attempt_at = now(),
             last_error = null
       where public_id = $1
-        and status in ('failed', 'pending')
+        and status in ('failed', 'pending', 'cancelled')
+        and exists (
+              select 1
+                from webhook_endpoints e
+               where e.id = webhook_deliveries.webhook_endpoint_id
+                 and e.status = 'active'
+            )
       returning ${deliverySelect}`,
     [publicId],
   );

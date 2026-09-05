@@ -9,6 +9,7 @@ import {
 import {
   listActiveWebhookEndpointsForApp,
   disableWebhookEndpoint,
+  retryWebhookDelivery,
 } from '@/lib/server/repositories/webhooks';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
@@ -142,5 +143,67 @@ describeDb('enqueueWebhookEvent', () => {
     const publicIds = active.map(e => e.publicId);
     expect(publicIds).toContain(live.endpoint.publicId);
     expect(publicIds).not.toContain(stopped.endpoint.publicId);
+  });
+
+  it('disableWebhookEndpoint cancels queued deliveries and leaves terminal ones alone', async () => {
+    const { appId } = await seedApp();
+    const { endpoint } = await registerWebhookEndpoint({
+      appId,
+      url: 'https://example.com/cancel-on-disable',
+      eventTypes: ['activation.approved'],
+    });
+    await enqueueWebhookEvent({ appId, eventType: 'activation.approved', payload: { id: 'a' } });
+    await enqueueWebhookEvent({ appId, eventType: 'activation.approved', payload: { id: 'b' } });
+    const rows = await query<{ id: string }>(
+      `select id from webhook_deliveries where webhook_endpoint_id = $1 order by id`,
+      [endpoint.id],
+    );
+    expect(rows).toHaveLength(2);
+    await query(`update webhook_deliveries set status = 'delivered' where id = $1`, [rows[0].id]);
+
+    await disableWebhookEndpoint(endpoint.publicId, appId);
+
+    const after = await query<{ id: string; status: string }>(
+      `select id, status from webhook_deliveries where webhook_endpoint_id = $1 order by id`,
+      [endpoint.id],
+    );
+    expect(after.map(r => r.status)).toEqual(['delivered', 'cancelled']);
+  });
+
+  it('retryWebhookDelivery refuses a delivery whose endpoint is disabled', async () => {
+    const { appId } = await seedApp();
+    const { endpoint } = await registerWebhookEndpoint({
+      appId,
+      url: 'https://example.com/retry-disabled',
+      eventTypes: ['activation.approved'],
+    });
+    await enqueueWebhookEvent({ appId, eventType: 'activation.approved', payload: { id: 'c' } });
+    const delivery = await queryOne<{ public_id: string }>(
+      `select public_id from webhook_deliveries where webhook_endpoint_id = $1`,
+      [endpoint.id],
+    );
+    await disableWebhookEndpoint(endpoint.publicId, appId);
+
+    expect(await retryWebhookDelivery(delivery!.public_id)).toBeNull();
+  });
+
+  it('retryWebhookDelivery replays a cancelled delivery once the endpoint is active again', async () => {
+    const { appId } = await seedApp();
+    const { endpoint } = await registerWebhookEndpoint({
+      appId,
+      url: 'https://example.com/retry-reenabled',
+      eventTypes: ['activation.approved'],
+    });
+    await enqueueWebhookEvent({ appId, eventType: 'activation.approved', payload: { id: 'd' } });
+    const delivery = await queryOne<{ public_id: string }>(
+      `select public_id from webhook_deliveries where webhook_endpoint_id = $1`,
+      [endpoint.id],
+    );
+    await disableWebhookEndpoint(endpoint.publicId, appId);
+    await query(`update webhook_endpoints set status = 'active' where id = $1`, [endpoint.id]);
+
+    const replayed = await retryWebhookDelivery(delivery!.public_id);
+    expect(replayed?.status).toBe('pending');
+    expect(replayed?.nextAttemptAt).toBeTruthy();
   });
 });
