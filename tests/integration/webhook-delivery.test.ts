@@ -25,9 +25,11 @@ const requireCjs = createRequire(import.meta.url);
 const worker = requireCjs('../../worker.js') as {
   deliverOne: (row: WorkerDeliveryRow) => Promise<void>;
   processWebhookBatch: () => Promise<void>;
+  sweepHygiene: () => Promise<void>;
   RETRY_DELAYS_SECONDS: number[];
   MAX_ATTEMPTS: number;
   AUTO_DISABLE_THRESHOLD: number;
+  CLAIM_BATCH_SIZE: number;
 };
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
@@ -106,6 +108,10 @@ async function endpointState(endpointId: number) {
   );
 }
 
+async function disableEndpointDirectly(endpointId: number) {
+  await query(`update webhook_endpoints set status = 'disabled' where id = $1`, [endpointId]);
+}
+
 async function readDelivery(id: number) {
   return queryOne<{
     status: string;
@@ -158,6 +164,55 @@ describeDb('webhook delivery loop', () => {
       .digest('hex');
     expect(headers['x-bottleneck-signature']).toBe(expected);
     expect(headers['x-bottleneck-event']).toBe('activation.approved');
+  });
+
+  it('serves an active endpoint while a disabled one holds the oldest due rows', async () => {
+    responseStatus = 200;
+    // Fill a whole claim window with rows whose endpoint is then disabled
+    // out of band (the runbook's direct SQL disable), so they keep a past
+    // next_attempt_at and stay pending.
+    const blocked = await seedEndpoint('/blocked');
+    for (let i = 0; i < worker.CLAIM_BATCH_SIZE; i += 1) {
+      await enqueueOne(blocked.appId, blocked.endpointId);
+    }
+    await disableEndpointDirectly(blocked.endpointId);
+    await query(
+      `update webhook_deliveries set next_attempt_at = now() - interval '1 hour'
+        where webhook_endpoint_id = $1`,
+      [blocked.endpointId],
+    );
+
+    const live = await seedPendingDelivery('/live');
+    await query(
+      `update webhook_deliveries set status = 'cancelled'
+        where status = 'pending' and webhook_endpoint_id not in ($1, $2)`,
+      [blocked.endpointId, live.endpointId],
+    );
+
+    await worker.processWebhookBatch();
+
+    // Pre-fix the LIMIT spends the window on the blocked rows and the live
+    // delivery is never claimed.
+    expect((await readDelivery(live.deliveryId))?.status).toBe('delivered');
+    expect(received).toHaveLength(1);
+
+    const blockedRows = await query<{ status: string }>(
+      `select status from webhook_deliveries where webhook_endpoint_id = $1`,
+      [blocked.endpointId],
+    );
+    expect(blockedRows.every(row => row.status === 'pending')).toBe(true);
+  });
+
+  it('cancels pending deliveries stranded on a disabled endpoint during hygiene', async () => {
+    const { appId, endpointId } = await seedEndpoint('/stranded');
+    const { deliveryId } = await enqueueOne(appId, endpointId);
+    await disableEndpointDirectly(endpointId);
+
+    await worker.sweepHygiene();
+
+    const delivery = await readDelivery(deliveryId);
+    expect(delivery?.status).toBe('cancelled');
+    expect(delivery?.seconds_until_next).toBeNull();
   });
 
   it('reschedules a failed delivery with the first backoff step', async () => {
@@ -284,6 +339,21 @@ describeDb('webhook endpoint auto-disable', () => {
       [String(endpoint.endpointId)],
     );
     expect(event?.count).toBe(1);
+  });
+
+  it('cancels the queued backlog when auto-disable trips', async () => {
+    responseStatus = 500;
+    const endpoint = await seedEndpoint('/autodisable-backlog');
+    const queued = await enqueueOne(endpoint.appId, endpoint.endpointId);
+
+    for (let i = 0; i < worker.AUTO_DISABLE_THRESHOLD; i++) {
+      await failOneDelivery(endpoint);
+    }
+
+    expect((await endpointState(endpoint.endpointId))?.status).toBe('disabled');
+    const backlog = await readDelivery(queued.deliveryId);
+    expect(backlog?.status).toBe('cancelled');
+    expect(backlog?.seconds_until_next).toBeNull();
   });
 
   it('resets the failure counter after a successful delivery', async () => {

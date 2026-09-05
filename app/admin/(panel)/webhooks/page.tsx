@@ -27,6 +27,7 @@ const FILTERS: { label: string; value: WebhookDeliveryStatus | "all" }[] = [
   { label: "Pending", value: "pending" },
   { label: "Delivered", value: "delivered" },
   { label: "Failed", value: "failed" },
+  { label: "Cancelled", value: "cancelled" },
 ];
 
 export default async function AdminWebhooksPage({
@@ -132,7 +133,10 @@ export default async function AdminWebhooksPage({
                   {d.createdAt?.slice(0, 16).replace("T", " ")}
                 </div>
                 <div className="text-right">
-                  {(d.status === "failed" || d.status === "pending") && (
+                  {d.endpointStatus === "active" &&
+                    (d.status === "failed" ||
+                      d.status === "pending" ||
+                      d.status === "cancelled") && (
                     <form action={retryWebhookDeliveryAction}>
                       <input
                         type="hidden"

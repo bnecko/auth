@@ -151,6 +151,8 @@ const RESPONSE_BODY_LIMIT = 4096;
 // Disable an endpoint after this many deliveries fail in a row (a
 // success resets the count), so a dead receiver stops accruing retries.
 const AUTO_DISABLE_THRESHOLD = 5;
+// How many due deliveries one tick reserves.
+const CLAIM_BATCH_SIZE = 10;
 
 function signPayload(secret, timestamp, body) {
   return createHmac("sha256", secret)
@@ -277,6 +279,17 @@ async function disableEndpointIfFailing(row) {
   );
   const endpoint = rows[0];
   if (endpoint && endpoint.status === "disabled") {
+    // Give the backlog a terminal state now that nothing will deliver it.
+    // Left pending it would never be claimed (the claim requires an active
+    // endpoint) and never purged (the hygiene sweep only deletes terminal
+    // rows). An operator replays what matters from the admin page after
+    // re-enabling the endpoint.
+    await pool.query(
+      `update webhook_deliveries
+          set status = 'cancelled', next_attempt_at = null
+        where webhook_endpoint_id = $1 and status = 'pending'`,
+      [row.webhook_endpoint_id],
+    );
     await pool.query(
       `insert into security_events (event_type, result, metadata)
        values ('webhook_endpoint_auto_disabled', 'disabled', $1::jsonb)`,
@@ -299,8 +312,8 @@ async function disableEndpointIfFailing(row) {
 }
 
 async function processWebhookBatch() {
-  // Atomic claim: a single UPDATE reserves up to 10 pending rows by
-  // pushing next_attempt_at five minutes into the future, then
+  // Atomic claim: a single UPDATE reserves up to CLAIM_BATCH_SIZE pending
+  // rows by pushing next_attempt_at five minutes into the future, then
   // returns the payload + endpoint metadata needed to deliver. Two
   // concurrent ticks (we run setInterval at 1s; a slow batch can
   // overlap with the next tick) cannot reserve the same row because
@@ -308,25 +321,36 @@ async function processWebhookBatch() {
   // mid-delivery the row's next_attempt_at unblocks naturally five
   // minutes later — which is far longer than any HTTP attempt's
   // 5-second AbortController timeout.
+  //
+  // The endpoint must be filtered inside the locked subselect. Filtering it
+  // only in the outer UPDATE lets LIMIT spend the window on rows belonging
+  // to a disabled endpoint and then decline to update them: they stay
+  // pending with next_attempt_at in the past, so once CLAIM_BATCH_SIZE of
+  // them are due they fill every subsequent window and no active endpoint is
+  // ever served again. `for update of c` locks the delivery rows only;
+  // locking the joined endpoint row too would make SKIP LOCKED skip every
+  // delivery of an endpoint that is being updated concurrently.
   try {
     const { rows } = await pool.query(
       `update webhook_deliveries d
           set next_attempt_at = now() + interval '5 minutes'
          from webhook_endpoints e
         where d.id in (
-                select id
-                  from webhook_deliveries
-                 where status = 'pending'
-                   and next_attempt_at is not null
-                   and next_attempt_at <= now()
-                 order by next_attempt_at
-                 limit 10
-                 for update skip locked
+                select c.id
+                  from webhook_deliveries c
+                  join webhook_endpoints ce on ce.id = c.webhook_endpoint_id
+                 where c.status = 'pending'
+                   and c.next_attempt_at is not null
+                   and c.next_attempt_at <= now()
+                   and ce.status = 'active'
+                 order by c.next_attempt_at
+                 limit $1
+                 for update of c skip locked
               )
           and e.id = d.webhook_endpoint_id
-          and e.status = 'active'
         returning d.id, d.public_id, d.event_type, d.payload, d.attempt_count,
                   d.webhook_endpoint_id, e.url, e.secret`,
+      [CLAIM_BATCH_SIZE],
     );
 
     for (const row of rows) {
@@ -368,6 +392,18 @@ async function sweepHygiene() {
       `delete from webhook_deliveries
         where status in ('delivered', 'failed', 'cancelled')
           and created_at < now() - interval '30 days'`,
+    );
+    // Deliveries stranded on an endpoint that was disabled outside the
+    // owner and auto-disable paths (a direct SQL disable per the runbook, or
+    // an enqueue that raced the disable). Without this they sit pending
+    // forever: unclaimable and never old enough to purge.
+    await pool.query(
+      `update webhook_deliveries d
+          set status = 'cancelled', next_attempt_at = null
+         from webhook_endpoints e
+        where e.id = d.webhook_endpoint_id
+          and e.status <> 'active'
+          and d.status = 'pending'`,
     );
     // Sessions: revoked or expired for over an hour. Active sessions (not
     // revoked, not past expiry) never match.
@@ -767,9 +803,11 @@ if (require.main === module) {
 module.exports = {
   deliverOne,
   processWebhookBatch,
+  sweepHygiene,
   sweepExpiredActivations,
   signPayload,
   RETRY_DELAYS_SECONDS,
   MAX_ATTEMPTS,
   AUTO_DISABLE_THRESHOLD,
+  CLAIM_BATCH_SIZE,
 };
