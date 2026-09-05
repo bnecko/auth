@@ -1,5 +1,6 @@
 import { Pool, type QueryResultRow } from "pg";
 import { requireEnv } from "./config";
+import { log } from "./log";
 
 let pool: Pool | undefined;
 
@@ -16,6 +17,12 @@ function getPool() {
       connectionTimeoutMillis: 5_000,
       statement_timeout: 30_000,
     });
+
+    // An idle client dropped by Postgres (restart, failover, idle timeout on
+    // the server side) emits 'error' on the pool. With no listener node
+    // treats it as an unhandled 'error' event and kills the process, so the
+    // listener is what lets the pool quietly discard the client instead.
+    pool.on("error", err => log.error("db_pool_error", { error: err }));
   }
 
   return pool;

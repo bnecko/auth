@@ -9,7 +9,38 @@ const apiBase = `https://api.telegram.org/bot${botToken}`;
 const longPollSeconds = 30;
 let offset = 0;
 
-main();
+// Structured logging, inlined because the bot image ships only index.js and
+// cannot import the worker's logger. Same JSON-line shape as worker-log.js so
+// one log pipeline reads every process.
+function logEvent(level, msg, metadata) {
+  const record = { ts: new Date().toISOString(), level, msg };
+  if (metadata) {
+    for (const [k, v] of Object.entries(metadata)) {
+      record[k] = v instanceof Error
+        ? { name: v.name, message: v.message, stack: v.stack }
+        : v;
+    }
+  }
+  const line = JSON.stringify(record) + "\n";
+  if (level === "warn" || level === "error") process.stderr.write(line);
+  else process.stdout.write(line);
+}
+
+// main() is a floating promise: a throw from the startup status monitor used
+// to surface as an unstructured unhandled rejection.
+main().catch(err => {
+  logEvent("error", "bot_crashed", { error: err });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", err => {
+  logEvent("error", "unhandled_rejection", { error: err });
+  process.exit(1);
+});
+process.on("uncaughtException", err => {
+  logEvent("error", "uncaught_exception", { error: err });
+  process.exit(1);
+});
 
 async function startStatusMonitor() {
   if (!analyticsChatId) return;
@@ -29,7 +60,7 @@ async function startStatusMonitor() {
   
   const msgData = await safeJson(msgResponse);
   if (!msgData || !msgData.ok) {
-    console.error("Failed to send startup status message:", msgData?.description);
+    logEvent("warn", "status_message_failed", { description: msgData?.description });
     return;
   }
 
@@ -43,7 +74,7 @@ async function startStatusMonitor() {
       message_id: messageId,
       disable_notification: true
     }),
-  }).catch(err => console.error("Failed to pin status message:", err.message));
+  }).catch(err => logEvent("warn", "pin_status_failed", { error: err }));
 
   setInterval(async () => {
     const updatedText = `server status: UP\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
@@ -64,7 +95,7 @@ async function main() {
       try {
         await handleUpdate(update);
       } catch (err) {
-        console.error("handleUpdate error:", err && err.message);
+        logEvent("error", "handle_update_error", { error: err });
         // Stop advancing past a failing update so it's retried on the
         // next poll. Telegram caps retention at ~24h.
         break;
@@ -83,13 +114,13 @@ async function getUpdates() {
     });
     const data = await response.json();
     if (!data.ok) {
-      console.error("getUpdates failed:", data.description);
+      logEvent("warn", "get_updates_failed", { description: data.description });
       await sleep(1000);
       return [];
     }
     return data.result;
   } catch (err) {
-    console.error("getUpdates error:", err.message);
+    logEvent("warn", "get_updates_error", { error: err });
     await sleep(1000);
     return [];
   }
@@ -266,7 +297,7 @@ async function answerCallback(callbackQueryId, text, alert) {
       text: text || undefined,
       show_alert: !!alert,
     }),
-  }).catch(err => console.error("answerCallbackQuery error:", err.message));
+  }).catch(err => logEvent("warn", "answer_callback_error", { error: err }));
 }
 
 async function editMessage(chatId, messageId, text) {
@@ -278,7 +309,7 @@ async function editMessage(chatId, messageId, text) {
       message_id: messageId,
       text,
     }),
-  }).catch(err => console.error("editMessageText error:", err.message));
+  }).catch(err => logEvent("warn", "edit_message_error", { error: err }));
 }
 
 async function callVerify(startToken, from) {
@@ -317,7 +348,7 @@ async function callVerify(startToken, from) {
     return { message: data?.error || "This verification link is invalid or expired." };
   }
 
-  console.error("verify webhook failed:", response.status);
+  logEvent("error", "verify_webhook_failed", { status: response.status });
   return { message: "Verification service is unavailable. Try again in a moment." };
 }
 
@@ -326,7 +357,7 @@ async function reply(chatId, text) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text }),
-  }).catch(err => console.error("sendMessage error:", err.message));
+  }).catch(err => logEvent("warn", "send_message_error", { error: err }));
 }
 
 async function safeJson(response) {

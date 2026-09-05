@@ -133,6 +133,11 @@ const databaseUrl = process.env.DATABASE_URL;
 // connection budget when multiple worker replicas run.
 const pool = new Pool({ connectionString: databaseUrl, max: 5 });
 
+// An idle client dropped by Postgres emits 'error' on the pool; unlistened,
+// node escalates that to an unhandled 'error' event and kills the worker
+// mid-sweep. With the listener the pool just discards the client.
+pool.on("error", err => logger.error("db_pool_error", { error: err }));
+
 // After attempt N fails, wait this many seconds before attempt N+1.
 // Index 0 is unused; we look up by attempt_count (1-indexed).
 const RETRY_DELAYS_SECONDS = [
@@ -742,6 +747,9 @@ function startWorker() {
 
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
   bullConnection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  // ioredis emits 'error' on every failed reconnect attempt; without a
+  // listener node treats the first one as fatal.
+  bullConnection.on("error", err => logger.error("redis_error", { error: err }));
 
   bullWorker = new Worker("telegram-notifications", async (job) => {
     if (job.name === "send") {
@@ -760,6 +768,7 @@ function startWorker() {
     }
   }, { connection: bullConnection });
 
+  bullWorker.on("error", err => logger.error("telegram_worker_error", { error: err }));
   bullWorker.on("completed", job => logger.debug("telegram_job_completed", { jobId: job.id }));
   bullWorker.on("failed", (job, err) => logger.error("telegram_job_failed", { jobId: job?.id, error: err }));
   logger.info("telegram_worker_started");
@@ -794,6 +803,20 @@ function startWorker() {
 
   process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
   process.on("SIGINT", () => shutdownGracefully("SIGINT"));
+
+  // Node already terminates on either of these; the handlers exist so the
+  // reason is a structured line rather than a bare stack, and so the exit is
+  // non-zero and Docker's restart policy takes over. No graceful drain: after
+  // an unhandled throw the loop state is unknown, and shutdownGracefully
+  // would run against it.
+  process.on("unhandledRejection", err => {
+    logger.error("unhandled_rejection", { error: err });
+    process.exit(1);
+  });
+  process.on("uncaughtException", err => {
+    logger.error("uncaught_exception", { error: err });
+    process.exit(1);
+  });
 }
 
 if (require.main === module) {
