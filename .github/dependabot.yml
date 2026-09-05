@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # A release must be this old before it is proposed, so a compromised or
+    # yanked publish is normally gone before it can land here. Security
+    # advisories bypass the cooldown.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
     groups:
       # Batch routine patch/minor bumps into one PR. Majors still arrive
       # individually so they can be read, timed, and tested deliberately.
@@ -17,17 +23,19 @@ updates:
       # the latest types release.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # ioredis is pinned to bullmq's exact transitive pin to keep a single
-      # client copy; bump it together with bullmq, not on its own.
-      - dependency-name: "ioredis"
 
   - package-ecosystem: npm
     directory: "/sdk/node"
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
