@@ -185,6 +185,12 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+    # Must exceed GRACEFUL_SHUTDOWN_TIMEOUT_MS: shutdownGracefully spends that
+    # long draining in-flight batches (a webhook batch is ten sequential
+    # deliveries with a 5s timeout each) and only then closes the pool and the
+    # Redis connections. At Docker's 10s default the drain and the SIGKILL
+    # expire together, so a shutdown under load loses its cleanup.
+    stop_grace_period: 20s
     mem_limit: 128m
     memswap_limit: 128m
     cpus: 0.25
