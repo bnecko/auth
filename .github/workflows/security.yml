@@ -56,10 +56,40 @@ jobs:
       - run: npm run test:run
       - run: npm run migrate:smoke
       - run: npm run build
-      - run: docker build --target runner .
+      - run: docker build --target runner -t auth-runner:ci .
       - run: docker build --target worker .
+      # The image that ships is the one under test: nonce CSP, HSTS, the
+      # standalone server and migrate-on-boot only exist in production mode.
+      # --network host lets the container reach the service containers on
+      # localhost and lets Playwright reach it on 127.0.0.1:3000. The
+      # Turnstile pair is Cloudflare's documented always-pass test keypair.
+      - name: Boot the runner image
+        run: |
+          docker run -d --name auth-runner --network host \
+            -e DATABASE_URL -e REDIS_URL -e OIDC_PRIVATE_KEY_PEM -e OIDC_KEY_ID \
+            -e AUTH_BASE_URL=http://127.0.0.1:3000 \
+            -e OAUTH_CSRF_SECRET=ci-oauth-csrf-secret \
+            -e TELEGRAM_BOT_WEBHOOK_SECRET=ci-telegram-webhook-secret \
+            -e TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA \
+            -e TURNSTILE_SITE_KEY=1x00000000000000000000AA \
+            auth-runner:ci
       - run: npx playwright install --with-deps chromium
+      - name: Wait for the runner to be ready
+        run: |
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:3000/api/health/ready; then exit 0; fi
+            sleep 2
+          done
+          echo "runner image did not become ready" >&2
+          docker logs auth-runner
+          exit 1
       - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      - if: failure()
+        run: docker logs auth-runner
+      - if: always()
+        run: docker rm -f auth-runner
 
   sdk:
     runs-on: ubuntu-latest
