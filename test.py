@@ -7,6 +7,8 @@ import os
 
 CONTAINER_NAME = "auth-test-db"
 DB_PORT = "5433"
+REDIS_CONTAINER_NAME = "auth-test-redis"
+REDIS_PORT = "6380"
 DB_USER = "auth"
 DB_PASS = "test"
 DB_NAME = "auth"
@@ -37,6 +39,7 @@ def setup_db():
         if res.returncode == 0:
             print("Database is ready.")
             time.sleep(1) # Give it a moment to finish init scripts
+            setup_redis()
             return
         time.sleep(1)
     
@@ -44,9 +47,32 @@ def setup_db():
     teardown_db()
     sys.exit(1)
 
+def setup_redis():
+    # The queue round-trip suite is gated on REDIS_URL and, like CI, expects
+    # a real Redis behind it; exporting the URL without a server would make
+    # that suite fail instead of skip.
+    print(f"Starting test redis container '{REDIS_CONTAINER_NAME}' on port {REDIS_PORT}...")
+    run_cmd(["docker", "rm", "-f", REDIS_CONTAINER_NAME], check=False, capture_output=True)
+    run_cmd([
+        "docker", "run", "--name", REDIS_CONTAINER_NAME,
+        "-p", f"{REDIS_PORT}:6379",
+        "-d", "redis:7-alpine"
+    ])
+    for _ in range(30):
+        res = run_cmd(["docker", "exec", REDIS_CONTAINER_NAME, "redis-cli", "ping"], check=False, capture_output=True)
+        if res.returncode == 0 and "PONG" in res.stdout:
+            print("Redis is ready.")
+            return
+        time.sleep(1)
+
+    print("Error: Redis failed to become ready.")
+    teardown_db()
+    sys.exit(1)
+
 def teardown_db():
-    print(f"Wiping test database container '{CONTAINER_NAME}'...")
+    print(f"Wiping test containers '{CONTAINER_NAME}' and '{REDIS_CONTAINER_NAME}'...")
     run_cmd(["docker", "rm", "-f", CONTAINER_NAME], check=False, capture_output=True)
+    run_cmd(["docker", "rm", "-f", REDIS_CONTAINER_NAME], check=False, capture_output=True)
 
 def run_npm(script, log, env):
     """Run an npm script against the test DB, streaming output to stdout + log."""
@@ -71,7 +97,7 @@ def run_checks():
     print(f"Running pre-push checks, output will be saved to {LOG_FILE}...")
     env = os.environ.copy()
     env["DATABASE_URL"] = f"postgres://{DB_USER}:{DB_PASS}@localhost:{DB_PORT}/{DB_NAME}"
-    env["REDIS_URL"] = "redis://localhost:6379"
+    env["REDIS_URL"] = f"redis://localhost:{REDIS_PORT}"
 
     with open(LOG_FILE, "w") as log:
         # Exercise the migration chain on a fresh DB AND on a

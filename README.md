@@ -73,18 +73,24 @@ npm run test:run
 ```
 
 The unit suite runs without external services. The integration suites are
-gated on `DATABASE_URL` and skip loudly without it; point them at a throwaway
-Postgres to run them:
+gated on `DATABASE_URL` (and, for the queue round trip, `REDIS_URL`) and skip
+loudly without them; point them at throwaway containers to run them:
 
 ```sh
 docker run -d --name auth-test-db -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:16-alpine
+docker run -d --name auth-test-redis -p 6379:6379 redis:7-alpine
 export DATABASE_URL="postgres://postgres:postgres@localhost:5433/postgres"
+export REDIS_URL="redis://localhost:6379"
 export OIDC_PRIVATE_KEY_PEM="$(openssl genrsa 2048 2>/dev/null)" OIDC_KEY_ID=test
 npm run migrate && npm run test:run
 ```
 
+With `REDIS_URL` set, rate-limit counters live in Redis and are shared across
+test files within one run, so a test that exercises a rate-limited path must
+use keys unique to itself.
+
 CI (`.github/workflows/security.yml`) runs the unit and integration suites,
-the Playwright end-to-end scenarios against a Postgres service, `npm audit`,
+the Playwright end-to-end scenarios against Postgres and Redis services, `npm audit`,
 the migration smoke test, the production build, and both Docker image builds
 on every push. The `sdk` job separately builds and type-checks the Node SDK.
 
