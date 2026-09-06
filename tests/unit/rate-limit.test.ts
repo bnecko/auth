@@ -60,7 +60,7 @@ const fakeRedis = {
   },
 };
 
-vi.mock('@/lib/server/redis', () => ({ default: fakeRedis }));
+vi.mock('@/lib/server/redis', () => ({ default: fakeRedis, getLastRedisError: () => null }));
 
 // Import after mock so the module gets our fake.
 const { rateLimit } = await import('@/lib/server/rateLimit');

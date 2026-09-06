@@ -6,22 +6,22 @@ const { lookup } = require("dns/promises");
 const { isIP } = require("net");
 const logger = require("./worker-log.js");
 
-// Operator alert (plain JS; the worker cannot import the TS webhookAlerts
-// service). Auto-disable transitions fire exactly once per endpoint, so no
-// rate limit is needed here. Best-effort, never throws.
-async function sendOperatorAlert(text) {
-  const chatId = process.env.ALERT_TELEGRAM_CHAT_ID || process.env.BEARER_ADMIN_TELEGRAM_ID;
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!chatId || !token || process.env.NODE_ENV !== "production") return;
-  try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
-    });
-  } catch (err) {
-    logger.error("operator_alert_failed", { error: err });
-  }
+const { createOperatorAlerter, noopAlerter } = require("./worker-alert.js");
+const { buildDailyDigest, sendDailyDigest } = require("./worker-digest.js");
+
+// Operator alerts are wired up in startWorker(); until then (and in tests
+// that require this module) they are a no-op.
+let alerts = noopAlerter;
+let opsRedis = null;
+const startedAt = Date.now();
+const DIGEST_HOUR_UTC = Number(process.env.DIGEST_HOUR_UTC || 8);
+// Loop failures repeat every tick while the cause persists; one message per
+// half hour per loop is enough to act on.
+const LOOP_ALERT_WINDOW_SECONDS = 1800;
+
+function alertLoopError(event, err) {
+  const message = err instanceof Error ? err.message : String(err);
+  return alerts.send(event, `${event}\n${message}`, { windowSeconds: LOOP_ALERT_WINDOW_SECONDS });
 }
 
 // Graceful-shutdown state. On SIGTERM/SIGINT we stop scheduling new work,
@@ -310,7 +310,8 @@ async function disableEndpointIfFailing(row) {
       endpointId: row.webhook_endpoint_id,
       consecutiveFailures: endpoint.consecutive_failures,
     });
-    await sendOperatorAlert(
+    await alerts.send(
+      `webhook_disabled:${row.webhook_endpoint_id}`,
       `Webhook endpoint auto-disabled\nendpoint #${row.webhook_endpoint_id} after ${endpoint.consecutive_failures} consecutive failures`,
     );
   }
@@ -367,6 +368,7 @@ async function processWebhookBatch() {
     }
   } catch (err) {
     logger.error("webhook_batch_error", { error: err });
+    await alertLoopError("webhook_batch_error", err);
   }
 }
 
@@ -485,6 +487,7 @@ async function sweepHygiene() {
     );
   } catch (err) {
     logger.error("hygiene_sweep_error", { error: err });
+    await alertLoopError("hygiene_sweep_error", err);
   }
 }
 
@@ -599,6 +602,7 @@ async function sweepRestrictedInactive() {
     }
   } catch (err) {
     logger.error("restriction_sweep_error", { error: err });
+    await alertLoopError("restriction_sweep_error", err);
   }
 }
 
@@ -621,6 +625,7 @@ async function sweepPendingDeletions() {
     );
   } catch (err) {
     logger.error("deletion_sweep_error", { error: err });
+    await alertLoopError("deletion_sweep_error", err);
     return;
   }
 
@@ -704,7 +709,10 @@ function runBatch(fn, errorEvent) {
   if (isShuttingDown) return;
   inFlightBatches += 1;
   fn()
-    .catch(err => logger.error(errorEvent, { error: err }))
+    .catch(err => {
+      logger.error(errorEvent, { error: err });
+      return alertLoopError(errorEvent, err);
+    })
     .finally(() => {
       inFlightBatches -= 1;
     });
@@ -734,6 +742,7 @@ async function shutdownGracefully(signal) {
   }
   try {
     if (bullConnection) await bullConnection.quit();
+    if (opsRedis) await opsRedis.quit();
   } catch (err) {
     logger.error("redis_quit_failed", { error: err });
   }
@@ -750,6 +759,19 @@ function startWorker() {
   // ioredis emits 'error' on every failed reconnect attempt; without a
   // listener node treats the first one as fatal.
   bullConnection.on("error", err => logger.error("redis_error", { error: err }));
+
+  // Alerts and the digest use their own bounded connection: bullConnection
+  // runs with maxRetriesPerRequest: null, so a command on it would block for
+  // the whole of a Redis outage, which is the moment alerts matter most.
+  opsRedis = new Redis(redisUrl, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
+  opsRedis.on("error", err => logger.error("redis_error", { error: err, connection: "ops" }));
+  alerts = createOperatorAlerter({
+    redis: opsRedis,
+    chatId: process.env.ALERT_TELEGRAM_CHAT_ID || process.env.BEARER_ADMIN_TELEGRAM_ID,
+    token: botToken,
+    enabled: process.env.NODE_ENV === "production",
+    log: logger,
+  });
 
   bullWorker = new Worker("telegram-notifications", async (job) => {
     if (job.name === "send") {
@@ -801,6 +823,14 @@ function startWorker() {
   runBatch(sweepPendingDeletions, "initial_deletion_sweep_error");
   logger.info("deletion_sweep_started");
 
+  // Hourly tick; the hour gate and the 36h NX window inside make it one
+  // send per UTC day. Running once at start covers a restart during the
+  // digest hour.
+  const digest = () => sendDailyDigest({ pool, alerts, redis: opsRedis, hourUtc: DIGEST_HOUR_UTC, startedAt });
+  intervalIds.push(setInterval(() => runBatch(digest, "digest_loop_error"), 60 * 60 * 1000));
+  runBatch(digest, "initial_digest_error");
+  logger.info("daily_digest_started", { hourUtc: DIGEST_HOUR_UTC });
+
   process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
   process.on("SIGINT", () => shutdownGracefully("SIGINT"));
 
@@ -819,8 +849,40 @@ function startWorker() {
   });
 }
 
+// `node worker.js --digest` builds and sends the digest once, bypassing the
+// hour gate and the daily window, then exits: the runbook's "is the alert
+// channel alive" check.
+async function runDigestOnce() {
+  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+  const redis = new Redis(redisUrl, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
+  redis.on("error", err => logger.error("redis_error", { error: err, connection: "ops" }));
+  const sender = createOperatorAlerter({
+    redis,
+    chatId: process.env.ALERT_TELEGRAM_CHAT_ID || process.env.BEARER_ADMIN_TELEGRAM_ID,
+    token: process.env.TELEGRAM_BOT_TOKEN,
+    enabled: true,
+    log: logger,
+  });
+  try {
+    const text = await buildDailyDigest(pool, { redis, startedAt });
+    const sent = await sender.send(`digest:manual:${Date.now()}`, text, { windowSeconds: 1 });
+    logger.info("digest_sent_once", { sent });
+    process.stdout.write(text + "\n");
+  } finally {
+    await pool.end();
+    redis.disconnect();
+  }
+}
+
 if (require.main === module) {
-  startWorker();
+  if (process.argv.includes("--digest")) {
+    runDigestOnce().catch(err => {
+      logger.error("digest_once_failed", { error: err });
+      process.exit(1);
+    });
+  } else {
+    startWorker();
+  }
 }
 
 module.exports = {
