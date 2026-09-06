@@ -108,6 +108,18 @@ async function endpointState(endpointId: number) {
   );
 }
 
+// enqueueWebhookEvent stamps next_attempt_at from this process's clock while
+// the claim compares it against the database's now(). Under Docker Desktop
+// the container clock can lag the host by a few milliseconds, which makes a
+// just-enqueued row not yet due and the claim skip it. Push the row into the
+// past on the database's own clock so the test cannot depend on the skew.
+async function makeDue(deliveryId: number) {
+  await query(
+    `update webhook_deliveries set next_attempt_at = now() - interval '1 minute' where id = $1`,
+    [deliveryId],
+  );
+}
+
 async function disableEndpointDirectly(endpointId: number) {
   await query(`update webhook_endpoints set status = 'disabled' where id = $1`, [endpointId]);
 }
@@ -132,6 +144,7 @@ describeDb('webhook delivery loop', () => {
   it('delivers a pending event and marks it delivered with a verifiable signature', async () => {
     responseStatus = 200;
     const { deliveryId } = await seedPendingDelivery('/ok');
+    await makeDue(deliveryId);
 
     // processWebhookBatch claims pending deliveries table-wide. Other suites
     // (e.g. webhook-enqueue) leave pending rows in the shared DB, so neutralize
@@ -183,6 +196,7 @@ describeDb('webhook delivery loop', () => {
     );
 
     const live = await seedPendingDelivery('/live');
+    await makeDue(live.deliveryId);
     await query(
       `update webhook_deliveries set status = 'cancelled'
         where status = 'pending' and webhook_endpoint_id not in ($1, $2)`,
