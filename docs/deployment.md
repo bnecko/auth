@@ -27,6 +27,15 @@ the Compose network:
 Service: http://app:3000
 ```
 
+The connector reads its token from the `TUNNEL_TOKEN` environment variable
+(Compose maps `CLOUDFLARED_TOKEN` to it), so the token never appears in
+`docker compose ps` or `docker top`. It also serves its metrics endpoint at
+`http://cloudflared:2000` inside the Compose network: `/ready` returns 200
+only while at least one connection to the Cloudflare edge is registered, and
+`/metrics` is Prometheus text. Neither is published on a host port. The image
+is distroless, so there is no in-container healthcheck; readiness is checked
+from another container.
+
 ## Database and migrations
 
 The schema is loaded from `db/schema.sql` on first Postgres startup. Existing
