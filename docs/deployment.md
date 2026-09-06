@@ -154,7 +154,8 @@ on Cloudflare's network, so it keeps working when this host does not. Setup:
 ```sh
 cd monitor && npm ci
 npx wrangler login                       # once, opens a browser
-npx wrangler deploy                      # first deploy also provisions the D1 database
+npx wrangler d1 create auth-monitor      # once; wrangler.jsonc pins the printed database_id
+npx wrangler deploy
 npx wrangler d1 migrations apply auth-monitor --remote
 npx wrangler secret put PING_TOKEN       # openssl rand -hex 32
 npx wrangler secret put TELEGRAM_BOT_TOKEN
@@ -164,7 +165,9 @@ npx wrangler secret put ALERT_TELEGRAM_CHAT_ID
 The cron starts with the first deploy, so `npx wrangler tail` shows a few
 error lines until the migration and the secrets are in place; nothing is
 sent to the chat before the secrets exist. Later code changes are just
-`npx wrangler deploy`.
+`npx wrangler deploy`. In a non-interactive shell (`CI=true`) `d1 create`
+prints the id but does not write it into the config; paste it into
+`wrangler.jsonc` by hand.
 
 `wrangler deploy` prints the Worker URL; the heartbeat URLs for the env file
 are `https://<worker-url>/ping/worker?token=<PING_TOKEN>` and
