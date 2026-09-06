@@ -9,7 +9,7 @@ rotation notes in `runbooks/oncall.md`.
 
 ```sh
 npm ci
-npm run typecheck     # wrangler types --check + tsc
+npm run typecheck     # wrangler types (generates worker-configuration.d.ts) + tsc
 npm test              # decision logic, no bindings needed
 npm run dev           # wrangler dev --test-scheduled; GET /__scheduled runs the cron once
 npm run deploy

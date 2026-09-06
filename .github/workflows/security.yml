@@ -86,8 +86,9 @@ jobs:
       - run: npm run test:e2e
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      # Runs on any earlier failure, including ones before the container exists.
       - if: failure()
-        run: docker logs auth-runner
+        run: docker logs auth-runner 2>/dev/null || true
       - if: always()
         run: docker rm -f auth-runner
 
@@ -104,9 +105,9 @@ jobs:
           cache: npm
           cache-dependency-path: monitor/package-lock.json
       - run: npm ci
-      # `wrangler types --check` fails if the committed worker-configuration.d.ts
-      # is stale relative to wrangler.jsonc; `wrangler deploy --dry-run` bundles
-      # the Worker without publishing and needs no credentials.
+      # typecheck regenerates worker-configuration.d.ts from wrangler.jsonc (it
+      # is not committed) before tsc; `wrangler deploy --dry-run` bundles the
+      # Worker without publishing and needs no credentials.
       - run: npm run typecheck
       - run: npm test
       - run: npx wrangler deploy --dry-run --outdir /tmp/bundle
