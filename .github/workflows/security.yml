@@ -58,6 +58,7 @@ jobs:
       - run: npm run build
       - run: docker build --target runner -t auth-runner:ci .
       - run: docker build --target worker .
+      - run: docker build -t auth-bot:ci ./bot && docker run --rm auth-bot:ci node -e "import('./status.js')"
       # The image that ships is the one under test: nonce CSP, HSTS, the
       # standalone server and migrate-on-boot only exist in production mode.
       # --network host lets the container reach the service containers on

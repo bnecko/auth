@@ -129,6 +129,11 @@ services:
       # rejects every tap. Mandatory here rather than defaulted.
       BEARER_ADMIN_TELEGRAM_ID: ${BEARER_ADMIN_TELEGRAM_ID:?set BEARER_ADMIN_TELEGRAM_ID}
       HEARTBEAT_URL: ${HEARTBEAT_URL_BOT:-}
+      # /status answers only in this chat (or the admin's private chat) and
+      # reads the external monitor through MONITOR_STATUS_URL.
+      ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
+      MONITOR_STATUS_URL: ${MONITOR_STATUS_URL:-}
+      CLOUDFLARED_READY_URL: ${CLOUDFLARED_READY_URL:-}
       TELEGRAM_ANALYTICS_CHAT_ID: ${TELEGRAM_ANALYTICS_CHAT_ID:-}
       TELEGRAM_ANALYTICS_THREAD_ID: ${TELEGRAM_ANALYTICS_THREAD_ID:-}
     depends_on:

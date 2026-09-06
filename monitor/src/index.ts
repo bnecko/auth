@@ -26,6 +26,8 @@ declare global {
   }
 }
 
+type HeartbeatRow = { name: string; last_seen_at: number };
+
 const PROBE_TIMEOUT_MS = 10_000;
 const TELEGRAM_TIMEOUT_MS = 5_000;
 const encoder = new TextEncoder();
@@ -51,10 +53,14 @@ function isHeartbeatSource(value: string): value is HeartbeatSource {
   return (HEARTBEAT_SOURCES as readonly string[]).includes(value);
 }
 
-async function handlePing(request: Request, env: Env): Promise<Response> {
+// Both routes hide behind the same token and answer 404 to anything else, so
+// an unauthenticated caller cannot tell the endpoints from the void.
+async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const match = /^\/ping\/([a-z]+)$/.exec(url.pathname);
-  if (request.method !== "GET" || !match || !isHeartbeatSource(match[1])) {
+  const ping = /^\/ping\/([a-z]+)$/.exec(url.pathname);
+  const source = ping && isHeartbeatSource(ping[1]) ? ping[1] : null;
+  const status = url.pathname === "/status";
+  if (request.method !== "GET" || (!status && !source)) {
     return new Response("not found", { status: 404 });
   }
   if (!env.PING_TOKEN) {
@@ -65,13 +71,31 @@ async function handlePing(request: Request, env: Env): Promise<Response> {
   if (!(await tokenMatches(token, env.PING_TOKEN))) {
     return new Response("not found", { status: 404 });
   }
+  return source ? handlePing(source, env) : handleStatus(env);
+}
+
+async function handlePing(source: HeartbeatSource, env: Env): Promise<Response> {
   await env.DB.prepare(
     `insert into heartbeats (name, last_seen_at) values (?1, ?2)
      on conflict (name) do update set last_seen_at = excluded.last_seen_at`,
   )
-    .bind(match[1], Date.now())
+    .bind(source, Date.now())
     .run();
   return new Response(null, { status: 204 });
+}
+
+// The current state as the cron last wrote it, for the bot's /status command.
+// `now` is this clock so the reader can age the heartbeats without trusting
+// its own.
+async function handleStatus(env: Env): Promise<Response> {
+  const [checks, heartbeats] = await Promise.all([
+    env.DB.prepare("select name, status, since, failures, detail from checks").all<CheckState>(),
+    env.DB.prepare("select name, last_seen_at from heartbeats").all<HeartbeatRow>(),
+  ]);
+  return Response.json(
+    { now: Date.now(), checks: checks.results, heartbeats: heartbeats.results },
+    { headers: { "cache-control": "no-store" } },
+  );
 }
 
 // Our own endpoints return small JSON documents; reading them whole is fine.
@@ -96,8 +120,6 @@ async function sendTelegram(env: Env, text: string): Promise<void> {
   });
   if (!res.ok) throw new Error(`telegram sendMessage failed: ${res.status}`);
 }
-
-type HeartbeatRow = { name: string; last_seen_at: number };
 
 async function runChecks(env: Env, now: number): Promise<void> {
   const base = env.TARGET_BASE_URL;
@@ -169,9 +191,9 @@ async function runChecks(env: Env, now: number): Promise<void> {
 export default {
   async fetch(request, env): Promise<Response> {
     try {
-      return await handlePing(request, env);
+      return await handleRequest(request, env);
     } catch (err) {
-      log("error", "ping_failed", { error: err instanceof Error ? err.message : String(err) });
+      log("error", "request_failed", { error: err instanceof Error ? err.message : String(err) });
       return new Response("error", { status: 500 });
     }
   },

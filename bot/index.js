@@ -1,9 +1,14 @@
+import { diagnose, formatStatus, gatherStatus, isStatusCommand, mayRequestStatus } from "./status.js";
+
 const botToken = required("TELEGRAM_BOT_TOKEN");
 const webhookSecret = required("TELEGRAM_BOT_WEBHOOK_SECRET");
 const authBaseUrl = process.env.AUTH_INTERNAL_URL || "http://localhost:3000";
 const bearerAdminTelegramId = required("BEARER_ADMIN_TELEGRAM_ID");
 const analyticsChatId = process.env.TELEGRAM_ANALYTICS_CHAT_ID;
 const analyticsThreadId = process.env.TELEGRAM_ANALYTICS_THREAD_ID;
+const alertChatId = process.env.ALERT_TELEGRAM_CHAT_ID;
+const monitorStatusUrl = process.env.MONITOR_STATUS_URL || "";
+const tunnelReadyUrl = process.env.CLOUDFLARED_READY_URL || "";
 const apiBase = `https://api.telegram.org/bot${botToken}`;
 
 const longPollSeconds = 30;
@@ -35,8 +40,6 @@ async function pingHeartbeat() {
   }
 }
 
-if (heartbeatUrl) setInterval(pingHeartbeat, HEARTBEAT_INTERVAL_MS);
-
 // Structured logging, inlined because the bot image ships only index.js and
 // cannot import the worker's logger. Same JSON-line shape as worker-log.js so
 // one log pipeline reads every process.
@@ -55,11 +58,26 @@ function logEvent(level, msg, metadata) {
 }
 
 // main() is a floating promise: a throw from the startup status monitor used
-// to surface as an unstructured unhandled rejection.
-main().catch(err => {
-  logEvent("error", "bot_crashed", { error: err });
-  process.exit(1);
-});
+// to surface as an unstructured unhandled rejection. `--status` prints the
+// breakdown the /status command sends and exits without ever polling, so it
+// can run beside the live bot from a shell on the host.
+if (process.argv.includes("--status")) {
+  statusReport(false).then(
+    text => {
+      process.stdout.write(text + "\n");
+      process.exit(0);
+    },
+    err => {
+      logEvent("error", "status_failed", { error: err });
+      process.exit(1);
+    },
+  );
+} else {
+  main().catch(err => {
+    logEvent("error", "bot_crashed", { error: err });
+    process.exit(1);
+  });
+}
 
 process.on("unhandledRejection", err => {
   logEvent("error", "unhandled_rejection", { error: err });
@@ -116,6 +134,7 @@ async function startStatusMonitor() {
 }
 
 async function main() {
+  if (heartbeatUrl) setInterval(pingHeartbeat, HEARTBEAT_INTERVAL_MS);
   await startStatusMonitor();
   while (true) {
     const updates = await getUpdates();
@@ -168,6 +187,14 @@ async function handleUpdate(update) {
 
   const message = update.message;
   if (!message || !message.text) {
+    return;
+  }
+
+  if (isStatusCommand(message.text)) {
+    if (mayRequestStatus(message, { alertChatId, adminTelegramId: bearerAdminTelegramId })) {
+      const threadId = message.is_topic_message ? message.message_thread_id : undefined;
+      await reply(message.chat.id, await statusReport(), threadId);
+    }
     return;
   }
 
@@ -386,11 +413,16 @@ async function callVerify(startToken, from) {
   return { message: "Verification service is unavailable. Try again in a moment." };
 }
 
-async function reply(chatId, text) {
+async function statusReport(viaTelegram = true) {
+  const report = await gatherStatus({ appUrl: authBaseUrl, tunnelReadyUrl, monitorStatusUrl });
+  return formatStatus(report, diagnose(report), { viaTelegram });
+}
+
+async function reply(chatId, text, threadId) {
   await fetch(`${apiBase}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({ chat_id: chatId, message_thread_id: threadId, text }),
   }).catch(err => logEvent("warn", "send_message_error", { error: err }));
 }
 

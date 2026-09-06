@@ -21,6 +21,25 @@ Long-polls Telegram (`getUpdates`), so it does not need a public URL. Only the a
 
 The bot username (`TELEGRAM_BOT_USERNAME`) is only needed by the auth service to build the start link.
 
+## Optional env
+
+- `HEARTBEAT_URL` - pinged once a minute while the long-poll succeeds (see `docs/deployment.md`, Monitoring)
+- `ALERT_TELEGRAM_CHAT_ID` - the chat in which `/status` is answered; the admin's private chat always works
+- `MONITOR_STATUS_URL` - the external monitor's `/status?token=...` URL, read by `/status`
+- `CLOUDFLARED_READY_URL` - cloudflared's `/ready` endpoint, read by `/status`
+- `TELEGRAM_ANALYTICS_CHAT_ID` / `TELEGRAM_ANALYTICS_THREAD_ID` - where the pinned status message lives
+
+## /status
+
+`/status` in the alert chat (or from the admin in a private chat) replies with a
+layer-by-layer breakdown: Cloudflare's own status page, the tunnel's edge
+connections, the app's readiness (Postgres, Redis), the worker and bot
+heartbeats as the external monitor sees them, and the public probe. The first
+line says UP, DEGRADED or DOWN and the second names the layer to blame. No reply
+means the bot itself, or the whole host, is down; the external monitor's last
+DOWN message in the chat says which. `node index.js --status` prints the same
+report from a shell (`docker compose exec bot node index.js --status`).
+
 ## Run
 
 ```
