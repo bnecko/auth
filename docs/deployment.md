@@ -139,8 +139,50 @@ absence is itself the alert. `docker compose exec -T worker node worker.js
 runbook's "is the channel alive" check.
 
 These alerts are sent from the host. When the host, the tunnel, or the
-worker is down nothing can send them, so they do not replace an external
-uptime monitor.
+worker is down nothing can send them, so they do not replace the external
+monitor described next.
+
+## Monitoring
+
+Two kinds of check, both run by a monitoring service outside the host (any
+vendor that offers HTTP probes and "expect a ping every N minutes" checks,
+delivering to the same Telegram chat if you like):
+
+HTTP probes, from outside, through the tunnel:
+
+- `GET https://auth.bneck.com/api/health/ready`, expect 200 and a body
+  containing `"ok":true`, every 1 to 2 minutes. This is the end-to-end check:
+  tunnel, app, Postgres and Redis.
+- `GET https://auth.bneck.com/.well-known/openid-configuration`, expect 200
+  and `"issuer":"https://auth.bneck.com"`, every 5 minutes. Catches a
+  misconfigured base URL that the readiness probe would not.
+- Optional: `GET https://auth.bneck.com/oauth/jwks`, expect the active
+  `kid`, every 15 minutes, to catch a signing-key regression.
+
+Cloudflare's bot protection may block a vendor's probes; if the checks fail
+with 403 while the site works, add a WAF skip rule for `/api/health/*` and
+the discovery path scoped to the vendor's user agent or IP ranges.
+
+Heartbeats (dead-man's switches), pinged from inside:
+
+- `HEARTBEAT_URL_WORKER`: the worker pings once a minute, but only while
+  every background loop has completed without error inside its tolerance
+  and Redis answers. Configure the check for a 1 minute period and a 3
+  minute grace. When it withholds the ping it also logs
+  `heartbeat_withheld` and sends a `worker_unhealthy` alert, so the two
+  signals corroborate each other.
+- `HEARTBEAT_URL_BOT`: the bot pings once a minute while its Telegram
+  long-poll keeps succeeding. Same period and grace. The pinned status
+  message in the analytics chat also reads DEGRADED with the age of the last
+  good poll when it is stale.
+- `CLOUDFLARED_READY_URL` (`http://cloudflared:2000/ready`): not a heartbeat,
+  but the worker checks it every minute and alerts `cloudflared_not_ready`
+  while the tunnel has no edge connection. The HTTP probes above are the
+  tunnel's dead-man's switch; this only gets the news out faster while the
+  host can still speak.
+
+The daily digest (above) is the slowest of the switches: its absence means
+the worker, the database, or the alert channel has been dead for up to a day.
 
 ## Backup and restore
 
