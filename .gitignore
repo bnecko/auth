@@ -29,6 +29,10 @@ test-results/
 playwright-report/
 sdk/*/dist/
 
+# Cloudflare Worker (monitor/): local secrets and wrangler state
+monitor/.dev.vars
+monitor/.wrangler/
+
 docs/prompts/
 handoffs/
 

@@ -91,6 +91,26 @@ jobs:
       - if: always()
         run: docker rm -f auth-runner
 
+  monitor:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: monitor
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: monitor/package-lock.json
+      - run: npm ci
+      # `wrangler types --check` fails if the committed worker-configuration.d.ts
+      # is stale relative to wrangler.jsonc; `wrangler deploy --dry-run` bundles
+      # the Worker without publishing and needs no credentials.
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx wrangler deploy --dry-run --outdir /tmp/bundle
+
   sdk:
     runs-on: ubuntu-latest
     strategy:

@@ -144,9 +144,36 @@ monitor described next.
 
 ## Monitoring
 
-Two kinds of check, both run by a monitoring service outside the host (any
-vendor that offers HTTP probes and "expect a ping every N minutes" checks,
-delivering to the same Telegram chat if you like):
+The external monitor is a Cloudflare Worker in `monitor/`, running on the
+Workers free plan: a cron trigger every minute probes the public endpoints,
+judges the heartbeats it has received, and posts to the alert chat only when
+a check changes state (`DOWN: ...`, `RECOVERED: ... after 7m`), plus one
+"External monitor: n/4 checks up" line per day at `SUMMARY_HOUR_UTC`. It runs
+on Cloudflare's network, so it keeps working when this host does not. Setup:
+
+```sh
+cd monitor && npm ci
+npx wrangler login                       # once, opens a browser
+npx wrangler deploy                      # first deploy also provisions the D1 database
+npx wrangler d1 migrations apply auth-monitor --remote
+npx wrangler secret put PING_TOKEN       # openssl rand -hex 32
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put ALERT_TELEGRAM_CHAT_ID
+```
+
+The cron starts with the first deploy, so `npx wrangler tail` shows a few
+error lines until the migration and the secrets are in place; nothing is
+sent to the chat before the secrets exist. Later code changes are just
+`npx wrangler deploy`.
+
+`wrangler deploy` prints the Worker URL; the heartbeat URLs for the env file
+are `https://<worker-url>/ping/worker?token=<PING_TOKEN>` and
+`.../ping/bot?token=<PING_TOKEN>`. The token is compared in constant time
+and never logged. `TELEGRAM_BOT_TOKEN` now has a second consumer (see the
+runbook's rotation matrix). Any other ping-URL monitoring service works in
+its place; the checks below are what it must implement.
+
+Two kinds of check:
 
 HTTP probes, from outside, through the tunnel:
 

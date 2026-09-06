@@ -73,13 +73,14 @@ changed), which is a short outage you should schedule, not trip over.
 | `POSTGRES_PASSWORD` | `db` (initdb only), `app`, `worker` via `DATABASE_URL` | `alter role`, then `up -d --no-deps app worker` | DB errors until both restart | none; seconds |
 | `OIDC_PRIVATE_KEY_PEM`, `OIDC_KEY_ID`, `OIDC_SIGNING_KEYS_JSON` | `app` | `up -d --no-deps app` | tokens signed by a dropped key stop verifying | yes, via `retired` status |
 | `OAUTH_CSRF_SECRET` | `app` | `up -d --no-deps app` | in-flight consent/activation forms fail once | none |
-| `TELEGRAM_BOT_TOKEN` | `app`, `worker`, `bot` | `up -d --no-deps app worker bot` | 2FA prompts, notifications, bot sign-in fail; queued jobs retry | edit env, then BotFather revoke |
+| `TELEGRAM_BOT_TOKEN` | `app`, `worker`, `bot`, monitor Worker (`wrangler secret put`) | `up -d --no-deps app worker bot`, then `wrangler secret put TELEGRAM_BOT_TOKEN` in `monitor/` | 2FA prompts, notifications, bot sign-in fail; queued jobs retry; monitor alerts fail until its secret is updated | edit env, then BotFather revoke |
 | `TELEGRAM_BOT_WEBHOOK_SECRET` | `app`, `bot` | `up -d --no-deps app bot` | a tap in the gap fails; retry works | none |
 | `INTERNAL_ANALYTICS_SECRET` | `app`, the external analytics caller | `up -d --no-deps app` and the caller | analytics posts 401 until the caller updates | none |
 | `TURNSTILE_SECRET_KEY`, `TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `app` (read at runtime) | `up -d --no-deps app` | forms fail closed until restart | create the new widget first |
 | `CLOUDFLARED_TOKEN` | `cloudflared` | `up -d --no-deps cloudflared` | seconds of tunnel outage | second tunnel + DNS cutover; rarely worth it |
 | `RESEND_API_KEY` | `app` | `up -d --no-deps app` | verification emails fail | create new, deploy, delete old |
 | `OAUTH_DYNAMIC_REGISTRATION_TOKEN` | `app`, DCR clients | `up -d --no-deps app` | DCR calls 401 until clients update | none |
+| `PING_TOKEN` (monitor Worker secret) | monitor Worker, `worker` and `bot` via `HEARTBEAT_URL_*` | `wrangler secret put PING_TOKEN`, new URLs in the env file, `up -d --no-deps worker bot` | pings rejected (404) until both sides agree; the monitor reports the heartbeats down after the grace period | none; do both within the grace period |
 
 `BEARER_ADMIN_TELEGRAM_ID` and `ALERT_TELEGRAM_CHAT_ID` are identifiers, not
 secrets, but changing them takes the same restart sets as `TELEGRAM_BOT_TOKEN`.
@@ -117,6 +118,8 @@ retired until every token it signed has expired, then revoke it.
 3. Within a minute: `docker compose up -d --no-deps app worker bot`. 2FA
    prompts sent in the gap fail (the user retries); queued notifications retry
    under bullmq. The bot re-pins a fresh status message on start.
+4. `cd monitor && npx wrangler secret put TELEGRAM_BOT_TOKEN`, or the external
+   monitor's own alerts fail (its checks keep running).
 
 #### TELEGRAM_BOT_WEBHOOK_SECRET
 Edit the env file and `docker compose up -d --no-deps app bot` in one go; the

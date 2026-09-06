@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "auth-monitor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 }
+  },
+  // Once a minute: probe the public endpoints, judge the heartbeats, alert
+  // on state changes. Free plan allows this cadence.
+  "triggers": { "crons": ["* * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "auth-monitor",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "vars": {
+    "TARGET_BASE_URL": "https://auth.bneck.com",
+    // A heartbeat is stale when older than this; the sources ping every 60s.
+    "HEARTBEAT_GRACE_SECONDS": "180",
+    // Consecutive failed probes before an HTTP check is declared down, so a
+    // single edge blip does not page.
+    "HTTP_FAILURES_TO_ALERT": "2",
+    // One "monitor alive" line per day at this UTC hour; matches the digest.
+    "SUMMARY_HOUR_UTC": "8"
+  }
+}
