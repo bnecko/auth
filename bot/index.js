@@ -9,6 +9,34 @@ const apiBase = `https://api.telegram.org/bot${botToken}`;
 const longPollSeconds = 30;
 let offset = 0;
 
+// Dead-man's switch: ping HEARTBEAT_URL once a minute, but only while the
+// long-poll keeps succeeding. A poll is healthy even when it returns no
+// updates; what matters is that Telegram answered. No URL, no pings.
+const heartbeatUrl = process.env.HEARTBEAT_URL || "";
+const HEARTBEAT_INTERVAL_MS = 60 * 1000;
+const POLL_STALE_MS = 2 * (longPollSeconds + 5) * 1000;
+let lastPollOkAt = 0;
+
+function pollIsFresh() {
+  return Date.now() - lastPollOkAt < POLL_STALE_MS;
+}
+
+async function pingHeartbeat() {
+  if (!heartbeatUrl) return;
+  if (!pollIsFresh()) {
+    logEvent("warn", "heartbeat_withheld", { lastPollAgeMs: lastPollOkAt ? Date.now() - lastPollOkAt : null });
+    return;
+  }
+  try {
+    const res = await fetch(heartbeatUrl, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) logEvent("warn", "heartbeat_ping_rejected", { status: res.status });
+  } catch (err) {
+    logEvent("warn", "heartbeat_ping_failed", { error: err });
+  }
+}
+
+if (heartbeatUrl) setInterval(pingHeartbeat, HEARTBEAT_INTERVAL_MS);
+
 // Structured logging, inlined because the bot image ships only index.js and
 // cannot import the worker's logger. Same JSON-line shape as worker-log.js so
 // one log pipeline reads every process.
@@ -77,7 +105,12 @@ async function startStatusMonitor() {
   }).catch(err => logEvent("warn", "pin_status_failed", { error: err }));
 
   setInterval(async () => {
-    const updatedText = `server status: UP\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
+    // The pinned message used to say UP unconditionally; now it reflects
+    // whether the long-poll is actually succeeding.
+    const state = pollIsFresh()
+      ? "UP"
+      : `DEGRADED (last successful poll ${lastPollOkAt ? Math.round((Date.now() - lastPollOkAt) / 1000) + "s ago" : "never"})`;
+    const updatedText = `server status: ${state}\nStarted at: ${startTime}\nLast checked: ${new Date().toISOString()}`;
     await editMessage(analyticsChatId, messageId, updatedText);
   }, 10 * 60 * 1000);
 }
@@ -118,6 +151,7 @@ async function getUpdates() {
       await sleep(1000);
       return [];
     }
+    lastPollOkAt = Date.now();
     return data.result;
   } catch (err) {
     logEvent("warn", "get_updates_error", { error: err });

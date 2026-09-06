@@ -24,6 +24,103 @@ function alertLoopError(event, err) {
   return alerts.send(event, `${event}\n${message}`, { windowSeconds: LOOP_ALERT_WINDOW_SECONDS });
 }
 
+// Dead-man's switch. Every loop records its last error-free completion; once
+// a minute the worker pings HEARTBEAT_URL only if every loop is fresh and
+// Redis answers. A hung or erroring loop withholds the ping, and the external
+// monitor expecting it is what pages the operator: the one alert that still
+// works when nothing on this host can send one. Tolerances are a little over
+// two periods so a single slow tick does not trip it.
+const HEARTBEAT_INTERVAL_MS = Number(process.env.HEARTBEAT_INTERVAL_MS || 60_000);
+const LOOP_TOLERANCE_MS = {
+  webhook_delivery: 30_000,
+  activation_expiry: 3 * 60_000,
+  hygiene: 2 * 60 * 60_000,
+  restriction: 2 * 60 * 60_000,
+  deletion: 2 * 60 * 60_000,
+  digest: 2 * 60 * 60_000,
+};
+const lastLoopOkAt = new Map();
+
+function markLoopOk(loop, at = Date.now()) {
+  if (loop) lastLoopOkAt.set(loop, at);
+}
+
+// A loop that has never completed counts from process start, so a loop that
+// fails from the very first tick is reported rather than ignored.
+function _resetLoopStateForTests() {
+  lastLoopOkAt.clear();
+}
+
+function staleLoops(now = Date.now(), since = startedAt) {
+  return Object.entries(LOOP_TOLERANCE_MS)
+    .filter(([loop, tolerance]) => now - (lastLoopOkAt.get(loop) ?? since) > tolerance)
+    .map(([loop]) => loop);
+}
+
+// GET the ping URL; best effort and never throws, because a monitoring
+// vendor being down must not become a worker problem.
+async function pingHeartbeat(url, fetchImpl = fetch) {
+  if (!url) return false;
+  try {
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) {
+      logger.warn("heartbeat_ping_rejected", { status: res.status });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logger.warn("heartbeat_ping_failed", { error: err });
+    return false;
+  }
+}
+
+async function redisAnswers(redis, timeoutMs = 2000) {
+  if (!redis) return false;
+  try {
+    const pong = await Promise.race([
+      redis.ping(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("redis ping timeout")), timeoutMs)),
+    ]);
+    return pong === "PONG";
+  } catch {
+    return false;
+  }
+}
+
+async function heartbeatTick() {
+  const stale = staleLoops();
+  const redisOk = await redisAnswers(opsRedis);
+  if (stale.length > 0 || !redisOk) {
+    logger.warn("heartbeat_withheld", { stale, redisOk });
+    await alerts.send(
+      "worker_unhealthy",
+      `Worker unhealthy\nstale loops: ${stale.join(", ") || "none"}\nredis: ${redisOk ? "ok" : "unreachable"}`,
+      { windowSeconds: LOOP_ALERT_WINDOW_SECONDS },
+    );
+    return;
+  }
+  await pingHeartbeat(process.env.HEARTBEAT_URL);
+}
+
+// The tunnel is a separate failure domain with its own external probe, so it
+// does not gate the worker's ping; it only raises an alert while the host can
+// still send one.
+async function checkTunnelReady(url = process.env.CLOUDFLARED_READY_URL, fetchImpl = fetch) {
+  if (!url) return;
+  let detail;
+  try {
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) return;
+    detail = `status ${res.status}`;
+  } catch (err) {
+    detail = err instanceof Error ? err.message : String(err);
+  }
+  logger.warn("cloudflared_not_ready", { detail });
+  await alerts.send("cloudflared_not_ready", `Cloudflare tunnel not ready\n${detail}`, {
+    windowSeconds: LOOP_ALERT_WINDOW_SECONDS,
+  });
+}
+
 // Graceful-shutdown state. On SIGTERM/SIGINT we stop scheduling new work,
 // let the in-flight delivery batch drain (bounded), then close the pool and
 // redis so a deploy does not sever connections mid-write.
@@ -369,6 +466,7 @@ async function processWebhookBatch() {
   } catch (err) {
     logger.error("webhook_batch_error", { error: err });
     await alertLoopError("webhook_batch_error", err);
+    return false;
   }
 }
 
@@ -488,6 +586,7 @@ async function sweepHygiene() {
   } catch (err) {
     logger.error("hygiene_sweep_error", { error: err });
     await alertLoopError("hygiene_sweep_error", err);
+    return false;
   }
 }
 
@@ -541,6 +640,8 @@ async function sweepExpiredActivations() {
     }
   } catch (err) {
     logger.error("activation_expiry_sweep_error", { error: err });
+    await alertLoopError("activation_expiry_sweep_error", err);
+    return false;
   }
 }
 
@@ -603,6 +704,7 @@ async function sweepRestrictedInactive() {
   } catch (err) {
     logger.error("restriction_sweep_error", { error: err });
     await alertLoopError("restriction_sweep_error", err);
+    return false;
   }
 }
 
@@ -626,7 +728,7 @@ async function sweepPendingDeletions() {
   } catch (err) {
     logger.error("deletion_sweep_error", { error: err });
     await alertLoopError("deletion_sweep_error", err);
-    return;
+    return false;
   }
 
   let purged = 0;
@@ -705,10 +807,15 @@ async function sweepPendingDeletions() {
 // by tests without opening a Redis connection or starting the timers.
 // Runs a periodic job while tracking it as in-flight so graceful shutdown can
 // wait for it to finish. Skips scheduling once shutdown has begun.
-function runBatch(fn, errorEvent) {
+function runBatch(fn, errorEvent, loop) {
   if (isShuttingDown) return;
   inFlightBatches += 1;
   fn()
+    .then(result => {
+      // Loop bodies swallow their own errors and resolve false; a throw
+      // lands in catch. Either way the loop is not marked fresh.
+      if (result !== false) markLoopOk(loop);
+    })
     .catch(err => {
       logger.error(errorEvent, { error: err });
       return alertLoopError(errorEvent, err);
@@ -797,39 +904,51 @@ function startWorker() {
 
   // Poll roughly once a second. A crashed worker leaves pending rows in
   // the DB; they are picked up on next start.
-  intervalIds.push(setInterval(() => runBatch(processWebhookBatch, "webhook_loop_error"), 1000));
+  intervalIds.push(setInterval(() => runBatch(processWebhookBatch, "webhook_loop_error", "webhook_delivery"), 1000));
   logger.info("webhook_delivery_loop_started");
 
-  intervalIds.push(setInterval(() => runBatch(sweepHygiene, "hygiene_loop_error"), 60 * 60 * 1000));
+  intervalIds.push(setInterval(() => runBatch(sweepHygiene, "hygiene_loop_error", "hygiene"), 60 * 60 * 1000));
   // Run once at startup so the first sweep doesn't wait an hour.
-  runBatch(sweepHygiene, "initial_hygiene_sweep_error");
+  runBatch(sweepHygiene, "initial_hygiene_sweep_error", "hygiene");
   logger.info("hygiene_sweep_started");
 
   // Activations carry a short TTL (minutes), so sweep every minute to
   // fire activation.expired close to the actual lapse.
-  intervalIds.push(setInterval(() => runBatch(sweepExpiredActivations, "activation_sweep_loop_error"), 60 * 1000));
-  runBatch(sweepExpiredActivations, "initial_activation_sweep_error");
+  intervalIds.push(setInterval(() => runBatch(sweepExpiredActivations, "activation_sweep_loop_error", "activation_expiry"), 60 * 1000));
+  runBatch(sweepExpiredActivations, "initial_activation_sweep_error", "activation_expiry");
   logger.info("activation_expiry_sweep_started");
 
   // Restricted accounts inactive for the threshold get auto-banned (the case is
   // closed). Hourly is plenty for a 60-day clock.
-  intervalIds.push(setInterval(() => runBatch(sweepRestrictedInactive, "restriction_sweep_loop_error"), 60 * 60 * 1000));
-  runBatch(sweepRestrictedInactive, "initial_restriction_sweep_error");
+  intervalIds.push(setInterval(() => runBatch(sweepRestrictedInactive, "restriction_sweep_loop_error", "restriction"), 60 * 60 * 1000));
+  runBatch(sweepRestrictedInactive, "initial_restriction_sweep_error", "restriction");
   logger.info("restriction_sweep_started");
 
   // Soft-deleted accounts past their grace window get purged. Hourly is plenty
   // for a 30-day clock.
-  intervalIds.push(setInterval(() => runBatch(sweepPendingDeletions, "deletion_sweep_loop_error"), 60 * 60 * 1000));
-  runBatch(sweepPendingDeletions, "initial_deletion_sweep_error");
+  intervalIds.push(setInterval(() => runBatch(sweepPendingDeletions, "deletion_sweep_loop_error", "deletion"), 60 * 60 * 1000));
+  runBatch(sweepPendingDeletions, "initial_deletion_sweep_error", "deletion");
   logger.info("deletion_sweep_started");
 
   // Hourly tick; the hour gate and the 36h NX window inside make it one
   // send per UTC day. Running once at start covers a restart during the
   // digest hour.
-  const digest = () => sendDailyDigest({ pool, alerts, redis: opsRedis, hourUtc: DIGEST_HOUR_UTC, startedAt });
-  intervalIds.push(setInterval(() => runBatch(digest, "digest_loop_error"), 60 * 60 * 1000));
-  runBatch(digest, "initial_digest_error");
+  // sendDailyDigest resolves false outside the digest hour; that is a skip,
+  // not a failure, so the loop still counts as fresh.
+  const digest = async () => {
+    await sendDailyDigest({ pool, alerts, redis: opsRedis, hourUtc: DIGEST_HOUR_UTC, startedAt });
+  };
+  intervalIds.push(setInterval(() => runBatch(digest, "digest_loop_error", "digest"), 60 * 60 * 1000));
+  runBatch(digest, "initial_digest_error", "digest");
   logger.info("daily_digest_started", { hourUtc: DIGEST_HOUR_UTC });
+
+  intervalIds.push(setInterval(() => runBatch(heartbeatTick, "heartbeat_error"), HEARTBEAT_INTERVAL_MS));
+  intervalIds.push(setInterval(() => runBatch(checkTunnelReady, "tunnel_check_error"), HEARTBEAT_INTERVAL_MS));
+  logger.info("heartbeat_started", {
+    intervalMs: HEARTBEAT_INTERVAL_MS,
+    heartbeatUrl: Boolean(process.env.HEARTBEAT_URL),
+    tunnelCheck: Boolean(process.env.CLOUDFLARED_READY_URL),
+  });
 
   process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
   process.on("SIGINT", () => shutdownGracefully("SIGINT"));
@@ -895,4 +1014,10 @@ module.exports = {
   MAX_ATTEMPTS,
   AUTO_DISABLE_THRESHOLD,
   CLAIM_BATCH_SIZE,
+  LOOP_TOLERANCE_MS,
+  markLoopOk,
+  staleLoops,
+  _resetLoopStateForTests,
+  pingHeartbeat,
+  checkTunnelReady,
 };

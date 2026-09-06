@@ -128,6 +128,7 @@ services:
       # accepts a decision only from this id, so an unset value silently
       # rejects every tap. Mandatory here rather than defaulted.
       BEARER_ADMIN_TELEGRAM_ID: ${BEARER_ADMIN_TELEGRAM_ID:?set BEARER_ADMIN_TELEGRAM_ID}
+      HEARTBEAT_URL: ${HEARTBEAT_URL_BOT:-}
       TELEGRAM_ANALYTICS_CHAT_ID: ${TELEGRAM_ANALYTICS_CHAT_ID:-}
       TELEGRAM_ANALYTICS_THREAD_ID: ${TELEGRAM_ANALYTICS_THREAD_ID:-}
     depends_on:
@@ -189,6 +190,8 @@ services:
       BEARER_ADMIN_TELEGRAM_ID: ${BEARER_ADMIN_TELEGRAM_ID:-}
       GRACEFUL_SHUTDOWN_TIMEOUT_MS: ${GRACEFUL_SHUTDOWN_TIMEOUT_MS:-10000}
       DIGEST_HOUR_UTC: ${DIGEST_HOUR_UTC:-8}
+      HEARTBEAT_URL: ${HEARTBEAT_URL_WORKER:-}
+      CLOUDFLARED_READY_URL: ${CLOUDFLARED_READY_URL:-}
       NODE_ENV: production
     depends_on:
       redis:
