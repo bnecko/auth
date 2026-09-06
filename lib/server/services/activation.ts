@@ -26,7 +26,7 @@ import type { ExternalApp, User } from "../types";
 import { toIso } from "../time";
 import { parseScopes } from "../validation";
 import { enqueueWebhookEvent } from "../webhooks";
-import { sendEnqueueFailedAlert } from "./webhookAlerts";
+import { sendOperatorAlert } from "./operatorAlerts";
 
 // Carries a machine-readable code and HTTP status so integrator-facing routes
 // can return {error, code} with the right status instead of a bare string.
@@ -108,10 +108,10 @@ async function fireActivationWebhook(input: {
       context: { ip: "", userAgent: "activation-service", country: "" },
       metadata: { activationId: input.payload.id, eventType: input.eventType },
     });
-    await sendEnqueueFailedAlert(
-      input.appId,
-      err instanceof Error ? err.message : "unknown",
-    ).catch(() => {});
+    await sendOperatorAlert(
+      `webhook_enqueue_failed:${input.appId}`,
+      `Webhook enqueue failed\napp #${input.appId}\n${err instanceof Error ? err.message : "unknown"}`,
+    );
   }
 }
 

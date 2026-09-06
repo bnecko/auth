@@ -1,4 +1,5 @@
 import redis from "./redis";
+import { alertRedisDegraded } from "./services/operatorAlerts";
 
 // Per-instance, volatile fallback windows used only when Redis is unreachable.
 // They reset on restart and are not shared across instances, so they are
@@ -60,11 +61,14 @@ export async function rateLimit(
     results = await multi.exec();
   } catch {
     // Redis unreachable: fall back to the in-process limiter rather than
-    // failing fully open.
+    // failing fully open, and tell the operator (deduped to one message per
+    // half hour) that limits are now per-instance and non-persistent.
+    alertRedisDegraded();
     return fallbackRateLimit(key, limit, windowMs);
   }
 
   if (!results) {
+    alertRedisDegraded();
     return fallbackRateLimit(key, limit, windowMs);
   }
 

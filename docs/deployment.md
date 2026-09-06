@@ -114,9 +114,33 @@ so `docker compose up -d --build app worker` is safe at any time.
 
 ## Operator alerts
 
-Set `ALERT_TELEGRAM_CHAT_ID` (falls back to `BEARER_ADMIN_TELEGRAM_ID`) to get a
-Telegram message when a webhook endpoint is auto-disabled or an enqueue fails.
-Alerts are rate-limited and no-op outside production or without a chat id.
+Set `ALERT_TELEGRAM_CHAT_ID` (a group the bot is a member of; falls back to
+`BEARER_ADMIN_TELEGRAM_ID`) to receive Telegram messages for:
+
+- a webhook endpoint auto-disabled after consecutive failures, or an enqueue
+  that failed (app);
+- Redis unreachable, with rate limiting on the in-process fallback (app);
+- a worker loop that errored: webhook batch, hygiene, activation expiry,
+  restriction, deletion, digest (worker);
+- a migration that failed at boot, which would otherwise be a silent crash
+  loop (app image, before the server starts).
+
+Every alert is deduplicated per key: five minutes for one-off events, thirty
+minutes for conditions that repeat every tick. Alerts no-op outside
+production or without a chat id, and never block the request or loop that
+raised them.
+
+The worker also sends a daily digest at `DIGEST_HOUR_UTC` (default 8): user
+and webhook counts, security events by type for the last 24 hours, worker
+uptime, and how many alerts went out that day. The digest arriving is the
+proof that the worker, the database, and the alert channel are alive; its
+absence is itself the alert. `docker compose exec -T worker node worker.js
+--digest` sends one immediately, bypassing the daily window, which is the
+runbook's "is the channel alive" check.
+
+These alerts are sent from the host. When the host, the tunnel, or the
+worker is down nothing can send them, so they do not replace an external
+uptime monitor.
 
 ## Backup and restore
 

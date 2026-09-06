@@ -33,54 +33,108 @@ function validateMigrationFiles(files) {
   }
 }
 
-const client = new pg.Client({ connectionString: databaseUrl });
-await client.connect();
+async function migrate() {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
 
-try {
-  await client.query(`
-    create table if not exists schema_migrations (
-      version text primary key,
-      applied_at timestamptz not null default now()
-    )
-  `);
+  try {
+    await client.query(`
+      create table if not exists schema_migrations (
+        version text primary key,
+        applied_at timestamptz not null default now()
+      )
+    `);
 
-  const files = (await readdir(migrationsDir))
-    .filter(file => file.endsWith(".sql"))
-    .sort();
+    const files = (await readdir(migrationsDir))
+      .filter(file => file.endsWith(".sql"))
+      .sort();
 
-  validateMigrationFiles(files);
+    validateMigrationFiles(files);
 
-  const applied = new Set(
-    (await client.query(`select version from schema_migrations`)).rows.map(r => r.version),
-  );
-  const pending = files.filter(file => !applied.has(file.replace(/\.sql$/, "")));
+    const applied = new Set(
+      (await client.query(`select version from schema_migrations`)).rows.map(r => r.version),
+    );
+    const pending = files.filter(file => !applied.has(file.replace(/\.sql$/, "")));
 
-  if (checkOnly) {
-    // Dry run for CI / pre-deploy: report pending migrations, change nothing.
-    if (pending.length === 0) {
-      console.log("migrations: up to date");
+    if (checkOnly) {
+      // Dry run for CI / pre-deploy: report pending migrations, change nothing.
+      if (pending.length === 0) {
+        console.log("migrations: up to date");
+      } else {
+        console.log(`migrations: ${pending.length} pending`);
+        for (const file of pending) console.log(`  ${file}`);
+      }
     } else {
-      console.log(`migrations: ${pending.length} pending`);
-      for (const file of pending) console.log(`  ${file}`);
-    }
-  } else {
-    for (const file of pending) {
-      const version = file.replace(/\.sql$/, "");
-      const sql = await readFile(path.join(migrationsDir, file), "utf8");
-      await client.query("begin");
-      try {
-        await client.query(sql);
-        await client.query(
-          `insert into schema_migrations (version) values ($1)`,
-          [version],
-        );
-        await client.query("commit");
-      } catch (err) {
-        await client.query("rollback");
-        throw err;
+      for (const file of pending) {
+        const version = file.replace(/\.sql$/, "");
+        const sql = await readFile(path.join(migrationsDir, file), "utf8");
+        await client.query("begin");
+        try {
+          await client.query(sql);
+          await client.query(
+            `insert into schema_migrations (version) values ($1)`,
+            [version],
+          );
+          await client.query("commit");
+        } catch (err) {
+          await client.query("rollback");
+          throw err;
+        }
       }
     }
+  } finally {
+    await client.end();
   }
-} finally {
-  await client.end();
+}
+
+// The app image runs this before server.js under restart: unless-stopped, so
+// a failing migration is a crash loop that would otherwise page once per
+// restart. Production only; deduped for 30 minutes through Redis when it
+// answers, sent anyway when it does not. Never throws.
+async function alertMigrationFailed(err) {
+  if (process.env.NODE_ENV !== "production") return;
+  const chatId = process.env.ALERT_TELEGRAM_CHAT_ID || process.env.BEARER_ADMIN_TELEGRAM_ID;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!chatId || !token) return;
+
+  let fresh = true;
+  try {
+    const { default: Redis } = await import("ioredis");
+    const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+      lazyConnect: true,
+      connectTimeout: 2000,
+      maxRetriesPerRequest: 1,
+    });
+    redis.on("error", () => {});
+    try {
+      await redis.connect();
+      fresh = (await redis.set("alert:migration_failed", "1", "EX", 1800, "NX")) === "OK";
+    } finally {
+      redis.disconnect();
+    }
+  } catch {
+    // No dedupe available; a duplicate beats silence here.
+  }
+  if (!fresh) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: `Migration failed at boot\n${err instanceof Error ? err.message : String(err)}`,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // Nothing left to try.
+  }
+}
+
+try {
+  await migrate();
+} catch (err) {
+  await alertMigrationFailed(err);
+  throw err;
 }

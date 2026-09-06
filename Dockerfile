@@ -35,6 +35,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
-COPY --chown=node:node worker.js worker-log.js ./
+COPY --chown=node:node worker.js worker-log.js worker-alert.js worker-digest.js ./
 USER node
 CMD ["node", "worker.js"]
