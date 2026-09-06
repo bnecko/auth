@@ -7,6 +7,10 @@ stack is Docker Compose on a single host behind a Cloudflare Tunnel:
 
 ## First moves
 
+Type `/status` in the alert chat first: the bot answers with which layer is
+broken (host, tunnel, Cloudflare edge, or nothing). No reply within a few
+seconds means the bot or the whole host is down. Then, on the host:
+
 ```sh
 docker compose ps                       # what is up / restarting
 curl -s localhost:3000/api/health/ready # readiness (needs to run on the host net)
@@ -80,7 +84,7 @@ changed), which is a short outage you should schedule, not trip over.
 | `CLOUDFLARED_TOKEN` | `cloudflared` | `up -d --no-deps cloudflared` | seconds of tunnel outage | second tunnel + DNS cutover; rarely worth it |
 | `RESEND_API_KEY` | `app` | `up -d --no-deps app` | verification emails fail | create new, deploy, delete old |
 | `OAUTH_DYNAMIC_REGISTRATION_TOKEN` | `app`, DCR clients | `up -d --no-deps app` | DCR calls 401 until clients update | none |
-| `PING_TOKEN` (monitor Worker secret) | monitor Worker, `worker` and `bot` via `HEARTBEAT_URL_*` | `wrangler secret put PING_TOKEN`, new URLs in the env file, `up -d --no-deps worker bot` | pings rejected (404) until both sides agree; the monitor reports the heartbeats down after the grace period | none; do both within the grace period |
+| `PING_TOKEN` (monitor Worker secret) | monitor Worker, `worker` and `bot` via `HEARTBEAT_URL_*`, `bot` via `MONITOR_STATUS_URL` | `wrangler secret put PING_TOKEN`, new URLs in the env file, `up -d --no-deps worker bot` | pings rejected (404) until both sides agree; the monitor reports the heartbeats down after the grace period | none; do both within the grace period |
 
 `BEARER_ADMIN_TELEGRAM_ID` and `ALERT_TELEGRAM_CHAT_ID` are identifiers, not
 secrets, but changing them takes the same restart sets as `TELEGRAM_BOT_TOKEN`.
@@ -143,6 +147,7 @@ alarm from any external probe.
 
 ```sh
 docker compose up -d --build app worker   # rebuild + rolling restart, migrations run on app start
+docker compose up -d --build --no-deps worker bot   # rebuild those two without recreating app
 docker compose restart worker             # graceful (SIGTERM) restart, drains in-flight deliveries
 ```
 

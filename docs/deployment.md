@@ -110,7 +110,10 @@ webhook batch drain (up to `GRACEFUL_SHUTDOWN_TIMEOUT_MS`, default 10s), then
 closes the Postgres pool and Redis connection before exiting. The Next.js app
 drains in-flight requests on `SIGTERM` itself. Both sides are restart-safe: a
 hard kill mid-delivery is recovered via `webhook_deliveries.next_attempt_at`,
-so `docker compose up -d --build app worker` is safe at any time.
+so `docker compose up -d --build app worker` is safe at any time. To rebuild
+only the worker or the bot, add `--no-deps`: without it Compose also builds
+and recreates the app they depend on, which costs a short window of 502s
+at the edge.
 
 ## Operator alerts
 
@@ -171,10 +174,19 @@ prints the id but does not write it into the config; paste it into
 
 `wrangler deploy` prints the Worker URL; the heartbeat URLs for the env file
 are `https://<worker-url>/ping/worker?token=<PING_TOKEN>` and
-`.../ping/bot?token=<PING_TOKEN>`. The token is compared in constant time
-and never logged. `TELEGRAM_BOT_TOKEN` now has a second consumer (see the
-runbook's rotation matrix). Any other ping-URL monitoring service works in
-its place; the checks below are what it must implement.
+`.../ping/bot?token=<PING_TOKEN>`, and `MONITOR_STATUS_URL` is
+`https://<worker-url>/status?token=<PING_TOKEN>`. The token is compared in
+constant time and never logged. `TELEGRAM_BOT_TOKEN` now has a second
+consumer (see the runbook's rotation matrix). Any other ping-URL monitoring
+service works in its place; the checks below are what it must implement.
+
+`/status` in the alert chat asks the bot for a layer-by-layer breakdown
+(Cloudflare's status page, cloudflared's edge connections, the app's
+readiness, the heartbeats as the Worker sees them, the public probe) with a
+verdict and the layer to blame, so an outage can be placed at the host, the
+tunnel, the edge, or the caller's own side. It needs `ALERT_TELEGRAM_CHAT_ID`,
+`MONITOR_STATUS_URL` and `CLOUDFLARED_READY_URL` on the bot service. No reply
+means the bot or the host is down; the Worker's own DOWN message says which.
 
 Two kinds of check:
 
