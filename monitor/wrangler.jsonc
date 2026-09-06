@@ -15,6 +15,7 @@
     {
       "binding": "DB",
       "database_name": "auth-monitor",
+      "database_id": "57510bd7-8955-461b-8b72-cf002322be6e",
       "migrations_dir": "./migrations"
     }
   ],
