@@ -147,6 +147,7 @@ alarm from any external probe.
 
 ```sh
 docker compose up -d --build app worker   # rebuild + rolling restart, migrations run on app start
+docker compose up -d --build --no-deps worker bot   # rebuild those two without recreating app
 docker compose restart worker             # graceful (SIGTERM) restart, drains in-flight deliveries
 ```
 

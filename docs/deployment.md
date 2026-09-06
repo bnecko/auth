@@ -110,7 +110,10 @@ webhook batch drain (up to `GRACEFUL_SHUTDOWN_TIMEOUT_MS`, default 10s), then
 closes the Postgres pool and Redis connection before exiting. The Next.js app
 drains in-flight requests on `SIGTERM` itself. Both sides are restart-safe: a
 hard kill mid-delivery is recovered via `webhook_deliveries.next_attempt_at`,
-so `docker compose up -d --build app worker` is safe at any time.
+so `docker compose up -d --build app worker` is safe at any time. To rebuild
+only the worker or the bot, add `--no-deps`: without it Compose also builds
+and recreates the app they depend on, which costs a short window of 502s
+at the edge.
 
 ## Operator alerts
 
