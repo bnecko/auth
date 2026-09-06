@@ -146,12 +146,21 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:2026.6.0
     restart: unless-stopped
+    # The token arrives via TUNNEL_TOKEN (which cloudflared reads natively)
+    # rather than argv, so it no longer shows in `docker compose ps`,
+    # `docker top`, or crash reports. --metrics serves /ready and /metrics on
+    # the compose network only; the image is distroless (no shell), so tunnel
+    # readiness is probed from another container, not by a healthcheck here.
     command:
       - tunnel
       - --no-autoupdate
+      - --metrics
+      - 0.0.0.0:2000
       - run
-      - --token
-      - ${CLOUDFLARED_TOKEN:?set CLOUDFLARED_TOKEN}
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN:?set CLOUDFLARED_TOKEN}
+    expose:
+      - "2000"
     depends_on:
       app:
         condition: service_healthy
