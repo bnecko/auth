@@ -4,9 +4,49 @@ The reference deployment runs the Compose stack on a single small host behind
 a Cloudflare Tunnel. The app is not published on a host port; the tunnel
 connects to it inside the Compose network.
 
-## Required environment
+## Environment file
 
-Copy `.env.example` to `.env` and set at least:
+Production secrets live outside the checkout, in a directory only the deploying
+user can read:
+
+```text
+~/.config/bottleneck-auth/           # mode 0700
+    prod.env                         # mode 0600, the values from .env.example
+    oidc-private.pem                 # if the OIDC key is kept as a file
+    oidc-public.pem
+```
+
+Compose finds the file through `COMPOSE_ENV_FILES`, exported once in the
+deploying user's shell:
+
+```sh
+export COMPOSE_ENV_FILES="$HOME/.config/bottleneck-auth/prod.env"
+```
+
+Every `docker compose` command then reads it. Without the export, the first
+`${POSTGRES_PASSWORD:?...}` interpolation fails closed with "set
+POSTGRES_PASSWORD" rather than silently using stale values; the per-command
+form is `docker compose --env-file "$HOME/.config/bottleneck-auth/prod.env"
+...`. A `.env` in the repo root is not used and should not exist there: it is
+readable by anything with the checkout, and `docker compose config` prints
+every value it resolves, so run that with `--quiet` on the host.
+
+Moving an existing deployment (no container restart needed, the values do not
+change):
+
+```sh
+mkdir -p ~/.config/bottleneck-auth && chmod 700 ~/.config/bottleneck-auth
+mv .env ~/.config/bottleneck-auth/prod.env && chmod 600 ~/.config/bottleneck-auth/prod.env
+mv oidc-private.pem oidc-public.pem ~/.config/bottleneck-auth/ 2>/dev/null || true
+echo 'export COMPOSE_ENV_FILES="$HOME/.config/bottleneck-auth/prod.env"' >> ~/.zshrc
+# new shell, then:
+docker compose config --quiet && docker compose ps
+```
+
+Development-only values (`TEST_BEARER`, a scratch `DATABASE_URL`) belong in a
+separate file passed with `--env-file`, not in `prod.env`.
+
+Copy `.env.example` and set at least:
 
 - `POSTGRES_PASSWORD`
 - `OIDC_PRIVATE_KEY_PEM` (an RSA private key; `OIDC_KEY_ID` to name it)

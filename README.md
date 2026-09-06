@@ -101,7 +101,7 @@ the migration smoke test, the production build, and both Docker image builds
 on every push. The `sdk` job separately builds and type-checks the Node SDK.
 
 The activation flow can be exercised end to end with `test.py`. Set
-`TEST_BEARER` to an external app's API key in `.env`, then run `python
+`TEST_BEARER` to an external app's API key in a local env file, then run `python
 test.py`; it creates an activation request, prints an approval URL, and polls
 for the profile.
 
