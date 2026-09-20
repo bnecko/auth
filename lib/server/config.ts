@@ -47,6 +47,12 @@ export function diditApiKey() {
   return env("DIDIT_API_KEY");
 }
 
+// The workflow to run, from the Didit Business Console. Without it no
+// session can be opened, so verification is simply unavailable.
+export function diditWorkflowId() {
+  return env("DIDIT_WORKFLOW_ID");
+}
+
 export function diditWebhookSecret() {
   return env("DIDIT_WEBHOOK_SECRET");
 }
