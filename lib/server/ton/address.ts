@@ -31,3 +31,10 @@ export function parseAddress(value: string): Address | null {
 export function toFriendlyAddress(raw: string): string {
   return Address.parse(raw).toString({ urlSafe: true, bounceable: false, testOnly: false });
 }
+
+// Both ends kept, because those are what someone compares against the address
+// their own wallet is showing.
+export function shortFriendlyAddress(raw: string): string {
+  const friendly = toFriendlyAddress(raw);
+  return `${friendly.slice(0, 6)}...${friendly.slice(-6)}`;
+}

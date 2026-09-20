@@ -102,6 +102,23 @@ export async function linkTonWallet(input: {
   }
 }
 
+// Clearing the domain alongside the mode is what the table's check constraint
+// requires, and is also correct: a name is only ever shown while it is the
+// thing being shown.
+export async function setTonWalletDisplay(
+  userId: number,
+  display: Exclude<TonWalletDisplay, "domain">,
+): Promise<boolean> {
+  const rows = await query<{ user_id: string }>(
+    `update user_ton_wallets
+        set display = $2, display_domain = null, domain_checked_at = null, updated_at = now()
+      where user_id = $1
+      returning user_id`,
+    [userId, display],
+  );
+  return rows.length > 0;
+}
+
 export async function unlinkTonWallet(userId: number): Promise<boolean> {
   const rows = await query<{ user_id: string }>(
     `delete from user_ton_wallets where user_id = $1 returning user_id`,

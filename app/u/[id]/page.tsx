@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { findUserByPublicId } from "@/lib/server/repositories/users";
+import { findTonWallet } from "@/lib/server/repositories/tonWallets";
+import { shortFriendlyAddress, toFriendlyAddress } from "@/lib/server/ton/address";
 import { telegramPublicRef } from "@/lib/server/telegramRef";
 import { TopNav } from "@/components/TopNav";
 import { Tag } from "@/components/Tag";
@@ -22,6 +24,8 @@ export default async function PublicProfilePage(props: {
     month: "long",
   });
   const ref = telegramPublicRef(user.telegramId);
+  const wallet = await findTonWallet(user.id);
+  const publicAddress = wallet?.display === "address" ? wallet.address : null;
 
   return (
     <div className="flex flex-col min-h-screen bg-bg">
@@ -82,6 +86,23 @@ export default async function PublicProfilePage(props: {
                 <RowLabel>Telegram ref</RowLabel>
                 <RowValue>
                   <code className="text-[12px] text-secondary">{ref}</code>
+                </RowValue>
+                <span />
+              </Row>
+            )}
+            {publicAddress && (
+              <Row>
+                <RowLabel>TON wallet</RowLabel>
+                <RowValue>
+                  <a
+                    href={`https://tonviewer.com/${toFriendlyAddress(publicAddress)}`}
+                    target="_blank"
+                    rel="noreferrer nofollow"
+                    className="text-accent-strong hover:text-fg transition-colors flex items-baseline gap-1.5"
+                  >
+                    <code className="text-[12px]">{shortFriendlyAddress(publicAddress)}</code>
+                    <span className="text-[12px] text-faint">↗</span>
+                  </a>
                 </RowValue>
                 <span />
               </Row>

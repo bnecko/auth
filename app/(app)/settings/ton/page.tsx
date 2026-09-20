@@ -1,19 +1,15 @@
 import { redirect } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { Eye, Wallet } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { Button } from "@/components/Button";
 import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 import { getCurrentSession } from "@/lib/server/session";
-import { toFriendlyAddress } from "@/lib/server/ton/address";
+import { shortFriendlyAddress } from "@/lib/server/ton/address";
 import { TonConnectPanel } from "./TonConnectPanel";
-import { unlinkTonWalletAction } from "./actions";
+import { WalletDisplayForm } from "./WalletDisplayForm";
+import { unlinkTonWalletAction, updateTonDisplayAction } from "./actions";
 
 export const dynamic = "force-dynamic";
-
-function shortAddress(address: string) {
-  const friendly = toFriendlyAddress(address);
-  return `${friendly.slice(0, 6)}...${friendly.slice(-6)}`;
-}
 
 export default async function TonWalletPage() {
   const current = await getCurrentSession();
@@ -33,7 +29,9 @@ export default async function TonWalletPage() {
             <Row>
               <RowLabel>Address</RowLabel>
               <RowValue>
-                <code className="text-[12px] text-secondary">{shortAddress(wallet.address)}</code>
+                <code className="text-[12px] text-secondary">
+                  {shortFriendlyAddress(wallet.address)}
+                </code>
               </RowValue>
               <form action={unlinkTonWalletAction}>
                 <Button type="submit" variant="ghost" size="sm">
@@ -63,9 +61,32 @@ export default async function TonWalletPage() {
         )}
       </Section>
 
+      {wallet && (
+        <div className="mt-6">
+          <Section title="Public profile" icon={Eye} hint="Who can see this">
+            <WalletDisplayForm
+              action={updateTonDisplayAction}
+              current={wallet.display}
+              options={[
+                {
+                  value: "hidden",
+                  label: "Hide my wallet",
+                  description: "Nobody sees the address. It stays linked to your account.",
+                },
+                {
+                  value: "address",
+                  label: "Show my address",
+                  description:
+                    "The TON blockchain is public: anyone who sees this address can read that wallet's whole balance and transaction history, and tie it to your account. Hiding it later does not undo what was already seen.",
+                },
+              ]}
+            />
+          </Section>
+        </div>
+      )}
+
       <p className="mt-4 text-[13px] text-muted">
-        A linked wallet is private: it is not shown on your public profile and is not shared
-        with any connected app.
+        A linked wallet is never shared with a connected app.
       </p>
     </>
   );
