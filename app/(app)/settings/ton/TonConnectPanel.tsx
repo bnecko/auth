@@ -143,19 +143,21 @@ export function TonConnectPanel() {
 
   if (cspBlocked) {
     return (
-      <div className="text-[13px] text-secondary">
-        <p className="mb-3">
-          This page needs to be loaded directly before it can reach a wallet.
-        </p>
-        <Button size="sm" onClick={() => window.location.reload()}>
-          Reload
-        </Button>
+      <div className="flex flex-col gap-3 px-4 py-4 text-[13px] text-secondary">
+        <p>This page needs to be loaded directly before it can reach a wallet.</p>
+        <div>
+          <Button size="sm" onClick={() => window.location.reload()}>
+            Reload
+          </Button>
+        </div>
       </div>
     );
   }
 
+  // Padding lives here rather than on the Section, because a Section's other
+  // children are Rows that supply their own.
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 px-4 py-4">
       <p className="text-[13px] text-secondary">
         Connect a wallet to sign a one-off message proving you hold its key. Nothing is sent
         and no transaction is made.
