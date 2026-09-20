@@ -584,3 +584,22 @@ create table suspicion_events (
 create index suspicion_events_status_created_idx
   on suspicion_events(status, created_at);
 create index suspicion_events_user_idx on suspicion_events(user_id);
+
+create table user_ton_wallets (
+  user_id bigint primary key references users(id) on delete cascade,
+  address text not null unique
+    constraint user_ton_wallets_address_raw_check check (address ~ '^0:[0-9a-f]{64}$'),
+  wallet_version text not null,
+  verified_at timestamptz not null default now(),
+  display text not null default 'hidden'
+    check (display in ('hidden', 'address', 'domain')),
+  display_domain text,
+  domain_checked_at timestamptz,
+  constraint user_ton_wallets_display_domain_check
+    check ((display = 'domain') = (display_domain is not null)),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index user_ton_wallets_domain_recheck_idx
+  on user_ton_wallets(domain_checked_at) where display = 'domain';

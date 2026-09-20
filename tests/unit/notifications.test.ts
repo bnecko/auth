@@ -15,6 +15,9 @@ const TYPES = [
   'password_changed',
   'password_reset_completed',
   'login_failure_threshold',
+  'ton_wallet_linked',
+  'ton_wallet_unlinked',
+  'ton_wallet_claimed_elsewhere',
 ] as const satisfies UserNotification['type'][];
 
 describe('notificationMessage', () => {

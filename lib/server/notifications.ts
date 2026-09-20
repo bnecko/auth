@@ -6,6 +6,9 @@ export type UserNotification =
   | { type: "password_changed" }
   | { type: "password_reset_completed" }
   | { type: "login_failure_threshold" }
+  | { type: "ton_wallet_linked" }
+  | { type: "ton_wallet_unlinked" }
+  | { type: "ton_wallet_claimed_elsewhere" }
   | { type: "signin_alert"; method: string; ip?: string };
 
 export function notificationMessage(input: UserNotification): string {
@@ -16,6 +19,12 @@ export function notificationMessage(input: UserNotification): string {
       return "Password reset\n\nYour Bottleneck account password was reset. If this was not you, contact support immediately.";
     case "login_failure_threshold":
       return "Unusual sign-in activity\n\nToo many failed sign-in attempts were detected on your Bottleneck account, so sign-in is temporarily paused. If this was not you, your password may be targeted.";
+    case "ton_wallet_linked":
+      return "TON wallet linked\n\nA TON wallet was just verified on your Bottleneck account. If this was not you, unlink it in Settings and change your password.";
+    case "ton_wallet_unlinked":
+      return "TON wallet unlinked\n\nThe TON wallet on your Bottleneck account was just removed. If this was not you, change your password and review your sessions.";
+    case "ton_wallet_claimed_elsewhere":
+      return "TON wallet moved\n\nThe TON wallet linked to your Bottleneck account was just verified on a different account, so it is no longer shown on yours. Whoever did this signed with that wallet's key. If you still hold the key, link it again in Settings to take it back.";
     case "signin_alert": {
       const lines = [
         "New sign-in",
