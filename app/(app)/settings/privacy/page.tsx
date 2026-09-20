@@ -55,6 +55,18 @@ export default async function PrivacyPage() {
                 "Display your Telegram handle and reference code on your public profile.",
               defaultChecked: u.publicShowTelegram,
             },
+            // Only offered once there is a badge to hide, so the switch is
+            // never one that does nothing.
+            ...(u.donorSince
+              ? [
+                  {
+                    name: "publicShowDonor",
+                    label: "Show donor badge",
+                    description: "Display the donor badge on your public profile.",
+                    defaultChecked: u.publicShowDonor,
+                  },
+                ]
+              : []),
           ]}
         />
       </Section>

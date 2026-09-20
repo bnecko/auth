@@ -37,6 +37,7 @@ export default async function PublicProfilePage(props: {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[12px] text-muted">User profile</span>
             {user.role === "admin" && <Tag tone="danger">Admin</Tag>}
+            {user.donorSince && user.publicShowDonor && <Tag tone="info">Donor</Tag>}
             <Tag tone={user.status === "active" ? "success" : "warning"}>{user.status}</Tag>
           </div>
 

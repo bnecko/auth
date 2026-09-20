@@ -173,6 +173,7 @@ export async function updatePrivacySettings(
     profilePublic: boolean;
     discoverableByUsername: boolean;
     publicShowTelegram: boolean;
+    publicShowDonor: boolean;
   },
 ) {
   const row = await queryOne<UserRow>(
@@ -180,6 +181,7 @@ export async function updatePrivacySettings(
         set profile_public = $2,
             discoverable_by_username = $3,
             public_show_telegram = $4,
+            public_show_donor = $5,
             updated_at = now()
       where id = $1
       returning ${userSelect}`,
@@ -188,6 +190,7 @@ export async function updatePrivacySettings(
       input.profilePublic,
       input.discoverableByUsername,
       input.publicShowTelegram,
+      input.publicShowDonor,
     ],
   );
   return row ? mapUser(row) : null;

@@ -48,6 +48,7 @@ const ROUTES: Record<string, GuardClass> = {
   'app/api/bearer-requests/[id]/revoke/status/route.ts': 'session',
   'app/api/oauth/authorize/approve/route.ts': 'session',
   'app/api/oauth/authorize/deny/route.ts': 'session',
+  'app/api/ton/donation/status/route.ts': 'session',
   'app/api/ton/proof/payload/route.ts': 'session',
   'app/api/ton/proof/verify/route.ts': 'session',
 

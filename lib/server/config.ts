@@ -33,6 +33,12 @@ export function tonIndexerApiKey() {
   return env("TONCENTER_API_KEY");
 }
 
+// Raw-form address that receives donations. Watch-only: no key for it is held
+// here. Unset means donations are switched off rather than broken.
+export function tonDonationAddress() {
+  return env("TON_DONATION_ADDRESS").toLowerCase();
+}
+
 export function emailFromAddress() {
   return env("EMAIL_FROM_ADDRESS") || "bottleneck <noreply@bneck.com>";
 }

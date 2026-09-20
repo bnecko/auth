@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TonConnect, { type IStorage, type Wallet } from "@tonconnect/sdk";
-import { encode } from "uqr";
 import { Button } from "@/components/Button";
+import { QrCode } from "@/components/QrCode";
 import { TON_CONNECT_WALLETS, type TonConnectWallet } from "@/lib/tonConnectWallets";
 
 // Keeps the protocol session out of localStorage. Linking is a one-shot
@@ -25,37 +25,6 @@ class MemoryStorage implements IStorage {
   async removeItem(key: string) {
     this.entries.delete(key);
   }
-}
-
-// Drawn as one path of 1x1 squares rather than through the library's SVG
-// renderer, because the production style-src has no 'unsafe-inline' and any
-// style attribute in the markup would be dropped.
-function QrCode({ text }: { text: string }) {
-  const { size, data } = encode(text, { ecc: "M" });
-  const quiet = 2;
-  const extent = size + quiet * 2;
-
-  let path = "";
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (data[y][x]) path += `M${x + quiet} ${y + quiet}h1v1h-1z`;
-    }
-  }
-
-  return (
-    <svg
-      viewBox={`0 0 ${extent} ${extent}`}
-      width={216}
-      height={216}
-      shapeRendering="crispEdges"
-      role="img"
-      aria-label="TON Connect QR code"
-      className="rounded-md"
-    >
-      <rect width={extent} height={extent} fill="#ffffff" />
-      <path d={path} fill="#000000" />
-    </svg>
-  );
 }
 
 type Phase = "idle" | "waiting" | "verifying";
@@ -205,7 +174,7 @@ export function TonConnectPanel() {
 
       {qrLink && (
         <div className="flex flex-col items-start gap-2">
-          <QrCode text={qrLink} />
+          <QrCode text={qrLink} label="TON Connect QR code" />
           <p className="text-[12px] text-muted">
             Scan with any TON wallet, then approve the signature request.
           </p>
