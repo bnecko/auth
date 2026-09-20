@@ -62,17 +62,28 @@ export async function POST(req: NextRequest) {
     return json({ ok: true, ignored: "unknown status" });
   }
 
-  await query(
-    `insert into kyc_applications (user_id, session_id, status, provider_status, decided_at)
-          values ($1, $2, $3, $4, case when $3 in ('approved','declined') then now() else null end)
-     on conflict (user_id) do update
-        set session_id = excluded.session_id,
-            status = excluded.status,
-            provider_status = excluded.provider_status,
-            decided_at = coalesce(excluded.decided_at, kyc_applications.decided_at),
-            updated_at = now()`,
-    [userId, sessionId, status, String(payload.status ?? "")],
-  );
+  try {
+    await query(
+      `insert into kyc_applications (user_id, session_id, status, provider_status, decided_at)
+            values ($1, $2, $3, $4, case when $3 in ('approved','declined') then now() else null end)
+       on conflict (user_id) do update
+          set session_id = excluded.session_id,
+              status = excluded.status,
+              provider_status = excluded.provider_status,
+              decided_at = coalesce(excluded.decided_at, kyc_applications.decided_at),
+              updated_at = now()`,
+      [userId, sessionId, status, String(payload.status ?? "")],
+    );
+  } catch (err) {
+    // A result for a user we do not have. Retrying cannot fix that, and a 5xx
+    // would make Didit try twice more before giving up, so it is accepted and
+    // dropped rather than failed.
+    if (err instanceof Error && (err as Error & { code?: string }).code === "23503") {
+      log.warn("kyc_webhook_unknown_user", { userId });
+      return json({ ok: true, ignored: "unknown user" });
+    }
+    throw err;
+  }
 
   log.info("kyc_webhook_applied", { userId, status });
   return json({ ok: true });
