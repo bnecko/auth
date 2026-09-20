@@ -8,7 +8,7 @@ const logger = require("./worker-log.js");
 
 const { createOperatorAlerter, noopAlerter } = require("./worker-alert.js");
 const { buildDailyDigest, sendDailyDigest } = require("./worker-digest.js");
-const { createIndexer, sweepTonDomains } = require("./worker-ton.js");
+const { createIndexer, sweepTonDomains, sweepTonDonations } = require("./worker-ton.js");
 
 // Operator alerts are wired up in startWorker(); until then (and in tests
 // that require this module) they are a no-op.
@@ -39,9 +39,10 @@ const LOOP_TOLERANCE_MS = {
   restriction: 2 * 60 * 60_000,
   deletion: 2 * 60 * 60_000,
   digest: 2 * 60 * 60_000,
-  // Ticks every minute, but a third-party indexer being down must not page
+  // Tick every minute, but a third-party indexer being down must not page
   // anyone: only a sustained outage withholds the ping.
   ton_domains: 30 * 60_000,
+  ton_donations: 30 * 60_000,
 };
 const lastLoopOkAt = new Map();
 
@@ -973,6 +974,35 @@ function startWorker() {
   intervalIds.push(setInterval(() => runBatch(tonDomains, "ton_domains_loop_error", "ton_domains"), 60 * 1000));
   runBatch(tonDomains, "initial_ton_domains_error", "ton_domains");
   logger.info("ton_domain_sweep_started");
+
+  // Donations. With no address configured the sweep is a no-op that still
+  // reports fresh: a registered loop that never resolves would withhold the
+  // heartbeat forever.
+  const donationAddress = (process.env.TON_DONATION_ADDRESS || "").toLowerCase();
+  const notifyDonor = async userId => {
+    const { rows } = await pool.query(
+      `select telegram_id from users
+        where id = $1 and telegram_id is not null and notify_security_receipts`,
+      [userId],
+    );
+    if (!rows[0]) return;
+    await notifyQueue.add("send", {
+      chat_id: rows[0].telegram_id,
+      text: "Thank you\n\nYour donation arrived and the donor badge is now on your Bottleneck profile. You can hide it in Settings, Privacy.",
+    });
+  };
+  const tonDonations = () =>
+    sweepTonDonations({
+      pool,
+      indexer: tonIndexer,
+      log: logger,
+      notify: notifyDonor,
+      alerts,
+      ownerAddress: donationAddress,
+    });
+  intervalIds.push(setInterval(() => runBatch(tonDonations, "ton_donations_loop_error", "ton_donations"), 60 * 1000));
+  runBatch(tonDonations, "initial_ton_donations_error", "ton_donations");
+  logger.info("ton_donation_sweep_started", { configured: Boolean(donationAddress) });
 
   intervalIds.push(setInterval(() => runBatch(heartbeatTick, "heartbeat_error"), HEARTBEAT_INTERVAL_MS));
   intervalIds.push(setInterval(() => runBatch(checkTunnelReady, "tunnel_check_error"), HEARTBEAT_INTERVAL_MS));

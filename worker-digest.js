@@ -11,8 +11,17 @@ function formatUptime(ms) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
+// Nanocoins to a readable GRAM figure. Integer maths throughout: a total
+// crosses 2^53 at nine coins, so dividing as a float would drift.
+function formatGram(nano) {
+  const value = BigInt(nano);
+  const whole = value / 1_000_000_000n;
+  const fraction = (value % 1_000_000_000n).toString().padStart(9, "0").slice(0, 2);
+  return `${whole}.${fraction} GRAM`;
+}
+
 async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {}) {
-  const [events, deliveries, endpoints, users] = await Promise.all([
+  const [events, deliveries, endpoints, users, donations] = await Promise.all([
     pool.query(
       `select event_type, count(*)::int as count
          from security_events
@@ -39,6 +48,15 @@ async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {})
               count(*) filter (where deletion_requested_at is not null)::int as pending_deletion
          from users`,
     ),
+    // Unmatched donations are money that arrived without a memo we recognise.
+    // Nothing credits them automatically, so the only way anyone finds out is
+    // by reading it here.
+    pool.query(
+      `select count(*) filter (where status = 'credited' and created_at > now() - interval '24 hours')::int as credited_today,
+              count(*) filter (where status = 'unmatched')::int as unmatched_total,
+              coalesce(sum(amount_nano) filter (where status = 'unmatched'), 0)::text as unmatched_nano
+         from ton_donations`,
+    ),
   ]);
 
   const day = new Date(now()).toISOString().slice(0, 10);
@@ -54,10 +72,12 @@ async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {})
   const d = deliveries.rows[0];
   const e = endpoints.rows[0];
   const u = users.rows[0];
+  const t = donations.rows[0];
   const lines = [
     `Daily digest auth.bneck.com (${day} UTC)`,
     `worker up ${startedAt ? formatUptime(now() - startedAt) : "n/a"}, alerts sent today: ${alertsSent}`,
     `users: ${u.total} total, ${u.new_today} new, ${u.pending_deletion} pending deletion`,
+    `donations: ${t.credited_today} credited today, ${t.unmatched_total} unmatched (${formatGram(t.unmatched_nano)})`,
     `webhooks: ${d.delivered} delivered, ${d.failed} failed, ${d.cancelled} cancelled, ${d.overdue} overdue; endpoints ${e.active} active, ${e.disabled_today} disabled today`,
     "events (24h):",
     ...(events.rows.length
@@ -77,4 +97,4 @@ async function sendDailyDigest({ pool, alerts, redis, hourUtc, startedAt, now = 
   return alerts.send(`digest:${day}`, text, { windowSeconds: DIGEST_WINDOW_SECONDS });
 }
 
-module.exports = { buildDailyDigest, sendDailyDigest, DIGEST_WINDOW_SECONDS };
+module.exports = { buildDailyDigest, sendDailyDigest, formatGram, DIGEST_WINDOW_SECONDS };

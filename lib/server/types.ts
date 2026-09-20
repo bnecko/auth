@@ -23,6 +23,8 @@ export type User = {
   profilePublic: boolean;
   discoverableByUsername: boolean;
   publicShowTelegram: boolean;
+  donorSince: string | null;
+  publicShowDonor: boolean;
   role: UserRole;
   status: UserStatus;
   createdAt: string;

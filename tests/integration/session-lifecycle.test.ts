@@ -47,6 +47,8 @@ async function seedUser(prefix = 'sess'): Promise<User> {
     profilePublic: true,
     discoverableByUsername: true,
     publicShowTelegram: true,
+    donorSince: null,
+    publicShowDonor: true,
     role: 'user',
     status: 'active',
     createdAt: new Date().toISOString(),

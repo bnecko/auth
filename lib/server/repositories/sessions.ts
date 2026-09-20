@@ -34,6 +34,8 @@ type SessionUserRow = SessionRow & {
   profile_public: boolean;
   discoverable_by_username: boolean;
   public_show_telegram: boolean;
+  donor_since: string | null;
+  public_show_donor: boolean;
   role: UserRole;
   status: UserStatus;
   user_created_at: string;
@@ -128,6 +130,8 @@ export async function findSessionByToken(token: string) {
         u.profile_public,
         u.discoverable_by_username,
         u.public_show_telegram,
+        u.donor_since,
+        u.public_show_donor,
         u.role,
         u.status,
         u.created_at::text as user_created_at`,
@@ -162,6 +166,8 @@ export async function findSessionByToken(token: string) {
       profilePublic: row.profile_public,
       discoverableByUsername: row.discoverable_by_username,
       publicShowTelegram: row.public_show_telegram,
+      donorSince: row.donor_since,
+      publicShowDonor: row.public_show_donor,
       role: row.role,
       status: row.status,
       createdAt: row.user_created_at,

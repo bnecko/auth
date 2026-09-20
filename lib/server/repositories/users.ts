@@ -25,6 +25,8 @@ type UserRow = {
   profile_public: boolean;
   discoverable_by_username: boolean;
   public_show_telegram: boolean;
+  donor_since: string | null;
+  public_show_donor: boolean;
   role: UserRole;
   status: UserStatus;
   created_at: string;
@@ -67,6 +69,8 @@ function mapUser(row: UserRow): User {
     profilePublic: row.profile_public,
     discoverableByUsername: row.discoverable_by_username,
     publicShowTelegram: row.public_show_telegram,
+    donorSince: row.donor_since,
+    publicShowDonor: row.public_show_donor,
     role: row.role,
     status: row.status,
     createdAt: row.created_at,
@@ -95,6 +99,8 @@ const userSelect = `
   profile_public,
   discoverable_by_username,
   public_show_telegram,
+  donor_since,
+  public_show_donor,
   role,
   status,
   created_at::text

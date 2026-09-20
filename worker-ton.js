@@ -5,9 +5,16 @@
 // same index derivation, same acceptance rules. Keep the two in sync.
 
 const { createHash } = require("crypto");
+const { Cell } = require("@ton/core");
 
 const TON_DNS_COLLECTION = "0:b774d95eb20543f186c06b371ab88ad704f7e256130caf96189368a7d0cb6ccf";
 const REQUEST_TIMEOUT_MS = 8000;
+
+// A plain transfer carries either no body or one opening with a zero opcode
+// (a text comment). Every other opcode is a different kind of message, which
+// is what keeps jetton transfer notifications out: a fake jetton calling
+// itself GRAM would otherwise look like an incoming payment.
+const TEXT_COMMENT_OPCODE = "0x00000000";
 
 // A .ton name is an NFT whose index is derived from the label, so we look the
 // item up by an index we computed ourselves and only ask the indexer who holds
@@ -43,7 +50,90 @@ function createIndexer({ baseUrl, apiKey, fetchImpl = fetch }) {
     return sameAddress(item.owner_address, address);
   }
 
-  return { ownsDomain };
+  async function getJson(path, params) {
+    const url = new URL(`${String(baseUrl).replace(/\/+$/, "")}${path}`);
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+    const res = await fetchImpl(url, {
+      headers: apiKey ? { "X-API-Key": apiKey } : {},
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`ton indexer responded ${res.status}`);
+    return res.json();
+  }
+
+  // Ascending from just past where we left off, so a page is always the next
+  // unread slice and re-reading it is harmless.
+  async function accountTransactions(address, afterLt, limit = 100) {
+    const body = await getJson("/transactions", {
+      account: address,
+      start_lt: String(BigInt(afterLt) + 1n),
+      sort: "asc",
+      limit: String(limit),
+    });
+    return (body && body.transactions) || [];
+  }
+
+  async function latestLt(address) {
+    const body = await getJson("/transactions", { account: address, limit: "1", sort: "desc" });
+    const tx = body && body.transactions && body.transactions[0];
+    return tx ? String(tx.lt) : "0";
+  }
+
+  return { ownsDomain, accountTransactions, latestLt };
+}
+
+// Reads the comment out of the message body rather than believing the
+// indexer's own decoding of it, since the memo is what decides whose account
+// gets credited.
+function textComment(bodyBase64) {
+  if (!bodyBase64) return null;
+  try {
+    const slice = Cell.fromBoc(Buffer.from(bodyBase64, "base64"))[0].beginParse();
+    if (slice.remainingBits < 32) return null;
+    if (slice.loadUint(32) !== 0) return null;
+    return slice.loadStringTail();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decides whether one transaction is a GRAM payment to the donation address,
+ * and returns what to record. Everything that is not plainly that is refused:
+ *
+ * - external messages and messages to another account are not payments to us
+ * - a bounced message is value on its way back to the sender
+ * - an aborted transaction, or a failed compute or action phase, did not
+ *   complete, so its value did not land
+ * - a non-zero opcode is some other kind of message; jetton transfer
+ *   notifications live here, which is how a fake jetton named GRAM is kept out
+ * - extra currencies are ignored; only the native value counts
+ */
+function parseDonation(tx, ownerAddress) {
+  const msg = tx && tx.in_msg;
+  if (!msg || !msg.source) return null;
+  if (!sameAddress(msg.destination, ownerAddress)) return null;
+  if (msg.bounced) return null;
+
+  const description = tx.description || {};
+  if (description.aborted) return null;
+  if (description.compute_ph && description.compute_ph.success === false) return null;
+  if (description.action && description.action.success === false) return null;
+
+  if (msg.opcode && msg.opcode !== TEXT_COMMENT_OPCODE) return null;
+
+  const amountNano = BigInt(msg.value || "0");
+  if (amountNano <= 0n) return null;
+
+  const comment = textComment(msg.message_content && msg.message_content.body);
+  return {
+    txHash: tx.hash,
+    txLt: String(tx.lt),
+    amountNano,
+    sender: String(msg.source || "").toLowerCase(),
+    memo: comment ? comment.trim().toUpperCase() : null,
+    txTime: Number(tx.now) || null,
+  };
 }
 
 // Two quick retries inside the tick. A vendor blip should not cost a user
@@ -132,11 +222,167 @@ async function sweepTonDomains({ pool, indexer, log, notify, alerts, wait }) {
   return true;
 }
 
+const DONATION_CURSOR = "ton_donations_lt";
+const DONOR_THRESHOLD_NANO = 1_000_000_000n;
+// Below this, an unmatched transfer is counted and dropped rather than stored.
+// Anyone can send a hundredth of a coin to a public address, and the ledger
+// should not be a place strangers can write to for free. A transfer whose memo
+// does match a user is always recorded, however small.
+const DUST_NANO = 10_000_000n;
+const DONATION_PAGE_LIMIT = 100;
+
+async function readCursor(pool) {
+  const { rows } = await pool.query(`select value from worker_cursors where name = $1`, [DONATION_CURSOR]);
+  return rows[0] ? rows[0].value : null;
+}
+
+async function writeCursor(pool, value) {
+  await pool.query(
+    `insert into worker_cursors (name, value) values ($1, $2)
+     on conflict (name) do update set value = excluded.value, updated_at = now()`,
+    [DONATION_CURSOR, value],
+  );
+}
+
+// One transaction per donation, so a crash cannot leave a credited row without
+// the badge it earned, or the badge without the row that justifies it.
+async function recordDonation({ pool, donation, log }) {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    const matched = donation.memo
+      ? (await client.query(`select user_id from ton_donation_memos where memo = $1`, [donation.memo])).rows[0]
+      : null;
+    const userId = matched ? Number(matched.user_id) : null;
+
+    if (!userId && donation.amountNano < DUST_NANO) {
+      await client.query("rollback");
+      return { stored: false, becameDonor: false };
+    }
+
+    const inserted = await client.query(
+      `insert into ton_donations (user_id, tx_hash, tx_lt, amount_nano, sender, memo, status, tx_time)
+            values ($1, $2, $3, $4, $5, $6, $7, case when $8::bigint is null then null else to_timestamp($8::bigint) end)
+       on conflict (tx_hash) do nothing
+         returning id`,
+      [
+        userId,
+        donation.txHash,
+        donation.txLt,
+        donation.amountNano.toString(),
+        donation.sender,
+        donation.memo,
+        userId ? "credited" : "unmatched",
+        donation.txTime,
+      ],
+    );
+
+    // Already recorded on an earlier pass: re-reading a window is expected, so
+    // this is the normal path, not an error.
+    if (inserted.rowCount === 0) {
+      await client.query("rollback");
+      return { stored: false, becameDonor: false };
+    }
+
+    let becameDonor = false;
+    if (userId) {
+      // Cumulative, because an exchange withdrawal arrives with its fee taken
+      // out and a single "1 GRAM" send would land just under the line.
+      const { rows } = await client.query(
+        `select coalesce(sum(amount_nano), 0)::text as total
+           from ton_donations where user_id = $1 and status = 'credited'`,
+        [userId],
+      );
+      if (BigInt(rows[0].total) >= DONOR_THRESHOLD_NANO) {
+        const promoted = await client.query(
+          `update users set donor_since = now(), updated_at = now()
+            where id = $1 and donor_since is null returning id`,
+          [userId],
+        );
+        becameDonor = promoted.rowCount > 0;
+      }
+    }
+
+    await client.query("commit");
+    log.info("ton_donation_recorded", {
+      userId,
+      amountNano: donation.amountNano.toString(),
+      status: userId ? "credited" : "unmatched",
+    });
+    return { stored: true, becameDonor, userId };
+  } catch (err) {
+    await client.query("rollback").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Reads new transactions at the donation address and records the ones that are
+ * genuinely inbound GRAM payments.
+ *
+ * The cursor only ever moves across transactions that are final. A transaction
+ * that is still emulated or unfinalised stops the pass where it is, because
+ * advancing past one would lose it the moment it settles for real.
+ */
+async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddress }) {
+  if (!ownerAddress || !indexer) return true;
+
+  const cursor = await readCursor(pool);
+  if (cursor === null) {
+    // First run starts at the present. An address that existed before this
+    // feature did should not have its whole history credited retroactively.
+    const latest = await indexer.latestLt(ownerAddress);
+    await writeCursor(pool, latest);
+    log.info("ton_donations_cursor_initialised", { lt: latest });
+    return true;
+  }
+
+  let transactions;
+  try {
+    transactions = await indexer.accountTransactions(ownerAddress, cursor, DONATION_PAGE_LIMIT);
+  } catch (err) {
+    log.warn("ton_donations_fetch_failed", { error: err });
+    if (alerts) {
+      await alerts.send("ton_indexer_down", `TON indexer unreachable\ndonation sweep could not read transactions`, {
+        windowSeconds: 3600,
+      });
+    }
+    return false;
+  }
+
+  let highest = BigInt(cursor);
+  for (const tx of transactions) {
+    if (tx.emulated || tx.finality !== "finalized") break;
+
+    const donation = parseDonation(tx, ownerAddress);
+    if (donation) {
+      const result = await recordDonation({ pool, donation, log });
+      if (result.becameDonor && notify) await notify(result.userId);
+    }
+
+    const lt = BigInt(tx.lt);
+    if (lt > highest) highest = lt;
+  }
+
+  if (highest > BigInt(cursor)) await writeCursor(pool, highest.toString());
+  return true;
+}
+
 module.exports = {
   TON_DNS_COLLECTION,
+  DONATION_CURSOR,
+  DONOR_THRESHOLD_NANO,
+  DUST_NANO,
   dnsItemIndex,
   createIndexer,
   sweepTonDomains,
+  sweepTonDonations,
+  parseDonation,
+  textComment,
+  recordDonation,
   checkWithRetries,
   RETRY_DELAYS_MS,
   CLAIM_BATCH_SIZE,
