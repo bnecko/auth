@@ -696,3 +696,9 @@ insert into billing_accounts (kind) values ('chain');
 insert into billing_balances (account_id)
   select id from billing_accounts where kind = 'pool'
  ;
+
+create table billing_deposit_memos (
+  user_id bigint primary key references users(id) on delete cascade,
+  memo text not null unique,
+  created_at timestamptz not null default now()
+);

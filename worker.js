@@ -999,6 +999,23 @@ function startWorker() {
       text: "Thank you\n\nYour donation arrived and the donor badge is now on your Bottleneck profile. You can hide it in Settings, Privacy.",
     });
   };
+  // Deposits are credited by the app, not here: the ledger's double-entry
+  // logic lives in TypeScript the worker cannot import, and a second
+  // implementation of it is how ledgers drift apart.
+  const creditDeposit = async ({ userId, amountNano, txHash }) => {
+    const base = process.env.AUTH_INTERNAL_URL || "http://app:3000";
+    const secret = process.env.INTERNAL_ANALYTICS_SECRET || "";
+    if (!secret) throw new Error("INTERNAL_ANALYTICS_SECRET is unset, cannot credit deposits");
+    const res = await fetch(`${base}/api/internal/billing/credit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-bottleneck-internal-secret": secret },
+      body: JSON.stringify({ userId, amountNano, txHash }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`credit endpoint responded ${res.status}`);
+    return res.json();
+  };
+
   const tonDonations = () =>
     sweepTonDonations({
       pool,
@@ -1007,6 +1024,7 @@ function startWorker() {
       notify: notifyDonor,
       alerts,
       ownerAddress: donationAddress,
+      creditDeposit,
     });
   intervalIds.push(setInterval(() => runBatch(tonDonations, "ton_donations_loop_error", "ton_donations"), 60 * 1000));
   runBatch(tonDonations, "initial_ton_donations_error", "ton_donations");

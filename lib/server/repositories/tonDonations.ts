@@ -20,9 +20,18 @@ function generateMemo() {
  * The donation memo for a user, minted on first use. Stable once issued, so a
  * payment sent days after the page was open still matches.
  */
+export async function getOrCreateDepositMemo(userId: number): Promise<string> {
+  return memoFor(userId, "billing_deposit_memos");
+}
+
 export async function getOrCreateDonationMemo(userId: number): Promise<string> {
+  return memoFor(userId, "ton_donation_memos");
+}
+
+// Both memo tables have the same shape: user_id primary key, memo unique.
+async function memoFor(userId: number, table: "ton_donation_memos" | "billing_deposit_memos") {
   const existing = await queryOne<{ memo: string }>(
-    `select memo from ton_donation_memos where user_id = $1`,
+    `select memo from ${table} where user_id = $1`,
     [userId],
   );
   if (existing) return existing.memo;
@@ -32,8 +41,8 @@ export async function getOrCreateDonationMemo(userId: number): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const row = await queryOne<{ memo: string }>(
-        `insert into ton_donation_memos (user_id, memo) values ($1, $2)
-         on conflict (user_id) do update set memo = ton_donation_memos.memo
+        `insert into ${table} (user_id, memo) values ($1, $2)
+         on conflict (user_id) do update set memo = ${table}.memo
          returning memo`,
         [userId, generateMemo()],
       );
@@ -42,7 +51,7 @@ export async function getOrCreateDonationMemo(userId: number): Promise<string> {
       if (!(err instanceof Error && (err as Error & { code?: string }).code === "23505")) throw err;
     }
   }
-  throw new Error("could not allocate a donation memo");
+  throw new Error(`could not allocate a memo in ${table}`);
 }
 
 export type Donation = {
