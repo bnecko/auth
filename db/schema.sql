@@ -702,3 +702,22 @@ create table billing_deposit_memos (
   memo text not null unique,
   created_at timestamptz not null default now()
 );
+
+create table kyc_applications (
+  user_id bigint primary key references users(id) on delete cascade,
+  -- Didit's session id. Unique so a webhook can find the row by it, and so a
+  -- replayed session cannot attach itself to a second account.
+  session_id text unique,
+  status text not null default 'not_started' check (status in (
+    'not_started', 'in_progress', 'awaiting_user', 'in_review',
+    'approved', 'declined', 'expired', 'abandoned'
+  )),
+  -- The provider's own wording, kept verbatim for support questions. Never
+  -- shown to the user unmodified.
+  provider_status text,
+  decided_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index kyc_applications_status_idx on kyc_applications(status);
