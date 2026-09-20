@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 
 import { findPushedRequest } from "@/lib/server/repositories/oauth";
+import { TON_BRIDGE_ORIGINS } from "@/lib/tonConnectWallets";
 
 // Security headers applied to every response. Notes:
 //
@@ -26,7 +27,11 @@ export function nonce() {
   return btoa(binary);
 }
 
-export function contentSecurityPolicy(scriptNonce: string, extraFormAction: string[] = []) {
+export function contentSecurityPolicy(
+  scriptNonce: string,
+  extraFormAction: string[] = [],
+  extraConnectSrc: string[] = [],
+) {
   const scriptSources = [
     "'self'",
     "https://challenges.cloudflare.com",
@@ -58,7 +63,7 @@ export function contentSecurityPolicy(scriptNonce: string, extraFormAction: stri
     "frame-src 'self' https://challenges.cloudflare.com https://telegram.org https://oauth.telegram.org",
     `style-src ${styleSources.join(" ")}`,
     "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' https://oauth.telegram.org",
+    `connect-src ${["'self'", "https://oauth.telegram.org", ...extraConnectSrc].join(" ")}`,
     "object-src 'none'",
   ].join("; ");
 }
@@ -311,6 +316,14 @@ export async function consentFormActionOrigins(req: NextRequest): Promise<string
   return origin ? [origin] : [];
 }
 
+// A TON Connect bridge is an open relay: anything that can reach one can post
+// to any session on it. Granting the bridges site-wide would hand every page,
+// including login and the OAuth consent screen, an outbound channel to a third
+// party, so only the page that actually opens a bridge session gets them.
+function tonBridgeConnectSrc(req: NextRequest): string[] {
+  return req.nextUrl.pathname === "/settings/ton" ? TON_BRIDGE_ORIGINS : [];
+}
+
 export async function proxy(req: NextRequest, event: NextFetchEvent) {
   const host = (req.headers.get("host") || "").split(":")[0].toLowerCase();
   if (host === LEGACY_DOMAIN) {
@@ -343,7 +356,11 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
   res.headers.set("x-request-id", requestId);
   res.headers.set(
     "Content-Security-Policy",
-    contentSecurityPolicy(scriptNonce, await consentFormActionOrigins(req)),
+    contentSecurityPolicy(
+      scriptNonce,
+      await consentFormActionOrigins(req),
+      tonBridgeConnectSrc(req),
+    ),
   );
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");

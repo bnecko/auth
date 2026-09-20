@@ -4,6 +4,7 @@ import { listSessionsForUser } from "@/lib/server/repositories/sessions";
 import { recentEventsForUser } from "@/lib/server/repositories/securityEvents";
 import { listSubscriptionsForUser } from "@/lib/server/repositories/subscriptions";
 import { listAuthorizationsForUser } from "@/lib/server/repositories/authorizations";
+import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 
 export const runtime = "nodejs";
 
@@ -16,11 +17,12 @@ export async function GET() {
   }
   const u = current.user;
 
-  const [sessions, securityEvents, subscriptions, connectedApps] = await Promise.all([
+  const [sessions, securityEvents, subscriptions, connectedApps, tonWallet] = await Promise.all([
     listSessionsForUser(u.id),
     recentEventsForUser(u.id, 100),
     listSubscriptionsForUser(u.id),
     listAuthorizationsForUser(u.id),
+    findTonWallet(u.id),
   ]);
 
   const data = {
@@ -63,6 +65,13 @@ export async function GET() {
     })),
     subscriptions,
     connectedApps,
+    tonWallet: tonWallet && {
+      address: tonWallet.address,
+      walletVersion: tonWallet.walletVersion,
+      verifiedAt: tonWallet.verifiedAt,
+      display: tonWallet.display,
+      displayDomain: tonWallet.displayDomain,
+    },
   };
 
   return new NextResponse(JSON.stringify(data, null, 2), {

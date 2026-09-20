@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { consentFormActionOrigin, contentSecurityPolicy, nonce } from '../../proxy';
+import { TON_BRIDGE_ORIGINS } from '@/lib/tonConnectWallets';
 
 describe('nonce()', () => {
   it('returns a base64 string with non-trivial entropy', () => {
@@ -90,6 +91,34 @@ describe('contentSecurityPolicy()', () => {
     const policy = parse(contentSecurityPolicy('n', ['https://readme.bottleneck.cc']));
     expect(policy['form-action']).toContain("'self'");
     expect(policy['form-action']).toContain('https://readme.bottleneck.cc');
+  });
+
+  // A TON Connect bridge relays messages for any session on it, so granting
+  // one site-wide would give every page an outbound channel to a third party.
+  it('connect-src stays at self plus Telegram by default', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const policy = parse(contentSecurityPolicy('n'));
+    expect(policy['connect-src']).toEqual(["'self'", 'https://oauth.telegram.org']);
+  });
+
+  it('adds the TON bridge origins only when the caller asks for them', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const policy = parse(contentSecurityPolicy('n', [], TON_BRIDGE_ORIGINS));
+    expect(policy['connect-src']).toContain("'self'");
+    for (const origin of TON_BRIDGE_ORIGINS) {
+      expect(policy['connect-src']).toContain(origin);
+    }
+  });
+
+  // Pinned so widening the grant has to be a deliberate edit here, not a
+  // side effect of adding a wallet to the registry.
+  it('grants exactly the four supported wallet bridges', () => {
+    expect(TON_BRIDGE_ORIGINS).toEqual([
+      'https://bridge.tonapi.io',
+      'https://tonconnectbridge.mytonwallet.org',
+      'https://walletbot.me',
+      'https://connect.tonhubapi.com',
+    ]);
   });
 
   it('allows Turnstile and Telegram script and frame sources', () => {

@@ -48,6 +48,8 @@ const ROUTES: Record<string, GuardClass> = {
   'app/api/bearer-requests/[id]/revoke/status/route.ts': 'session',
   'app/api/oauth/authorize/approve/route.ts': 'session',
   'app/api/oauth/authorize/deny/route.ts': 'session',
+  'app/api/ton/proof/payload/route.ts': 'session',
+  'app/api/ton/proof/verify/route.ts': 'session',
 
   'app/api/activation-requests/route.ts': 'client-credential',
   'app/api/activation-requests/[id]/route.ts': 'client-credential',
@@ -96,6 +98,9 @@ const ROUTES: Record<string, GuardClass> = {
   'app/api/telegram/verification/[id]/route.ts': 'public',
   'app/api/telegram/verification/[id]/complete/route.ts': 'public',
   'app/api/telegram/verification/[id]/send-code/route.ts': 'public',
+  // Wallets fetch this before showing a connect prompt, from their own apps
+  // and bridges, so it cannot require a session.
+  'app/tonconnect-manifest.json/route.ts': 'public',
 };
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
