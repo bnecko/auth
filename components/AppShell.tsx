@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   User,
   CreditCard,
+  Coins,
   LayoutGrid,
   KeyRound,
   MonitorSmartphone,
@@ -49,6 +50,7 @@ const USER_NAV: NavGroup[] = [
       { href: "/account", label: "Account home", icon: House },
       { href: "/settings", label: "Settings", icon: Settings },
       { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
+      { href: "/billing", label: "Billing", icon: Coins },
       { href: "/apps", label: "Connected apps", icon: LayoutGrid },
       { href: "/bearers", label: "API bearers", icon: KeyRound },
     ],
