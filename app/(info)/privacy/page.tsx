@@ -19,6 +19,7 @@ export default function PrivacyPage() {
             "Account details you provide: first name, username, optional bio, email address, and an optional date of birth.",
             "Authentication data: a hash of your password (never the password itself), registered passkeys, and your linked Telegram account id and username.",
             "Security and session data: IP address, user agent, approximate country, and sign-in and account-security events, used to protect your account.",
+            "If you link a TON wallet: the wallet address you proved, which version of wallet it is, and any .ton domain you choose to display.",
           ]}
         />
       </DocSection>
@@ -49,6 +50,27 @@ export default function PrivacyPage() {
           When you authorize a third-party application through OAuth, we share only the information
           covered by the scopes you approve (for example your profile, email, or date of birth).
           We do not sell your personal data.
+        </p>
+      </DocSection>
+
+      <DocSection heading="TON wallets and donations">
+        <p>
+          Linking a TON wallet is optional. You prove you hold the address by signing a message
+          we generate; we never ask for a private key or seed phrase, and linking moves no funds.
+          A linked address is private by default.
+        </p>
+        <p>
+          If you choose to show your address or a .ton domain on your public profile, understand
+          what that means: the TON blockchain is public and permanent, so anyone who sees the
+          address can read that wallet&apos;s entire balance and transaction history, past and
+          future, and link it to your account. You can hide it again at any time, but you cannot
+          undo what was already seen. A displayed .ton domain is re-checked periodically and is
+          hidden automatically if the domain stops belonging to your address.
+        </p>
+        <p>
+          If you donate, the sending address is recorded and linked to your account so we can
+          credit the donation. Donation records are kept as financial records after an account is
+          deleted, with the link to the account removed.
         </p>
       </DocSection>
 

@@ -67,7 +67,19 @@ export default function TermsPage() {
         />
       </DocSection>
 
-      <DocSection heading="6. Suspension and termination">
+      <DocSection heading="6. TON wallets and donations">
+        <DocList
+          items={[
+            "Linking a TON wallet is optional. You prove you hold an address by signing a message we generate. We never ask for a private key or seed phrase, and we will never ask you to send funds to link a wallet.",
+            "We are not a wallet, exchange, broker, or custodian, and we do not hold funds on your behalf. Transactions on the TON blockchain are irreversible: we cannot reverse, recover, or refund them, including funds sent to a wrong address.",
+            "Choosing to display an address or a .ton domain on your public profile makes your wallet's full balance and transaction history publicly linkable to your account, permanently. See the Privacy Policy before enabling it.",
+            "Donations are voluntary and non-refundable. A donor badge is cosmetic: it is not a purchase, subscription, security, or investment, grants no ownership, entitlement, or claim against us, and can be removed if the Rules are broken.",
+            "You are responsible for the security of your own wallet and for any tax obligations that arise from your use of it.",
+          ]}
+        />
+      </DocSection>
+
+      <DocSection heading="7. Suspension and termination">
         <p>
           We may suspend or terminate your access at any time for violations of these Terms or the
           Rules, to protect the Service or its users, or as required by law. You may stop using the
@@ -75,7 +87,7 @@ export default function TermsPage() {
         </p>
       </DocSection>
 
-      <DocSection heading="7. Service provided “as is”">
+      <DocSection heading="8. Service provided “as is”">
         <p>
           The Service is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis
           without warranties of any kind, to the fullest extent permitted by law. We do not warrant
@@ -83,7 +95,7 @@ export default function TermsPage() {
         </p>
       </DocSection>
 
-      <DocSection heading="8. Limitation of liability">
+      <DocSection heading="9. Limitation of liability">
         <p>
           To the fullest extent permitted by law, we are not liable for any indirect, incidental,
           or consequential damages, or for loss of data, arising from your use of or inability to
@@ -91,7 +103,7 @@ export default function TermsPage() {
         </p>
       </DocSection>
 
-      <DocSection heading="9. Changes to these Terms">
+      <DocSection heading="10. Changes to these Terms">
         <p>
           We may update these Terms. When we make material changes we will revise the version and
           effective date shown here; continuing to use the Service after a change means you accept
@@ -99,7 +111,7 @@ export default function TermsPage() {
         </p>
       </DocSection>
 
-      <DocSection heading="10. Contact">
+      <DocSection heading="11. Contact">
         <p>
           Questions about these Terms can be raised through{" "}
           <Link href="/support" className="text-accent-strong transition-colors hover:text-fg">
