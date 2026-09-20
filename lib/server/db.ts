@@ -1,4 +1,4 @@
-import { Pool, type QueryResultRow } from "pg";
+import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import { requireEnv } from "./config";
 import { log } from "./log";
 
@@ -55,5 +55,24 @@ export async function dbHealthy(timeoutMs = 3000): Promise<boolean> {
     return await Promise.race([probe, timeout]);
   } catch {
     return false;
+  }
+}
+
+// Runs fn inside one transaction and hands it the client, so every statement
+// lands on the same connection. The ledger needs this: a movement that wrote
+// its entries but not its balance, or one half of a transfer but not the
+// other, would be money invented or destroyed.
+export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const result = await fn(client);
+    await client.query("commit");
+    return result;
+  } catch (err) {
+    await client.query("rollback").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
 }
