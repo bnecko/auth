@@ -6,7 +6,7 @@ import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 import { getOrCreateDonationMemo } from "@/lib/server/repositories/tonDonations";
 import { tonDonationAddress } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
-import { shortFriendlyAddress, toFriendlyAddress } from "@/lib/server/ton/address";
+import { parseAddress, shortFriendlyAddress } from "@/lib/server/ton/address";
 import { TonConnectPanel } from "./TonConnectPanel";
 import { DonateSection } from "./DonateSection";
 import { WalletDisplayForm } from "./WalletDisplayForm";
@@ -18,10 +18,13 @@ export default async function TonWalletPage() {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const wallet = await findTonWallet(current.user.id);
-  const donationAddress = tonDonationAddress();
+  // Parsed rather than trusted: a mistyped address should hide the section,
+  // not throw on every render of this page.
+  const donationAddress = parseAddress(tonDonationAddress());
+  const donateTo = donationAddress?.toString({ urlSafe: true, bounceable: false, testOnly: false });
   // Minted on first visit rather than at sign-up: most accounts never
   // donate, and a memo is only meaningful once someone is looking at it.
-  const memo = donationAddress ? await getOrCreateDonationMemo(current.user.id) : null;
+  const memo = donateTo ? await getOrCreateDonationMemo(current.user.id) : null;
 
   return (
     <>
@@ -80,7 +83,7 @@ export default async function TonWalletPage() {
         </div>
       )}
 
-      {donationAddress && memo && (
+      {donateTo && memo && (
         <div className="mt-6">
           <Section
             title="Donate"
@@ -101,9 +104,9 @@ export default async function TonWalletPage() {
               </Row>
             ) : (
               <DonateSection
-                address={toFriendlyAddress(donationAddress)}
+                address={donateTo}
                 memo={memo}
-                transferLink={`ton://transfer/${toFriendlyAddress(donationAddress)}?amount=1000000000&text=${memo}`}
+                transferLink={`ton://transfer/${donateTo}?amount=1000000000&text=${memo}`}
               />
             )}
           </Section>

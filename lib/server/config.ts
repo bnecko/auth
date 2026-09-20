@@ -33,10 +33,15 @@ export function tonIndexerApiKey() {
   return env("TONCENTER_API_KEY");
 }
 
-// Raw-form address that receives donations. Watch-only: no key for it is held
-// here. Unset means donations are switched off rather than broken.
+// The address that receives donations. Watch-only: no key for it is held here,
+// and unset means donations are switched off rather than broken.
+//
+// Returned as configured, in whichever spelling the operator pasted. It is not
+// lower-cased: the friendly form is base64, so folding its case breaks the
+// checksum and the address stops parsing. Callers that compare it against a
+// chain address normalise to the raw form first.
 export function tonDonationAddress() {
-  return env("TON_DONATION_ADDRESS").toLowerCase();
+  return env("TON_DONATION_ADDRESS").trim();
 }
 
 export function emailFromAddress() {
