@@ -48,6 +48,7 @@ import {
   hasActiveSubscription,
   listSubscriptionsForUser,
 } from "../repositories/subscriptions";
+import { findTonWallet } from "../repositories/tonWallets";
 import { findUserById } from "../repositories/users";
 import type { ExternalApp, User } from "../types";
 
@@ -225,6 +226,7 @@ export const OAUTH_SCOPE_LIST = [
   "dob:read",
   "subscription:read",
   "telegram:read",
+  "ton:read",
 ] as const;
 
 const OAUTH_SCOPES = new Set<string>(OAUTH_SCOPE_LIST);
@@ -1247,6 +1249,16 @@ export async function oauthUserInfo(accessToken: string) {
     result.telegram_verified = Boolean(user.telegramVerifiedAt);
   }
 
+  // A wallet address is public on the chain, but tying it to an account is
+  // not, so it needs its own scope rather than riding along with the profile.
+  // Only what the user chose to publish is shared: the domain appears only
+  // while it is the thing on display, and a hidden wallet discloses nothing.
+  if (hasScope(scopes, "ton:read", "ton:read")) {
+    const wallet = await findTonWallet(user.id);
+    result.ton_address = wallet ? wallet.address : null;
+    result.ton_domain = wallet && wallet.display === "domain" ? wallet.displayDomain : null;
+  }
+
   return result;
 }
 
@@ -1359,6 +1371,8 @@ export function oauthServerMetadata() {
       "telegram_id",
       "telegram_username",
       "telegram_verified",
+      "ton_address",
+      "ton_domain",
     ],
   };
 
