@@ -26,6 +26,7 @@ export default async function PublicProfilePage(props: {
   const ref = telegramPublicRef(user.telegramId);
   const wallet = await findTonWallet(user.id);
   const publicAddress = wallet?.display === "address" ? wallet.address : null;
+  const publicDomain = wallet?.display === "domain" ? wallet.displayDomain : null;
 
   return (
     <div className="flex flex-col min-h-screen bg-bg">
@@ -86,6 +87,23 @@ export default async function PublicProfilePage(props: {
                 <RowLabel>Telegram ref</RowLabel>
                 <RowValue>
                   <code className="text-[12px] text-secondary">{ref}</code>
+                </RowValue>
+                <span />
+              </Row>
+            )}
+            {publicDomain && (
+              <Row>
+                <RowLabel>TON domain</RowLabel>
+                <RowValue>
+                  <a
+                    href={`https://tonviewer.com/${publicDomain}.ton`}
+                    target="_blank"
+                    rel="noreferrer nofollow"
+                    className="text-accent-strong hover:text-fg transition-colors flex items-baseline gap-1.5"
+                  >
+                    <span>{publicDomain}.ton</span>
+                    <span className="text-[12px] text-faint">↗</span>
+                  </a>
                 </RowValue>
                 <span />
               </Row>

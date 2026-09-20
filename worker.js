@@ -1,4 +1,4 @@
-const { Worker } = require("bullmq");
+const { Queue, Worker } = require("bullmq");
 const Redis = require("ioredis");
 const { createHmac, createHash } = require("crypto");
 const { Pool } = require("pg");
@@ -8,6 +8,7 @@ const logger = require("./worker-log.js");
 
 const { createOperatorAlerter, noopAlerter } = require("./worker-alert.js");
 const { buildDailyDigest, sendDailyDigest } = require("./worker-digest.js");
+const { createIndexer, sweepTonDomains } = require("./worker-ton.js");
 
 // Operator alerts are wired up in startWorker(); until then (and in tests
 // that require this module) they are a no-op.
@@ -38,6 +39,9 @@ const LOOP_TOLERANCE_MS = {
   restriction: 2 * 60 * 60_000,
   deletion: 2 * 60 * 60_000,
   digest: 2 * 60 * 60_000,
+  // Ticks every minute, but a third-party indexer being down must not page
+  // anyone: only a sustained outage withholds the ping.
+  ton_domains: 30 * 60_000,
 };
 const lastLoopOkAt = new Map();
 
@@ -130,6 +134,7 @@ let inFlightBatches = 0;
 const intervalIds = [];
 let bullWorker = null;
 let bullConnection = null;
+let notifyQueue = null;
 
 // SSRF guard. Webhook URLs are user-supplied; refuse anything pointing at
 // localhost, RFC1918, link-local, cloud metadata, etc. Resolve-then-fetch
@@ -832,6 +837,7 @@ async function shutdownGracefully(signal) {
   for (const id of intervalIds) clearInterval(id);
   try {
     if (bullWorker) await bullWorker.close();
+    if (notifyQueue) await notifyQueue.close();
   } catch (err) {
     logger.error("worker_close_failed", { error: err });
   }
@@ -941,6 +947,32 @@ function startWorker() {
   intervalIds.push(setInterval(() => runBatch(digest, "digest_loop_error", "digest"), 60 * 60 * 1000));
   runBatch(digest, "initial_digest_error", "digest");
   logger.info("daily_digest_started", { hourUtc: DIGEST_HOUR_UTC });
+
+  // A .ton domain is a transferable NFT, so one shown on a profile has to be
+  // re-checked or a sold name keeps vouching for its previous owner. Tick
+  // every minute; the six-hour staleness filter inside decides what is due.
+  notifyQueue = new Queue("telegram-notifications", { connection: bullConnection });
+  const tonIndexer = createIndexer({
+    baseUrl: process.env.TON_INDEXER_URL || "https://toncenter.com/api/v3",
+    apiKey: process.env.TONCENTER_API_KEY || "",
+  });
+  const notifyDomainHidden = async (userId, domain) => {
+    const { rows } = await pool.query(
+      `select telegram_id from users
+        where id = $1 and telegram_id is not null and notify_security_receipts`,
+      [userId],
+    );
+    if (!rows[0]) return;
+    await notifyQueue.add("send", {
+      chat_id: rows[0].telegram_id,
+      text: `TON domain hidden\n\n${domain}.ton is no longer held by the wallet linked to your Bottleneck account, so it was removed from your public profile. If you transferred or sold it, nothing else is needed.`,
+    });
+  };
+  const tonDomains = () =>
+    sweepTonDomains({ pool, indexer: tonIndexer, log: logger, notify: notifyDomainHidden, alerts });
+  intervalIds.push(setInterval(() => runBatch(tonDomains, "ton_domains_loop_error", "ton_domains"), 60 * 1000));
+  runBatch(tonDomains, "initial_ton_domains_error", "ton_domains");
+  logger.info("ton_domain_sweep_started");
 
   intervalIds.push(setInterval(() => runBatch(heartbeatTick, "heartbeat_error"), HEARTBEAT_INTERVAL_MS));
   intervalIds.push(setInterval(() => runBatch(checkTunnelReady, "tunnel_check_error"), HEARTBEAT_INTERVAL_MS));

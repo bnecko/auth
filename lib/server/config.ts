@@ -22,6 +22,17 @@ export function resendApiKey() {
   return env("RESEND_API_KEY");
 }
 
+// TON chain reads (which .ton domains an address owns). Not in the required
+// production secrets: without a key the public tier still answers, just more
+// slowly, and losing it degrades one optional feature rather than the service.
+export function tonIndexerUrl() {
+  return env("TON_INDEXER_URL") || "https://toncenter.com/api/v3";
+}
+
+export function tonIndexerApiKey() {
+  return env("TONCENTER_API_KEY");
+}
+
 export function emailFromAddress() {
   return env("EMAIL_FROM_ADDRESS") || "bottleneck <noreply@bneck.com>";
 }

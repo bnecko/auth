@@ -119,6 +119,19 @@ export async function setTonWalletDisplay(
   return rows.length > 0;
 }
 
+// Stamped as checked now, because the caller has just confirmed ownership
+// against the chain; the worker's sweep takes over from there.
+export async function setTonWalletDomain(userId: number, domain: string): Promise<boolean> {
+  const rows = await query<{ user_id: string }>(
+    `update user_ton_wallets
+        set display = 'domain', display_domain = $2, domain_checked_at = now(), updated_at = now()
+      where user_id = $1
+      returning user_id`,
+    [userId, domain],
+  );
+  return rows.length > 0;
+}
+
 export async function unlinkTonWallet(userId: number): Promise<boolean> {
   const rows = await query<{ user_id: string }>(
     `delete from user_ton_wallets where user_id = $1 returning user_id`,
