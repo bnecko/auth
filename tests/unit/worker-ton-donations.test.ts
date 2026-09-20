@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { beginCell } from '@ton/core';
 
 const requireCjs = createRequire(import.meta.url);
-const { parseDonation, textComment, DONOR_THRESHOLD_NANO } = requireCjs('../../worker-ton.js');
+const { parseDonation, textComment, normalizeAddress, DONOR_THRESHOLD_NANO } =
+  requireCjs('../../worker-ton.js');
 
 const OWNER = '0:7dadb32dadc47eeb136d2c10c2a2b2b91302a8079caac544d17de37f266f3df1';
 const SENDER = '0:f70ff98c567057c2f15ba7b6304f09baa41bf50752c82bd121829b2b48d959f8';
@@ -34,6 +35,36 @@ function transaction(overrides: Record<string, unknown> = {}, msg: Record<string
   };
 }
 
+// An operator configures the donation address by pasting what their wallet
+// showed them, which is the friendly form. It has to end up as the raw form a
+// transaction carries, and it must not simply be lower-cased: friendly
+// addresses are base64, so folding the case breaks the checksum outright.
+describe('normalizeAddress', () => {
+  const friendly = 'UQAUe5fSs3qeDp3L2yC8Y2hk06GPrCz48KKsoZWsd-vtwE07';
+  const raw = '0:147b97d2b37a9e0e9dcbdb20bc636864d3a18fac2cf8f0a2aca195ac77ebedc0';
+
+  it('turns the friendly form into the raw form', () => {
+    expect(normalizeAddress(friendly)).toBe(raw);
+  });
+
+  it('leaves an address that is already raw alone', () => {
+    expect(normalizeAddress(raw)).toBe(raw);
+    expect(normalizeAddress(raw.toUpperCase().replace('0X', '0x'))).toBe(raw);
+  });
+
+  it('tolerates surrounding whitespace from a copy and paste', () => {
+    expect(normalizeAddress(`  ${friendly}\n`)).toBe(raw);
+  });
+
+  // Switching donations off loudly beats matching nothing silently.
+  it('gives back nothing for a value it cannot parse', () => {
+    expect(normalizeAddress(friendly.toLowerCase())).toBe('');
+    expect(normalizeAddress('not-an-address')).toBe('');
+    expect(normalizeAddress('')).toBe('');
+    expect(normalizeAddress(undefined)).toBe('');
+  });
+});
+
 describe('textComment', () => {
   it('reads a comment out of the message body', () => {
     expect(textComment(commentBody('HELLO'))).toBe('HELLO');
@@ -53,6 +84,11 @@ describe('textComment', () => {
 });
 
 describe('parseDonation', () => {
+  it('matches a destination however the address was configured', () => {
+    const configured = normalizeAddress('UQB9rbMtrcR-6xNtLBDCorK5EwKoB5yqxUTRfeN_Jm898VSQ');
+    expect(parseDonation(transaction({}, { destination: configured }), configured)).not.toBeNull();
+  });
+
   it('accepts an inbound transfer carrying a memo', () => {
     const donation = parseDonation(transaction(), OWNER);
     expect(donation).toMatchObject({

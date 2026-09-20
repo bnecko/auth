@@ -8,7 +8,12 @@ const logger = require("./worker-log.js");
 
 const { createOperatorAlerter, noopAlerter } = require("./worker-alert.js");
 const { buildDailyDigest, sendDailyDigest } = require("./worker-digest.js");
-const { createIndexer, sweepTonDomains, sweepTonDonations } = require("./worker-ton.js");
+const {
+  createIndexer,
+  normalizeAddress,
+  sweepTonDomains,
+  sweepTonDonations,
+} = require("./worker-ton.js");
 
 // Operator alerts are wired up in startWorker(); until then (and in tests
 // that require this module) they are a no-op.
@@ -978,7 +983,10 @@ function startWorker() {
   // Donations. With no address configured the sweep is a no-op that still
   // reports fresh: a registered loop that never resolves would withhold the
   // heartbeat forever.
-  const donationAddress = (process.env.TON_DONATION_ADDRESS || "").toLowerCase();
+  const donationAddress = normalizeAddress(process.env.TON_DONATION_ADDRESS);
+  if (process.env.TON_DONATION_ADDRESS && !donationAddress) {
+    logger.error("ton_donation_address_invalid", { value: process.env.TON_DONATION_ADDRESS });
+  }
   const notifyDonor = async userId => {
     const { rows } = await pool.query(
       `select telegram_id from users
