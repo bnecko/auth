@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
-import { Eye, Wallet } from "lucide-react";
+import { Eye, Heart, Wallet } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { Button } from "@/components/Button";
 import { findTonWallet } from "@/lib/server/repositories/tonWallets";
+import { getOrCreateDonationMemo } from "@/lib/server/repositories/tonDonations";
+import { tonDonationAddress } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
-import { shortFriendlyAddress } from "@/lib/server/ton/address";
+import { shortFriendlyAddress, toFriendlyAddress } from "@/lib/server/ton/address";
 import { TonConnectPanel } from "./TonConnectPanel";
+import { DonateSection } from "./DonateSection";
 import { WalletDisplayForm } from "./WalletDisplayForm";
 import { unlinkTonWalletAction, updateTonDisplayAction } from "./actions";
 
@@ -15,6 +18,10 @@ export default async function TonWalletPage() {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const wallet = await findTonWallet(current.user.id);
+  const donationAddress = tonDonationAddress();
+  // Minted on first visit rather than at sign-up: most accounts never
+  // donate, and a memo is only meaningful once someone is looking at it.
+  const memo = donationAddress ? await getOrCreateDonationMemo(current.user.id) : null;
 
   return (
     <>
@@ -69,6 +76,36 @@ export default async function TonWalletPage() {
               current={wallet.display}
               currentDomain={wallet.displayDomain}
             />
+          </Section>
+        </div>
+      )}
+
+      {donationAddress && memo && (
+        <div className="mt-6">
+          <Section
+            title="Donate"
+            icon={Heart}
+            hint={current.user.donorSince ? "Donor" : "Optional"}
+          >
+            {current.user.donorSince ? (
+              <Row>
+                <RowLabel>Donor since</RowLabel>
+                <RowValue>
+                  {new Date(current.user.donorSince).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </RowValue>
+                <span />
+              </Row>
+            ) : (
+              <DonateSection
+                address={toFriendlyAddress(donationAddress)}
+                memo={memo}
+                transferLink={`ton://transfer/${toFriendlyAddress(donationAddress)}?amount=1000000000&text=${memo}`}
+              />
+            )}
           </Section>
         </div>
       )}

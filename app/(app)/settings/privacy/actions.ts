@@ -17,6 +17,7 @@ export async function updatePrivacyAction(
       profilePublic: formData.get("profilePublic") === "on",
       discoverableByUsername: formData.get("discoverableByUsername") === "on",
       publicShowTelegram: formData.get("publicShowTelegram") === "on",
+      publicShowDonor: formData.get("publicShowDonor") === "on",
     });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "could not save settings" };
