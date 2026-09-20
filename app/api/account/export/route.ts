@@ -5,6 +5,7 @@ import { recentEventsForUser } from "@/lib/server/repositories/securityEvents";
 import { listSubscriptionsForUser } from "@/lib/server/repositories/subscriptions";
 import { listAuthorizationsForUser } from "@/lib/server/repositories/authorizations";
 import { findTonWallet } from "@/lib/server/repositories/tonWallets";
+import { listDonationsForUser } from "@/lib/server/repositories/tonDonations";
 
 export const runtime = "nodejs";
 
@@ -17,12 +18,13 @@ export async function GET() {
   }
   const u = current.user;
 
-  const [sessions, securityEvents, subscriptions, connectedApps, tonWallet] = await Promise.all([
+  const [sessions, securityEvents, subscriptions, connectedApps, tonWallet, donations] = await Promise.all([
     listSessionsForUser(u.id),
     recentEventsForUser(u.id, 100),
     listSubscriptionsForUser(u.id),
     listAuthorizationsForUser(u.id),
     findTonWallet(u.id),
+    listDonationsForUser(u.id),
   ]);
 
   const data = {
@@ -42,6 +44,7 @@ export async function GET() {
       role: u.role,
       status: u.status,
       createdAt: u.createdAt,
+      donorSince: u.donorSince,
     },
     preferences: {
       notifySecurityReceipts: u.notifySecurityReceipts,
@@ -49,6 +52,7 @@ export async function GET() {
       profilePublic: u.profilePublic,
       discoverableByUsername: u.discoverableByUsername,
       publicShowTelegram: u.publicShowTelegram,
+      publicShowDonor: u.publicShowDonor,
     },
     sessions: sessions.map(s => ({
       ip: s.ip,
@@ -72,6 +76,7 @@ export async function GET() {
       display: tonWallet.display,
       displayDomain: tonWallet.displayDomain,
     },
+    donations,
   };
 
   return new NextResponse(JSON.stringify(data, null, 2), {

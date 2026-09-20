@@ -245,6 +245,8 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
         profilePublic: true,
         discoverableByUsername: true,
         publicShowTelegram: true,
+        donorSince: null,
+        publicShowDonor: true,
         role: 'admin',
         status: 'active',
         createdAt: new Date().toISOString(),

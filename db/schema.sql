@@ -24,6 +24,8 @@ create table users (
   profile_public boolean not null default true,
   discoverable_by_username boolean not null default true,
   public_show_telegram boolean not null default true,
+  donor_since timestamptz,
+  public_show_donor boolean not null default true,
   role text not null default 'user' check (role in ('user', 'admin')),
   status text not null default 'active' check (status in ('pending', 'active', 'limited', 'banned')),
   terms_accepted_at timestamptz,
@@ -603,3 +605,31 @@ create table user_ton_wallets (
 
 create index user_ton_wallets_domain_recheck_idx
   on user_ton_wallets(domain_checked_at) where display = 'domain';
+
+create table ton_donation_memos (
+  user_id bigint primary key references users(id) on delete cascade,
+  memo text not null unique,
+  created_at timestamptz not null default now()
+);
+
+create table ton_donations (
+  id bigserial primary key,
+  user_id bigint references users(id) on delete set null,
+  tx_hash text not null unique,
+  tx_lt numeric(20, 0) not null,
+  amount_nano numeric(40, 0) not null check (amount_nano > 0),
+  sender text,
+  memo text,
+  status text not null check (status in ('credited', 'unmatched')),
+  tx_time timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index ton_donations_user_idx on ton_donations(user_id);
+create index ton_donations_status_created_idx on ton_donations(status, created_at);
+
+create table worker_cursors (
+  name text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
