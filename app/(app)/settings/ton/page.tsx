@@ -67,19 +67,7 @@ export default async function TonWalletPage() {
             <WalletDisplayForm
               action={updateTonDisplayAction}
               current={wallet.display}
-              options={[
-                {
-                  value: "hidden",
-                  label: "Hide my wallet",
-                  description: "Nobody sees the address. It stays linked to your account.",
-                },
-                {
-                  value: "address",
-                  label: "Show my address",
-                  description:
-                    "The TON blockchain is public: anyone who sees this address can read that wallet's whole balance and transaction history, and tie it to your account. Hiding it later does not undo what was already seen.",
-                },
-              ]}
+              currentDomain={wallet.displayDomain}
             />
           </Section>
         </div>
