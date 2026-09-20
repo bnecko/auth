@@ -279,3 +279,48 @@ export async function findBalanceDrift(): Promise<
     summed: row.summed,
   }));
 }
+
+export type LedgerEntry = {
+  amountNano: string;
+  kind: TransferKind;
+  appName: string | null;
+  createdAt: Date;
+};
+
+// Most recent movements on a user's account, for showing them where their
+// balance came from and went. Signed: negative is money leaving.
+export async function listEntriesForUser(userId: number, limit = 25): Promise<LedgerEntry[]> {
+  const rows = await query<{
+    amount_nano: string;
+    kind: TransferKind;
+    app_name: string | null;
+    created_at: Date;
+  }>(
+    `select e.amount_nano, t.kind, a.name as app_name, e.created_at
+       from billing_entries e
+       join billing_transfers t on t.id = e.transfer_id
+       join billing_accounts acc on acc.id = e.account_id
+       left join external_apps a on a.id = t.app_id
+      where acc.user_id = $1
+      order by e.id desc
+      limit $2`,
+    [userId, limit],
+  );
+  return rows.map(row => ({
+    amountNano: row.amount_nano,
+    kind: row.kind,
+    appName: row.app_name,
+    createdAt: row.created_at,
+  }));
+}
+
+// Nanocoins to a readable GRAM figure, integer maths throughout: a balance
+// crosses 2^53 at nine coins, so dividing as a float would drift.
+export function formatGram(nano: string): string {
+  const value = BigInt(nano);
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const whole = abs / NANO_PER_GRAM;
+  const fraction = (abs % NANO_PER_GRAM).toString().padStart(9, "0").replace(/0+$/, "") || "0";
+  return `${negative ? "-" : ""}${whole}.${fraction}`;
+}
