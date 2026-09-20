@@ -113,6 +113,23 @@ function textComment(bodyBase64) {
 }
 
 /**
+ * Works out whose payment this is and what they meant by it. Deposits and
+ * donations arrive at the same address, so the memo is the only thing that
+ * separates a gift from a balance the user can spend and withdraw.
+ *
+ * Deposit memos are checked first. They are the newer table and the more
+ * consequential answer to get wrong.
+ */
+async function resolveMemo(pool, memo) {
+  if (!memo) return null;
+  const deposit = await pool.query(`select user_id from billing_deposit_memos where memo = $1`, [memo]);
+  if (deposit.rows[0]) return { userId: Number(deposit.rows[0].user_id), purpose: "deposit" };
+  const donation = await pool.query(`select user_id from ton_donation_memos where memo = $1`, [memo]);
+  if (donation.rows[0]) return { userId: Number(donation.rows[0].user_id), purpose: "donation" };
+  return null;
+}
+
+/**
  * Decides whether one transaction is a GRAM payment to the donation address,
  * and returns what to record. Everything that is not plainly that is refused:
  *
@@ -261,15 +278,10 @@ async function writeCursor(pool, value) {
 
 // One transaction per donation, so a crash cannot leave a credited row without
 // the badge it earned, or the badge without the row that justifies it.
-async function recordDonation({ pool, donation, log }) {
+async function recordDonation({ pool, donation, userId, log }) {
   const client = await pool.connect();
   try {
     await client.query("begin");
-
-    const matched = donation.memo
-      ? (await client.query(`select user_id from ton_donation_memos where memo = $1`, [donation.memo])).rows[0]
-      : null;
-    const userId = matched ? Number(matched.user_id) : null;
 
     if (!userId && donation.amountNano < DUST_NANO) {
       await client.query("rollback");
@@ -342,7 +354,7 @@ async function recordDonation({ pool, donation, log }) {
  * that is still emulated or unfinalised stops the pass where it is, because
  * advancing past one would lose it the moment it settles for real.
  */
-async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddress }) {
+async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddress, creditDeposit }) {
   if (!ownerAddress || !indexer) return true;
 
   const cursor = await readCursor(pool);
@@ -374,8 +386,38 @@ async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddr
 
     const donation = parseDonation(tx, ownerAddress);
     if (donation) {
-      const result = await recordDonation({ pool, donation, log });
-      if (result.becameDonor && notify) await notify(result.userId);
+      const matched = await resolveMemo(pool, donation.memo);
+
+      if (matched && matched.purpose === "deposit") {
+        if (!creditDeposit) {
+          log.warn("ton_deposit_skipped_no_crediter", { txHash: donation.txHash });
+          break;
+        }
+        try {
+          await creditDeposit({
+            userId: matched.userId,
+            amountNano: donation.amountNano.toString(),
+            txHash: donation.txHash,
+          });
+          log.info("ton_deposit_credited", {
+            userId: matched.userId,
+            amountNano: donation.amountNano.toString(),
+          });
+        } catch (err) {
+          // Someone's money. Stop the pass here rather than stepping over it:
+          // the cursor stays behind this transaction and the next tick retries.
+          log.error("ton_deposit_credit_failed", { txHash: donation.txHash, error: err });
+          break;
+        }
+      } else {
+        const result = await recordDonation({
+          pool,
+          donation,
+          userId: matched ? matched.userId : null,
+          log,
+        });
+        if (result.becameDonor && notify) await notify(result.userId);
+      }
     }
 
     const lt = BigInt(tx.lt);
@@ -396,6 +438,7 @@ module.exports = {
   createIndexer,
   sweepTonDomains,
   sweepTonDonations,
+  resolveMemo,
   parseDonation,
   textComment,
   recordDonation,
