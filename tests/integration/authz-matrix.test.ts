@@ -102,6 +102,9 @@ const ROUTES: Record<string, GuardClass> = {
   'app/api/telegram/verification/[id]/send-code/route.ts': 'public',
   // Wallets fetch this before showing a connect prompt, from their own apps
   // and bridges, so it cannot require a session.
+  // Didit has no session with us; the HMAC over the raw body plus a five
+  // minute freshness window is what authenticates it.
+  'app/api/kyc/didit/webhook/route.ts': 'public',
   'app/tonconnect-manifest.json/route.ts': 'public',
 };
 

@@ -40,6 +40,17 @@ export function tonIndexerApiKey() {
 // lower-cased: the friendly form is base64, so folding its case breaks the
 // checksum and the address stops parsing. Callers that compare it against a
 // chain address normalise to the raw form first.
+// Didit holds the identity documents; we keep a session reference and a
+// decision. The webhook secret is their "secret shared key", used to sign
+// every delivery.
+export function diditApiKey() {
+  return env("DIDIT_API_KEY");
+}
+
+export function diditWebhookSecret() {
+  return env("DIDIT_WEBHOOK_SECRET");
+}
+
 export function tonDonationAddress() {
   return env("TON_DONATION_ADDRESS").trim();
 }
