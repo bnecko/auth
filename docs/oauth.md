@@ -128,6 +128,9 @@ Supported scopes:
 - `email:read`
 - `dob:read`
 - `subscription:read`
+- `telegram` / `telegram:read`
+- `ton:read` (verified TON wallet address, and the .ton domain if the user is
+  displaying one; both `null` when nothing is linked or shown)
 
 On approval, the browser redirects to:
 

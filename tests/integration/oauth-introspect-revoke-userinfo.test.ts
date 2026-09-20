@@ -9,6 +9,7 @@ import {
   oauthUserInfo,
   revokeOAuthToken,
 } from '@/lib/server/services/oauth';
+import { linkTonWallet } from '@/lib/server/repositories/tonWallets';
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 const hasOidc = Boolean(process.env.OIDC_PRIVATE_KEY_PEM || process.env.OIDC_SIGNING_KEYS_JSON);
@@ -161,6 +162,47 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
       makeRequest(),
     );
     expect(result).toEqual({ active: false });
+  });
+
+  it('userinfo shares a TON wallet only under ton:read', async () => {
+    const address = `0:${'c'.repeat(64)}`;
+    const fixture = await seedClient(['profile:read', 'ton:read']);
+    await linkTonWallet({ userId: fixture.userId, address, walletVersion: 'v4r2' });
+
+    const withoutScope = await issueAccessToken({ ...fixture, scopes: ['profile:read'] });
+    expect(await oauthUserInfo(withoutScope.access_token)).not.toHaveProperty('ton_address');
+
+    const withScope = await issueAccessToken({ ...fixture, scopes: ['profile:read', 'ton:read'] });
+    const info = await oauthUserInfo(withScope.access_token);
+    expect(info).toMatchObject({ ton_address: address, ton_domain: null });
+  });
+
+  // A hidden wallet is still linked, so the address is shared under the scope,
+  // but a domain is only ever shared while it is the thing on display.
+  it('userinfo shares a .ton domain only while it is being displayed', async () => {
+    const address = `0:${'d'.repeat(64)}`;
+    const fixture = await seedClient(['ton:read']);
+    await linkTonWallet({ userId: fixture.userId, address, walletVersion: 'w5r1' });
+    await query(
+      `update user_ton_wallets set display = 'domain', display_domain = 'example', domain_checked_at = now()
+        where user_id = $1`,
+      [fixture.userId],
+    );
+
+    const tokens = await issueAccessToken({ ...fixture, scopes: ['ton:read'] });
+    expect(await oauthUserInfo(tokens.access_token)).toMatchObject({
+      ton_address: address,
+      ton_domain: 'example',
+    });
+  });
+
+  it('userinfo reports no wallet when none is linked', async () => {
+    const fixture = await seedClient(['ton:read']);
+    const tokens = await issueAccessToken({ ...fixture, scopes: ['ton:read'] });
+    expect(await oauthUserInfo(tokens.access_token)).toMatchObject({
+      ton_address: null,
+      ton_domain: null,
+    });
   });
 
   it('userinfo returns scope-aware claims', async () => {

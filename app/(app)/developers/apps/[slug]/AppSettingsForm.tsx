@@ -18,6 +18,7 @@ const SCOPE_OPTIONS = [
   { value: "dob:read", label: "Date of birth (API read)" },
   { value: "subscription:read", label: "Subscription status (API read)" },
   { value: "telegram:read", label: "Telegram identity (API read)" },
+  { value: "ton:read", label: "TON wallet address (API read)" },
 ];
 
 const GRANT_OPTIONS = [
