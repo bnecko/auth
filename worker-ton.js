@@ -5,7 +5,7 @@
 // same index derivation, same acceptance rules. Keep the two in sync.
 
 const { createHash } = require("crypto");
-const { Cell } = require("@ton/core");
+const { Address, Cell } = require("@ton/core");
 
 const TON_DNS_COLLECTION = "0:b774d95eb20543f186c06b371ab88ad704f7e256130caf96189368a7d0cb6ccf";
 const REQUEST_TIMEOUT_MS = 8000;
@@ -27,6 +27,21 @@ function dnsItemIndex(label) {
 }
 
 const sameAddress = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
+
+// Accepts either spelling and returns the raw form the chain reports. An
+// operator configures the donation address by pasting whatever their wallet
+// showed them, which is the friendly base64 form, and that never compares
+// equal to the raw form in a transaction. Lower-casing it does not help
+// either: friendly addresses are base64, so folding the case breaks their
+// checksum. Returns "" for anything unparseable, so a typo switches donations
+// off loudly rather than silently matching nothing.
+function normalizeAddress(value) {
+  try {
+    return Address.parse(String(value || "").trim()).toRawString();
+  } catch {
+    return "";
+  }
+}
 
 function createIndexer({ baseUrl, apiKey, fetchImpl = fetch }) {
   async function ownsDomain(address, label) {
@@ -373,6 +388,7 @@ async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddr
 
 module.exports = {
   TON_DNS_COLLECTION,
+  normalizeAddress,
   DONATION_CURSOR,
   DONOR_THRESHOLD_NANO,
   DUST_NANO,
