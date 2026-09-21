@@ -42,6 +42,27 @@ describe('notificationMessage', () => {
     expect(message).not.toContain('<b>');
   });
 
+  it('says how much was paid', () => {
+    const message = notificationMessage({ type: 'withdrawal_paid', amount: '1.25' });
+    expect(message).toContain('1.25 GRAM');
+  });
+
+  it('gives the reason a withdrawal was declined, and that the balance is back', () => {
+    const message = notificationMessage({
+      type: 'withdrawal_declined',
+      amount: '1.25',
+      reason: 'wallet looks compromised',
+    });
+    expect(message).toContain('1.25 GRAM');
+    expect(message).toContain('back in your balance');
+    expect(message).toContain('Reason: wallet looks compromised');
+  });
+
+  it('omits the reason line when the operator gave none', () => {
+    const message = notificationMessage({ type: 'withdrawal_declined', amount: '1.25', reason: null });
+    expect(message).not.toContain('Reason:');
+  });
+
   it('omits the IP line when no IP is known', () => {
     const message = notificationMessage({ type: 'signin_alert', method: 'passkey' });
     expect(message).toContain('passkey');

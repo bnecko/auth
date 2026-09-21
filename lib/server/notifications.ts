@@ -9,7 +9,9 @@ export type UserNotification =
   | { type: "ton_wallet_linked" }
   | { type: "ton_wallet_unlinked" }
   | { type: "ton_wallet_claimed_elsewhere" }
-  | { type: "signin_alert"; method: string; ip?: string };
+  | { type: "signin_alert"; method: string; ip?: string }
+  | { type: "withdrawal_paid"; amount: string }
+  | { type: "withdrawal_declined"; amount: string; reason: string | null };
 
 export function notificationMessage(input: UserNotification): string {
   switch (input.type) {
@@ -33,6 +35,17 @@ export function notificationMessage(input: UserNotification): string {
       ];
       if (input.ip) lines.push(`IP: ${input.ip}`);
       lines.push("", "If this was not you, change your password and review your sessions.");
+      return lines.join("\n");
+    }
+    case "withdrawal_paid":
+      return `Withdrawal paid\n\n${input.amount} GRAM was sent to your verified wallet. The transaction is on your Billing page.`;
+    case "withdrawal_declined": {
+      const lines = [
+        "Withdrawal declined",
+        "",
+        `Your request for ${input.amount} GRAM was declined, and the amount is back in your balance.`,
+      ];
+      if (input.reason) lines.push("", `Reason: ${input.reason}`);
       return lines.join("\n");
     }
     default: {

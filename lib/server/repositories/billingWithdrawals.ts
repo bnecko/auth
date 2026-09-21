@@ -131,22 +131,31 @@ export async function requestWithdrawal(input: {
   });
 }
 
+export type ClosedWithdrawal = { userId: number | null; amountNano: string };
+
 // Closes a withdrawal that will not be paid and returns the hold. The status
-// filter is the guard: a row the caller may not close simply does not match.
+// filter is the guard: a row the caller may not close simply does not match,
+// and null comes back.
 async function closeUnpaid(input: {
   where: string;
   params: unknown[];
   status: "rejected" | "cancelled";
   decidedBy: number | null;
   reason: string | null;
-}): Promise<boolean> {
+}): Promise<ClosedWithdrawal | null> {
   return withTransaction(async client => {
-    const { rows } = await client.query<{ id: string; account_id: string; amount_nano: string }>(
-      `select id, account_id, amount_nano from billing_withdrawals where ${input.where} for update`,
+    const { rows } = await client.query<{
+      id: string;
+      account_id: string;
+      user_id: string | null;
+      amount_nano: string;
+    }>(
+      `select id, account_id, user_id, amount_nano
+         from billing_withdrawals where ${input.where} for update`,
       input.params,
     );
     const row = rows[0];
-    if (!row) return false;
+    if (!row) return null;
 
     await client.query(
       `update billing_withdrawals
@@ -159,7 +168,10 @@ async function closeUnpaid(input: {
       amountNano: BigInt(row.amount_nano),
       withdrawalId: Number(row.id),
     });
-    return true;
+    return {
+      userId: row.user_id === null ? null : Number(row.user_id),
+      amountNano: row.amount_nano,
+    };
   });
 }
 
@@ -167,23 +179,25 @@ async function closeUnpaid(input: {
 // it at this moment, and a cancel that raced a payment would hand the user
 // both the GRAM and the balance.
 export async function cancelWithdrawal(input: { userId: number; withdrawalId: number }): Promise<boolean> {
-  return closeUnpaid({
+  const closed = await closeUnpaid({
     where: `id = $1 and user_id = $2 and status = 'requested'`,
     params: [input.withdrawalId, input.userId],
     status: "cancelled",
     decidedBy: null,
     reason: null,
   });
+  return closed !== null;
 }
 
 // Not from 'sent': the operator has said the GRAM is on its way, so from there
 // only the chain closes the request. Returning the balance as well would pay
-// it twice.
+// it twice. Resolves to whose request it was, so the caller can tell them, or
+// null when there was nothing it could reject.
 export async function rejectWithdrawal(input: {
   withdrawalId: number;
   adminId: number;
   reason: string | null;
-}): Promise<boolean> {
+}): Promise<ClosedWithdrawal | null> {
   return closeUnpaid({
     where: `id = $1 and status in ('requested', 'approved')`,
     params: [input.withdrawalId],

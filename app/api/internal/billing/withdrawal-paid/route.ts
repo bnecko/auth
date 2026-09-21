@@ -2,6 +2,8 @@ import { type NextRequest } from "next/server";
 import { safeEqual } from "@/lib/server/crypto";
 import { badRequest, forbidden, json, requestBody } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
+import { notifyUser } from "@/lib/server/notifications";
+import { formatGram } from "@/lib/server/repositories/billing";
 import { confirmWithdrawalPayment } from "@/lib/server/repositories/billingWithdrawals";
 import { isRawAddress } from "@/lib/server/ton/address";
 
@@ -51,6 +53,14 @@ export async function POST(req: NextRequest) {
       amountNano: result.amountNano,
       txHash,
     });
+    // "confirmed" comes back once per withdrawal; a retried report is
+    // "replayed", so the user is told once however often the worker asks.
+    if (result.userId !== null) {
+      await notifyUser(result.userId, {
+        type: "withdrawal_paid",
+        amount: formatGram(result.amountNano),
+      });
+    }
   } else if (result.outcome === "refused") {
     log.error("billing_withdrawal_payment_refused", {
       withdrawalId: result.withdrawalId,

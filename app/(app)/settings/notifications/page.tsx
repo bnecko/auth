@@ -36,7 +36,7 @@ export default async function NotificationsPage() {
               name: "notifySecurityReceipts",
               label: "Security receipts",
               description:
-                "Password changes, password resets, and unusual sign-in lockouts.",
+                "Password changes, password resets, unusual sign-in lockouts, and the outcome of a withdrawal.",
               defaultChecked: u.notifySecurityReceipts,
             },
             {
