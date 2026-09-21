@@ -85,6 +85,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: "/admin/activation-requests", label: "Activation requests", icon: ClipboardCheck },
       { href: "/admin/webhooks", label: "Webhook deliveries", icon: Webhook },
       { href: "/admin/bans", label: "Bans", icon: Ban },
+      { href: "/admin/withdrawals", label: "Withdrawals", icon: Coins },
       { href: "/admin/security", label: "Security events", icon: ShieldAlert },
       { href: "/security-review", label: "Security review", icon: ShieldAlert },
       { href: "/admin/supporters", label: "Supporters", icon: Headset },
