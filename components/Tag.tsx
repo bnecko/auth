@@ -1,7 +1,7 @@
 // Small status badge: a tinted, rounded pill carrying the tone. The `bracket`
 // prop is kept for call-site compatibility but no longer affects the visual.
 
-type Tone = "neutral" | "success" | "danger" | "warning" | "info";
+export type Tone = "neutral" | "success" | "danger" | "warning" | "info";
 
 const toneClass: Record<Tone, string> = {
   neutral: "bg-hover text-secondary",
