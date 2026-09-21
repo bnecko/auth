@@ -5,12 +5,9 @@ import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
 import { Alert } from "@/components/Alert";
+import { safeNext } from "@/lib/safeNext";
 
 type Status = "waiting" | "code" | "completed" | "failed";
-
-function safeNext(value: string | null | undefined) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
-}
 
 export default function TelegramLoginPage() {
   const [status, setStatus] = useState<Status>("waiting");
@@ -43,7 +40,7 @@ export default function TelegramLoginPage() {
     setStatus("completed");
     const next = sessionStorage.getItem(`bn_login_next_${challengeId}`);
     sessionStorage.removeItem(`bn_login_next_${challengeId}`);
-    window.location.href = safeNext(next || data.redirectTo);
+    window.location.href = safeNext(next || data.redirectTo, window.location.origin);
   }
 
   async function checkStatus() {
