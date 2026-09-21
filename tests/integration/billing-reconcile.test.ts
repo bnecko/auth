@@ -34,7 +34,11 @@ async function seedUserId() {
 
 describeDb('billing reconciliation', () => {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const plenty = { accountBalance: async () => (1_000_000n * NANO_PER_GRAM).toString() };
+  // Larger than anything the suite can put in the ledger. An earlier value of
+  // a million GRAM was not: another file deliberately credits 1.23e17 nano to
+  // prove amounts survive past the float range, which legitimately tripped the
+  // chain check.
+  const plenty = { accountBalance: async () => (10n ** 30n).toString() };
 
   // These assertions are about the whole ledger, and the suite shares one
   // database, so anything another file left behind would read as drift here.
