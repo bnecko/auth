@@ -13,6 +13,7 @@ const {
   normalizeAddress,
   sweepTonDomains,
   sweepTonDonations,
+  reconcileBilling,
 } = require("./worker-ton.js");
 
 // Operator alerts are wired up in startWorker(); until then (and in tests
@@ -48,6 +49,9 @@ const LOOP_TOLERANCE_MS = {
   // anyone: only a sustained outage withholds the ping.
   ton_domains: 30 * 60_000,
   ton_donations: 30 * 60_000,
+  // Hourly. Kept at or under the hygiene tolerance, which the heartbeat tests
+  // treat as the ceiling for every loop.
+  billing_reconcile: 2 * 60 * 60_000,
 };
 const lastLoopOkAt = new Map();
 
@@ -1052,6 +1056,14 @@ function startWorker() {
   intervalIds.push(setInterval(() => runBatch(tonDonations, "ton_donations_loop_error", "ton_donations"), 60 * 1000));
   runBatch(tonDonations, "initial_ton_donations_error", "ton_donations");
   logger.info("ton_donation_sweep_started", { configured: Boolean(donationAddress) });
+
+  // Reconciliation runs before withdrawals exist on purpose: drift should be
+  // detected while the only way money leaves is by hand.
+  const reconcile = () =>
+    reconcileBilling({ pool, indexer: tonIndexer, log: logger, alerts, ownerAddress: donationAddress });
+  intervalIds.push(setInterval(() => runBatch(reconcile, "billing_reconcile_error", "billing_reconcile"), 60 * 60 * 1000));
+  runBatch(reconcile, "initial_billing_reconcile_error", "billing_reconcile");
+  logger.info("billing_reconcile_started");
 
   intervalIds.push(setInterval(() => runBatch(heartbeatTick, "heartbeat_error"), HEARTBEAT_INTERVAL_MS));
   intervalIds.push(setInterval(() => runBatch(checkTunnelReady, "tunnel_check_error"), HEARTBEAT_INTERVAL_MS));
