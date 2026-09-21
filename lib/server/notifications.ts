@@ -6,6 +6,7 @@ export type UserNotification =
   | { type: "password_changed" }
   | { type: "password_reset_completed" }
   | { type: "login_failure_threshold" }
+  | { type: "passkey_added" }
   | { type: "ton_wallet_linked" }
   | { type: "ton_wallet_unlinked" }
   | { type: "ton_wallet_claimed_elsewhere" }
@@ -18,9 +19,11 @@ export function notificationMessage(input: UserNotification): string {
     case "password_changed":
       return "Password changed\n\nYour Bottleneck account password was just changed. If this was not you, reset your password and contact support immediately.";
     case "password_reset_completed":
-      return "Password reset\n\nYour Bottleneck account password was reset. If this was not you, contact support immediately.";
+      return "Password reset\n\nYour Bottleneck account password was reset. Every session was signed out and any passkeys were removed, so add them again if you use them. If this was not you, contact support immediately.";
     case "login_failure_threshold":
       return "Unusual sign-in activity\n\nToo many failed sign-in attempts were detected on your Bottleneck account, so sign-in is temporarily paused. If this was not you, your password may be targeted.";
+    case "passkey_added":
+      return "Passkey added\n\nA passkey was just added to your Bottleneck account. It can sign in without your password. If this was not you, remove it in Settings, Password and 2FA, then reset your password.";
     case "ton_wallet_linked":
       return "TON wallet linked\n\nA TON wallet was just verified on your Bottleneck account. If this was not you, unlink it in Settings and change your password.";
     case "ton_wallet_unlinked":

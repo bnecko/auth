@@ -7,6 +7,7 @@ import { Tag } from "./Tag";
 import { revokePasskeyAction } from "@/app/dashboard-actions";
 import { Button } from "@/components/Button";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { PasswordField } from "@/components/PasswordField";
 
 export function PasskeyManager({
   passkeys,
@@ -15,15 +16,21 @@ export function PasskeyManager({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
 
   async function registerPasskey() {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch("/api/auth/webauthn/register/generate-options");
-      if (!res.ok) throw new Error("Failed to initialize registration");
+      const res = await fetch("/api/auth/webauthn/register/generate-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword }),
+      });
       const options = await res.json();
+      if (!res.ok) throw new Error(options.error || "Failed to initialize registration");
 
       const attResp = await startRegistration({ optionsJSON: options });
 
@@ -84,16 +91,41 @@ export function PasskeyManager({
       )}
 
       <div className="border-t border-rule px-4 py-3">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={registerPasskey}
-          disabled={loading}
-          loading={loading}
-        >
-          {loading ? "Registering…" : "Add passkey"}
-        </Button>
+        {adding ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-[13px] text-secondary">
+              A passkey signs in without your password or the Telegram step, so adding one needs
+              your password.
+            </p>
+            <PasswordField
+              label="Current password"
+              name="currentPassword"
+              autoComplete="current-password"
+              fillOnRequest
+              value={currentPassword}
+              onChange={event => setCurrentPassword(event.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={registerPasskey}
+                disabled={loading || !currentPassword}
+                loading={loading}
+              >
+                {loading ? "Registering…" : "Continue"}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAdding(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button type="button" variant="secondary" size="sm" onClick={() => setAdding(true)}>
+            Add passkey
+          </Button>
+        )}
       </div>
     </>
   );

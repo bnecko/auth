@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/server/password";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { hashToken } from "@/lib/server/crypto";
 import { revokeSessionsForUser } from "@/lib/server/repositories/sessions";
+import { deleteWebauthnCredentialsForUser } from "@/lib/server/repositories/webauthn";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { notifyUser } from "@/lib/server/notifications";
 import { headers } from "next/headers";
@@ -34,6 +35,9 @@ export async function resetPasswordAction(formData: FormData) {
   const passwordHash = await hashPassword(password);
   await updateUserPassword(userId, passwordHash);
   await revokeSessionsForUser(userId);
+  // A reset is how an owner takes the account back. A passkey signs in without
+  // the password, so one added by whoever they are evicting would still work.
+  await deleteWebauthnCredentialsForUser(userId);
   const context = requestContextFromHeaders(await headers());
 
   await recordSecurityEvent({
