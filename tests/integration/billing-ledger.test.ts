@@ -26,12 +26,17 @@ async function seedUserId(prefix = 'bill') {
   return Number(row!.id);
 }
 
-async function seedApp(ownerUserId: number) {
+// An app, plus the payer's consent to be charged by it: a charge needs both.
+async function seedApp(ownerUserId: number, payerUserId: number) {
   const suffix = randomToken(6);
   const row = await queryOne<{ id: string }>(
     `insert into external_apps (public_id, name, slug, api_key_hash, oauth_client_secret_hash, owner_user_id)
      values ($1, 'Bill App', $2, $3, $3, $4) returning id`,
     [`app_bill_${suffix}`, `bill-${suffix}`, `hash_${suffix}`, ownerUserId],
+  );
+  await query(
+    `insert into app_authorizations (user_id, external_app_id, scopes) values ($1, $2, $3)`,
+    [payerUserId, row!.id, ['billing:charge']],
   );
   return Number(row!.id);
 }
@@ -60,7 +65,7 @@ describeDb('btGRAM ledger', () => {
   it('moves btGRAM from the payer to the app owner', async () => {
     const payer = await seedUserId();
     const owner = await seedUserId();
-    const appId = await seedApp(owner);
+    const appId = await seedApp(owner, payer);
     await creditDeposit({ userId: payer, amountNano: gram(5), txHash: `tx_${randomToken(6)}` });
 
     await chargeUser({ userId: payer, appId, amountNano: gram(3), idempotencyKey: randomToken(8) });
@@ -74,7 +79,7 @@ describeDb('btGRAM ledger', () => {
   it('refuses to overdraw', async () => {
     const payer = await seedUserId();
     const owner = await seedUserId();
-    const appId = await seedApp(owner);
+    const appId = await seedApp(owner, payer);
     await creditDeposit({ userId: payer, amountNano: gram(1), txHash: `tx_${randomToken(6)}` });
 
     await expect(
@@ -88,7 +93,7 @@ describeDb('btGRAM ledger', () => {
   it('charges once for a repeated idempotency key', async () => {
     const payer = await seedUserId();
     const owner = await seedUserId();
-    const appId = await seedApp(owner);
+    const appId = await seedApp(owner, payer);
     const key = randomToken(8);
     await creditDeposit({ userId: payer, amountNano: gram(5), txHash: `tx_${randomToken(6)}` });
 
@@ -147,7 +152,7 @@ describeDb('btGRAM ledger', () => {
   it('keeps every cached balance equal to the sum of its legs', async () => {
     const userId = await seedUserId();
     const owner = await seedUserId();
-    const appId = await seedApp(owner);
+    const appId = await seedApp(owner, userId);
     await creditDeposit({ userId, amountNano: gram(4), txHash: `tx_${randomToken(6)}` });
     await chargeUser({ userId, appId, amountNano: gram(1), idempotencyKey: randomToken(8) });
     await donateToPool({ userId, amountNano: gram(1), reference: randomToken(8) });

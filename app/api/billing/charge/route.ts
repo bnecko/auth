@@ -5,7 +5,12 @@ import { apiError, json, requestBody } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { findAccessToken } from "@/lib/server/repositories/oauth";
-import { chargeUser, getBalanceNano, InsufficientBalance } from "@/lib/server/repositories/billing";
+import {
+  ChargeNotAuthorized,
+  chargeUser,
+  getBalanceNano,
+  InsufficientBalance,
+} from "@/lib/server/repositories/billing";
 
 export const runtime = "nodejs";
 
@@ -53,7 +58,10 @@ export async function POST(req: NextRequest) {
   const amountNano = typeof body.amountNano === "string" ? body.amountNano : "";
   const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "";
 
-  if (!/^[0-9]+$/.test(amountNano)) {
+  // Thirty digits is far past any balance and well inside numeric(40,0). With
+  // no bound, a longer string failed the insert as a 500, and a very long one
+  // was parsed into a BigInt first.
+  if (!/^[0-9]{1,30}$/.test(amountNano)) {
     return apiError("amountNano must be a decimal string of nanocoins", "invalid_amount", 400);
   }
   if (BigInt(amountNano) <= 0n) {
@@ -91,6 +99,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof InsufficientBalance) {
       return apiError("the user does not have that much btGRAM", "insufficient_balance", 402);
+    }
+    if (err instanceof ChargeNotAuthorized) {
+      return apiError("the user has not granted this app permission to charge", "insufficient_scope", 403);
     }
     throw err;
   }

@@ -22,6 +22,13 @@ export class InsufficientBalance extends Error {
   }
 }
 
+export class ChargeNotAuthorized extends Error {
+  constructor() {
+    super("the user has not granted this app permission to charge");
+    this.name = "ChargeNotAuthorized";
+  }
+}
+
 const pgCode = (err: unknown) =>
   err instanceof Error ? (err as Error & { code?: string }).code : undefined;
 
@@ -171,6 +178,19 @@ export async function chargeUser(input: {
     const ownerId = rows[0]?.owner_user_id;
     if (!ownerId) throw new Error(`app ${input.appId} has no owner to credit`);
     if (Number(ownerId) === input.userId) throw new Error("an app cannot charge its own owner");
+
+    // The scopes inside a token are a snapshot from when it was issued. A user
+    // who consents again without the charge permission, or revokes the app
+    // while a refresh is in flight, leaves an older token family alive that
+    // still carries it. So the live grant decides whether money moves, and it
+    // is read here rather than in the route so every caller inherits it.
+    const grant = await client.query(
+      `select 1 from app_authorizations
+        where user_id = $1 and external_app_id = $2
+          and revoked_at is null and 'billing:charge' = any(scopes)`,
+      [input.userId, input.appId],
+    );
+    if (grant.rowCount === 0) throw new ChargeNotAuthorized();
 
     const payer = await userAccountId(client, input.userId);
     const owner = await userAccountId(client, Number(ownerId));
