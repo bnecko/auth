@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Eye, ExternalLink } from "lucide-react";
 import { Section } from "@/components/Section";
 import { Button } from "@/components/Button";
+import { cryptoEnabled } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
 import { SettingsToggleForm } from "../SettingsToggleForm";
 import { updatePrivacyAction } from "./actions";
@@ -57,7 +58,7 @@ export default async function PrivacyPage() {
             },
             // Only offered once there is a badge to hide, so the switch is
             // never one that does nothing.
-            ...(u.donorSince
+            ...(cryptoEnabled() && u.donorSince
               ? [
                   {
                     name: "publicShowDonor",

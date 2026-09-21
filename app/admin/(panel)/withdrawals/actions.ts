@@ -2,7 +2,9 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
 import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
+import { cryptoEnabled } from "@/lib/server/config";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { notifyUser } from "@/lib/server/notifications";
 import { formatGram } from "@/lib/server/repositories/billing";
@@ -27,6 +29,7 @@ async function recordDecision(adminId: number, eventType: string, withdrawalId: 
 
 export async function approveWithdrawalAction(formData: FormData) {
   const current = await requireAdminStepUpSession();
+  if (!cryptoEnabled()) notFound();
   const withdrawalId = Number(formData.get("withdrawalId"));
   if (!withdrawalId) return;
 
@@ -38,6 +41,7 @@ export async function approveWithdrawalAction(formData: FormData) {
 
 export async function rejectWithdrawalAction(formData: FormData) {
   const current = await requireAdminStepUpSession();
+  if (!cryptoEnabled()) notFound();
   const withdrawalId = Number(formData.get("withdrawalId"));
   if (!withdrawalId) return;
 
@@ -60,6 +64,7 @@ export async function rejectWithdrawalAction(formData: FormData) {
 
 export async function markWithdrawalSentAction(formData: FormData) {
   const current = await requireAdminStepUpSession();
+  if (!cryptoEnabled()) notFound();
   const withdrawalId = Number(formData.get("withdrawalId"));
   if (!withdrawalId) return;
 

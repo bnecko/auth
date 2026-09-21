@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { isAdminStepUpVerified } from "@/lib/server/adminStepUp";
+import { cryptoEnabled } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
 
 // Gated admin panel: requires a live Telegram step-up. /admin/verify is a
@@ -22,6 +23,7 @@ export default async function AdminPanelLayout({
   return (
     <AppShell
       variant="admin"
+      cryptoEnabled={cryptoEnabled()}
       user={{
         name: current.user.firstName || current.user.username,
         username: current.user.username,

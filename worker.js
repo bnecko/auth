@@ -38,13 +38,13 @@ function alertLoopError(event, err) {
 // works when nothing on this host can send one. Tolerances are a little over
 // two periods so a single slow tick does not trip it.
 const HEARTBEAT_INTERVAL_MS = Number(process.env.HEARTBEAT_INTERVAL_MS || 60_000);
-const LOOP_TOLERANCE_MS = {
-  webhook_delivery: 30_000,
-  activation_expiry: 3 * 60_000,
-  hygiene: 2 * 60 * 60_000,
-  restriction: 2 * 60 * 60_000,
-  deletion: 2 * 60 * 60_000,
-  digest: 2 * 60 * 60_000,
+
+// The switch for every loop that reads a chain or audits the ledger. Same
+// variable and same strict parse as cryptoEnabled() in lib/server/config.ts,
+// repeated here because this image carries no lib/.
+const CRYPTO_ENABLED = process.env.CRYPTO_ENABLED === "true";
+
+const CRYPTO_LOOP_TOLERANCE_MS = {
   // Tick every minute, but a third-party indexer being down must not page
   // anyone: only a sustained outage withholds the ping.
   ton_domains: 30 * 60_000,
@@ -52,6 +52,18 @@ const LOOP_TOLERANCE_MS = {
   // Hourly. Kept at or under the hygiene tolerance, which the heartbeat tests
   // treat as the ceiling for every loop.
   billing_reconcile: 2 * 60 * 60_000,
+};
+// Only loops that are actually started may be listed: staleLoops() waits on
+// every key here, so a crypto loop left in while the switch is off would never
+// report and would withhold the heartbeat for good.
+const LOOP_TOLERANCE_MS = {
+  webhook_delivery: 30_000,
+  activation_expiry: 3 * 60_000,
+  hygiene: 2 * 60 * 60_000,
+  restriction: 2 * 60 * 60_000,
+  deletion: 2 * 60 * 60_000,
+  digest: 2 * 60 * 60_000,
+  ...(CRYPTO_ENABLED ? CRYPTO_LOOP_TOLERANCE_MS : {}),
 };
 const lastLoopOkAt = new Map();
 
@@ -972,7 +984,14 @@ function startWorker() {
   // sendDailyDigest resolves false outside the digest hour; that is a skip,
   // not a failure, so the loop still counts as fresh.
   const digest = async () => {
-    await sendDailyDigest({ pool, alerts, redis: opsRedis, hourUtc: DIGEST_HOUR_UTC, startedAt });
+    await sendDailyDigest({
+      pool,
+      alerts,
+      redis: opsRedis,
+      hourUtc: DIGEST_HOUR_UTC,
+      startedAt,
+      cryptoEnabled: CRYPTO_ENABLED,
+    });
   };
   intervalIds.push(setInterval(() => runBatch(digest, "digest_loop_error", "digest"), 60 * 60 * 1000));
   runBatch(digest, "initial_digest_error", "digest");
@@ -1000,15 +1019,19 @@ function startWorker() {
   };
   const tonDomains = () =>
     sweepTonDomains({ pool, indexer: tonIndexer, log: logger, notify: notifyDomainHidden, alerts });
-  intervalIds.push(setInterval(() => runBatch(tonDomains, "ton_domains_loop_error", "ton_domains"), 60 * 1000));
-  runBatch(tonDomains, "initial_ton_domains_error", "ton_domains");
-  logger.info("ton_domain_sweep_started");
+  if (CRYPTO_ENABLED) {
+    intervalIds.push(setInterval(() => runBatch(tonDomains, "ton_domains_loop_error", "ton_domains"), 60 * 1000));
+    runBatch(tonDomains, "initial_ton_domains_error", "ton_domains");
+    logger.info("ton_domain_sweep_started");
+  } else {
+    logger.info("crypto_disabled");
+  }
 
   // Donations. With no address configured the sweep is a no-op that still
   // reports fresh: a registered loop that never resolves would withhold the
   // heartbeat forever.
   const donationAddress = normalizeAddress(process.env.TON_DONATION_ADDRESS);
-  if (process.env.TON_DONATION_ADDRESS && !donationAddress) {
+  if (CRYPTO_ENABLED && process.env.TON_DONATION_ADDRESS && !donationAddress) {
     logger.error("ton_donation_address_invalid", { value: process.env.TON_DONATION_ADDRESS });
   }
   const notifyDonor = async userId => {
@@ -1039,6 +1062,9 @@ function startWorker() {
     if (!res.ok) throw new Error(`${path} responded ${res.status}`);
     return res.json();
   };
+  // Not behind the switch: it only tidies the ledger when an account is
+  // purged, moves nothing when there is no balance, and the purge fails closed
+  // without it.
   forfeitBalance = userId => internalPost("/api/internal/billing/forfeit", { userId });
 
   const creditDeposit = payload => internalPost("/api/internal/billing/credit", payload);
@@ -1055,17 +1081,21 @@ function startWorker() {
       creditDeposit,
       confirmWithdrawal,
     });
-  intervalIds.push(setInterval(() => runBatch(tonDonations, "ton_donations_loop_error", "ton_donations"), 60 * 1000));
-  runBatch(tonDonations, "initial_ton_donations_error", "ton_donations");
-  logger.info("ton_donation_sweep_started", { configured: Boolean(donationAddress) });
+  if (CRYPTO_ENABLED) {
+    intervalIds.push(setInterval(() => runBatch(tonDonations, "ton_donations_loop_error", "ton_donations"), 60 * 1000));
+    runBatch(tonDonations, "initial_ton_donations_error", "ton_donations");
+    logger.info("ton_donation_sweep_started", { configured: Boolean(donationAddress) });
+  }
 
   // Reconciliation only reports. Money leaves by the operator's hand, so a
   // discrepancy is for the same person to look at, not for a loop to repair.
   const reconcile = () =>
     reconcileBilling({ pool, indexer: tonIndexer, log: logger, alerts, ownerAddress: donationAddress });
-  intervalIds.push(setInterval(() => runBatch(reconcile, "billing_reconcile_error", "billing_reconcile"), 60 * 60 * 1000));
-  runBatch(reconcile, "initial_billing_reconcile_error", "billing_reconcile");
-  logger.info("billing_reconcile_started");
+  if (CRYPTO_ENABLED) {
+    intervalIds.push(setInterval(() => runBatch(reconcile, "billing_reconcile_error", "billing_reconcile"), 60 * 60 * 1000));
+    runBatch(reconcile, "initial_billing_reconcile_error", "billing_reconcile");
+    logger.info("billing_reconcile_started");
+  }
 
   intervalIds.push(setInterval(() => runBatch(heartbeatTick, "heartbeat_error"), HEARTBEAT_INTERVAL_MS));
   intervalIds.push(setInterval(() => runBatch(checkTunnelReady, "tunnel_check_error"), HEARTBEAT_INTERVAL_MS));
@@ -1108,7 +1138,7 @@ async function runDigestOnce() {
     log: logger,
   });
   try {
-    const text = await buildDailyDigest(pool, { redis, startedAt });
+    const text = await buildDailyDigest(pool, { redis, startedAt, cryptoEnabled: CRYPTO_ENABLED });
     const sent = await sender.send(`digest:manual:${Date.now()}`, text, { windowSeconds: 1 });
     logger.info("digest_sent_once", { sent });
     process.stdout.write(text + "\n");

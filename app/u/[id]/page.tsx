@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { cryptoEnabled } from "@/lib/server/config";
 import { findUserByPublicId } from "@/lib/server/repositories/users";
 import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 import { shortFriendlyAddress, toFriendlyAddress } from "@/lib/server/ton/address";
@@ -24,7 +25,8 @@ export default async function PublicProfilePage(props: {
     month: "long",
   });
   const ref = telegramPublicRef(user.telegramId);
-  const wallet = await findTonWallet(user.id);
+  const cryptoOn = cryptoEnabled();
+  const wallet = cryptoOn ? await findTonWallet(user.id) : null;
   const publicAddress = wallet?.display === "address" ? wallet.address : null;
   const publicDomain = wallet?.display === "domain" ? wallet.displayDomain : null;
 
@@ -37,7 +39,7 @@ export default async function PublicProfilePage(props: {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[12px] text-muted">User profile</span>
             {user.role === "admin" && <Tag tone="danger">Admin</Tag>}
-            {user.donorSince && user.publicShowDonor && <Tag tone="info">Donor</Tag>}
+            {cryptoOn && user.donorSince && user.publicShowDonor && <Tag tone="info">Donor</Tag>}
             <Tag tone={user.status === "active" ? "success" : "warning"}>{user.status}</Tag>
           </div>
 

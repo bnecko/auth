@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Coins } from "lucide-react";
 import { Section } from "@/components/Section";
 import { Tag, type Tone } from "@/components/Tag";
-import { tonDonationAddress } from "@/lib/server/config";
+import { cryptoEnabled, tonDonationAddress } from "@/lib/server/config";
 import { formatGram, getBalanceNano, listEntriesForUser } from "@/lib/server/repositories/billing";
 import { listWithdrawalsForUser } from "@/lib/server/repositories/billingWithdrawals";
 import { getOrCreateDepositMemo } from "@/lib/server/repositories/tonDonations";
@@ -32,6 +32,7 @@ const KYC_STATUS: Record<KycStatus, { label: string; tone: Tone }> = {
 export default async function BillingPage() {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  if (!cryptoEnabled()) notFound();
 
   // Parsed rather than trusted, so a mistyped address hides the deposit panel
   // instead of throwing on every render.

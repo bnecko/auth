@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { authBaseUrl } from "@/lib/server/config";
+import { authBaseUrl, cryptoEnabled } from "@/lib/server/config";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
 import { rateLimit } from "@/lib/server/rateLimit";
@@ -40,6 +40,7 @@ export async function startVerificationAction(): Promise<VerifyState> {
   const current = await getCurrentSession();
   if (!current) return { error: "not signed in" };
   assertNotRestricted(current);
+  if (!cryptoEnabled()) notFound();
 
   if (!isDiditConfigured()) return { error: "identity verification is not available yet" };
 
@@ -76,6 +77,7 @@ export async function requestWithdrawalAction(
   const current = await getCurrentSession();
   if (!current) return { error: "not signed in" };
   assertNotRestricted(current);
+  if (!cryptoEnabled()) notFound();
 
   const amountNano = parseGram(String(formData.get("amount") ?? ""));
   if (!amountNano) return { error: "enter an amount in GRAM, for example 1.5" };
@@ -113,6 +115,7 @@ export async function cancelWithdrawalAction(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) return;
   assertNotRestricted(current);
+  if (!cryptoEnabled()) notFound();
 
   const withdrawalId = Number(formData.get("withdrawalId"));
   if (!Number.isInteger(withdrawalId) || withdrawalId <= 0) return;

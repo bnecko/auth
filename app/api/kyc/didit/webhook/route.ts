@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
-import { diditWebhookSecret } from "@/lib/server/config";
-import { json } from "@/lib/server/http";
+import { cryptoEnabled, diditWebhookSecret } from "@/lib/server/config";
+import { json, notFound } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
 import { query } from "@/lib/server/db";
 import { mapDiditStatus, verifyDiditWebhook } from "@/lib/server/kyc/diditWebhook";
@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
     // makes them retry while it is fixed. Everything else is final.
     return json({ error: verified.reason }, verified.reason === "secret" ? 500 : 401);
   }
+
+  if (!cryptoEnabled()) return notFound();
 
   let payload: Record<string, unknown>;
   try {

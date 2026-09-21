@@ -20,7 +20,7 @@ function formatGram(nano) {
   return `${whole}.${fraction} GRAM`;
 }
 
-async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {}) {
+async function buildDailyDigest(pool, { redis, startedAt, cryptoEnabled, now = Date.now } = {}) {
   const [events, deliveries, endpoints, users, donations, withdrawals] = await Promise.all([
     pool.query(
       `select event_type, count(*)::int as count
@@ -86,8 +86,12 @@ async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {})
     `Daily digest auth.bneck.com (${day} UTC)`,
     `worker up ${startedAt ? formatUptime(now() - startedAt) : "n/a"}, alerts sent today: ${alertsSent}`,
     `users: ${u.total} total, ${u.new_today} new, ${u.pending_deletion} pending deletion`,
-    `donations: ${t.credited_today} credited today, ${t.unmatched_total} unmatched (${formatGram(t.unmatched_nano)})`,
-    `withdrawals: ${w.open} open (${formatGram(w.open_nano)})`,
+    ...(cryptoEnabled
+      ? [
+          `donations: ${t.credited_today} credited today, ${t.unmatched_total} unmatched (${formatGram(t.unmatched_nano)})`,
+          `withdrawals: ${w.open} open (${formatGram(w.open_nano)})`,
+        ]
+      : []),
     `webhooks: ${d.delivered} delivered, ${d.failed} failed, ${d.cancelled} cancelled, ${d.overdue} overdue; endpoints ${e.active} active, ${e.disabled_today} disabled today`,
     "events (24h):",
     ...(events.rows.length
@@ -99,11 +103,11 @@ async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {})
 
 // Runs on an hourly tick; the hour gate plus the 36h NX window on
 // `digest:<day>` yields exactly one send per UTC day regardless of restarts.
-async function sendDailyDigest({ pool, alerts, redis, hourUtc, startedAt, now = Date.now }) {
+async function sendDailyDigest({ pool, alerts, redis, hourUtc, startedAt, cryptoEnabled, now = Date.now }) {
   const current = new Date(now());
   if (current.getUTCHours() !== hourUtc) return false;
   const day = current.toISOString().slice(0, 10);
-  const text = await buildDailyDigest(pool, { redis, startedAt, now });
+  const text = await buildDailyDigest(pool, { redis, startedAt, cryptoEnabled, now });
   return alerts.send(`digest:${day}`, text, { windowSeconds: DIGEST_WINDOW_SECONDS });
 }
 

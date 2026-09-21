@@ -11,6 +11,9 @@ export default defineConfig({
     // so a table-wide operation in one file (the webhook delivery batch claim)
     // cannot race against rows another file is inserting.
     fileParallelism: false,
+    // Crypto is off unless asked for, and most of the suite exercises it.
+    // Tests of the off state stub this back per case.
+    env: { CRYPTO_ENABLED: 'true' },
   },
   resolve: {
     alias: {

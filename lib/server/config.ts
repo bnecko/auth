@@ -18,6 +18,21 @@ export function authBaseUrl() {
   return env("AUTH_BASE_URL") || "http://localhost:3000";
 }
 
+// One switch for everything that touches money or a chain: TON wallet linking,
+// donations, the btGRAM ledger, the public pool, withdrawals, and the identity
+// check that gates them. Off unless set to exactly "true", so a fresh deployment
+// of this repository does not come up holding other people's funds by accident,
+// and a typo fails towards off. The worker reads the same variable on its own,
+// because its image carries no lib/.
+//
+// Deliberately not consulted by the paths that only tidy the ledger: forfeiting
+// a balance when an account is purged, the data export, and the balance warning
+// on the danger page. They are no-ops with no balances and still correct if the
+// switch was turned off while balances exist.
+export function cryptoEnabled() {
+  return env("CRYPTO_ENABLED") === "true";
+}
+
 export function resendApiKey() {
   return env("RESEND_API_KEY");
 }

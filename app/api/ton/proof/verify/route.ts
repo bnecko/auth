@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
-import { authBaseUrl } from "@/lib/server/config";
-import { badRequest, json, requestBody, requestContext, tooManyRequests } from "@/lib/server/http";
+import { authBaseUrl, cryptoEnabled } from "@/lib/server/config";
+import { badRequest, json, notFound, requestBody, requestContext, tooManyRequests } from "@/lib/server/http";
 import { notifyUser } from "@/lib/server/notifications";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
@@ -68,6 +68,7 @@ function rejectionMessage(reason: TonProofReason): string {
 export async function POST(req: NextRequest) {
   const { response, session } = await requireUser(req);
   if (response) return response;
+  if (!cryptoEnabled()) return notFound();
 
   const { user } = session;
   const ctx = requestContext(req);

@@ -1,10 +1,10 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Eye, Heart, Wallet } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { Button } from "@/components/Button";
 import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 import { getOrCreateDonationMemo } from "@/lib/server/repositories/tonDonations";
-import { tonDonationAddress } from "@/lib/server/config";
+import { cryptoEnabled, tonDonationAddress } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
 import { parseAddress, shortFriendlyAddress } from "@/lib/server/ton/address";
 import { TonConnectPanel } from "./TonConnectPanel";
@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function TonWalletPage() {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  if (!cryptoEnabled()) notFound();
   const wallet = await findTonWallet(current.user.id);
   // Parsed rather than trusted: a mistyped address should hide the section,
   // not throw on every render of this page.

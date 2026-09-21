@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authBaseUrl } from "@/lib/server/config";
+import { authBaseUrl, cryptoEnabled } from "@/lib/server/config";
 
 export const runtime = "nodejs";
 
@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 // compares against, so the two cannot drift apart and leave every proof
 // failing on a domain mismatch.
 export async function GET() {
+  if (!cryptoEnabled()) return NextResponse.json({ error: "not found" }, { status: 404 });
+
   const base = authBaseUrl().replace(/\/+$/, "");
 
   return NextResponse.json(

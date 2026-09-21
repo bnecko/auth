@@ -98,6 +98,10 @@ const SECURITY_GROUP: NavGroup = {
   items: [{ href: "/security-review", label: "Security review", icon: ShieldAlert }],
 };
 
+// Pages that exist only while the crypto switch is on. The shell is a client
+// component and cannot read the environment, so the layouts pass the switch in.
+const CRYPTO_HREFS = new Set(["/billing", "/admin/withdrawals"]);
+
 type FlatItem = NavGroup["items"][number] & { group: string };
 
 // The settings sub-pages live inside the /settings hub rather than the sidebar,
@@ -225,6 +229,7 @@ export function AppShell({
   trail,
   isAdmin,
   isSecurity,
+  cryptoEnabled,
   variant = "user",
   children,
 }: {
@@ -232,6 +237,7 @@ export function AppShell({
   trail?: string;
   isAdmin?: boolean;
   isSecurity?: boolean;
+  cryptoEnabled: boolean;
   variant?: "user" | "admin";
   children: React.ReactNode;
 }) {
@@ -242,11 +248,14 @@ export function AppShell({
   const [isMac, setIsMac] = useState(false);
 
   const admin = variant === "admin";
-  const nav = admin
+  const allNav = admin
     ? ADMIN_NAV
     : isSecurity
       ? [...USER_NAV, SECURITY_GROUP]
       : USER_NAV;
+  const nav = cryptoEnabled
+    ? allNav
+    : allNav.map(g => ({ ...g, items: g.items.filter(it => !CRYPTO_HREFS.has(it.href)) }));
   const homeHref = admin ? "/admin" : "/account";
   const flatItems: FlatItem[] = [
     ...nav.flatMap(g => g.items.map(it => ({ ...it, group: g.label }))),

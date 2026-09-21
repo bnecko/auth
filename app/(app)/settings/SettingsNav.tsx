@@ -19,11 +19,12 @@ const sections = [
   { href: "/settings/danger", label: "Danger zone" },
 ];
 
-export function SettingsNav() {
+export function SettingsNav({ cryptoEnabled }: { cryptoEnabled: boolean }) {
   const pathname = usePathname();
+  const visible = cryptoEnabled ? sections : sections.filter(s => s.href !== "/settings/ton");
   return (
     <nav className="mb-7 -mx-1 flex gap-1 overflow-x-auto border-b border-rule pb-px">
-      {sections.map(s => {
+      {visible.map(s => {
         const active = pathname === s.href || pathname.startsWith(`${s.href}/`);
         const className = `shrink-0 px-3 h-9 inline-flex items-center text-[13px] border-b-2 -mb-px transition-colors ${
           active

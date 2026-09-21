@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Tag } from "@/components/Tag";
 import { KeyRound } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
+import { cryptoEnabled } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
 import { queryOne } from "@/lib/server/db";
 import { listWebhookEndpointsForApp } from "@/lib/server/repositories/webhooks";
@@ -125,6 +126,7 @@ export default async function AppSettingsPage({
           allowedScopes={app.allowed_scopes}
           allowedGrantTypes={app.allowed_grant_types}
           issueRefreshTokens={app.issue_refresh_tokens}
+          cryptoEnabled={cryptoEnabled()}
         />
       </div>
 
