@@ -19,6 +19,7 @@ const SCOPE_OPTIONS = [
   { value: "subscription:read", label: "Subscription status (API read)" },
   { value: "telegram:read", label: "Telegram identity (API read)" },
   { value: "ton:read", label: "TON wallet address (API read)" },
+  { value: "billing:charge", label: "Charge the user\u2019s btGRAM balance" },
 ];
 
 const GRANT_OPTIONS = [
