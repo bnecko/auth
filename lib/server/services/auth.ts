@@ -49,33 +49,24 @@ import {
   findPasswordHash,
   findPasswordHashById,
   findUserById,
-  findUserByTelegramId,
   updateUserPassword,
   usernameOrEmailExists,
 } from "../repositories/users";
 import { revokeOtherSessionsForUser } from "../repositories/sessions";
 import { verifyTurnstile } from "../turnstile";
-import { verifyTelegramLogin } from "../telegram";
 import type { TelegramIdentity, User } from "../types";
 import type { LoginInput, RegistrationInput } from "../validation";
 
-export type RegisterResult =
-  | {
-      kind: "created";
-      user: User;
-    }
-  | {
-      kind: "pending_telegram";
-      verificationId: string;
-      startToken: string;
-      expiresAt: string;
-    };
+// Registration never creates the account itself. It opens a request that the
+// Telegram approval and the email code complete, and those two steps are where
+// a banned Telegram id and an unowned email address are turned away.
+export type RegisterResult = {
+  verificationId: string;
+  startToken: string;
+  expiresAt: string;
+};
 
-export async function registerUser(
-  input: RegistrationInput,
-  req: NextRequest,
-  telegramPayload?: Record<string, string | number | undefined>,
-): Promise<RegisterResult> {
+export async function registerUser(input: RegistrationInput, req: NextRequest): Promise<RegisterResult> {
   const context = requestContext(req);
   const rateLimitKey = `rate_limit:register_attempt:${context.ip || "unknown"}`;
   
@@ -116,33 +107,6 @@ export async function registerUser(
   }
 
   const passwordHash = await hashPassword(input.password);
-  const telegram = telegramPayload ? verifyTelegramLogin(telegramPayload) : null;
-
-  if (telegram) {
-    if (await findUserByTelegramId(telegram.id)) {
-      throw new Error("telegram account already linked");
-    }
-
-    const user = await createUser({
-      publicId: publicId("usr"),
-      firstName: input.firstName,
-      username: input.username,
-      bio: input.bio,
-      email: input.email,
-      dob: input.dob,
-      passwordHash,
-      telegram,
-    });
-
-    await recordSecurityEvent({
-      userId: user.id,
-      eventType: "register_attempt",
-      result: "created",
-      context,
-    });
-
-    return { kind: "created", user };
-  }
 
   const startToken = telegramStartToken();
   const expiresAt = new Date(Date.now() + registrationTtlMinutes() * 60_000);
@@ -168,7 +132,6 @@ export async function registerUser(
   });
 
   return {
-    kind: "pending_telegram",
     verificationId: request.publicId,
     startToken,
     expiresAt: request.expiresAt,
