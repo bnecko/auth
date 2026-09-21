@@ -10,7 +10,7 @@ import { query, queryOne } from "../db";
 const MEMO_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MEMO_LENGTH = 10;
 
-function generateMemo() {
+export function generateMemo() {
   let memo = "";
   for (let i = 0; i < MEMO_LENGTH; i += 1) memo += MEMO_CHARS[randomInt(0, MEMO_CHARS.length)];
   return memo;

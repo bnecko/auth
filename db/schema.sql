@@ -636,7 +636,7 @@ create table worker_cursors (
 
 create table billing_accounts (
   id bigserial primary key,
-  kind text not null check (kind in ('user', 'pool', 'chain')),
+  kind text not null check (kind in ('user', 'pool', 'chain', 'escrow')),
   -- Nulled rather than cascaded when an account is purged: the entries have to
   -- outlive the person, because they are the record of where the money went.
   -- The balance is moved to the pool before the user row goes.
@@ -647,7 +647,7 @@ create table billing_accounts (
 create unique index billing_accounts_user_idx
   on billing_accounts(user_id) where user_id is not null;
 create unique index billing_accounts_singleton_idx
-  on billing_accounts(kind) where kind in ('pool', 'chain');
+  on billing_accounts(kind) where kind in ('pool', 'chain', 'escrow');
 
 -- One row per movement. `reference` is the idempotency key, and it belongs
 -- here rather than on the legs: both legs share it, so a unique index over the
@@ -693,8 +693,9 @@ create table billing_balances (
 
 insert into billing_accounts (kind) values ('pool');
 insert into billing_accounts (kind) values ('chain');
+insert into billing_accounts (kind) values ('escrow');
 insert into billing_balances (account_id)
-  select id from billing_accounts where kind = 'pool'
+  select id from billing_accounts where kind in ('pool', 'escrow')
  ;
 
 create table billing_deposit_memos (
@@ -721,3 +722,37 @@ create table kyc_applications (
 );
 
 create index kyc_applications_status_idx on kyc_applications(status);
+
+create table billing_withdrawals (
+  id bigserial primary key,
+  -- The ledger account rather than only the user, because a rejection has to
+  -- return the hold somewhere even if the user row is gone by then.
+  account_id bigint not null references billing_accounts(id) on delete restrict,
+  user_id bigint references users(id) on delete set null,
+  amount_nano numeric(40, 0) not null check (amount_nano > 0),
+  -- Copied from user_ton_wallets at request time, raw form. The payout goes
+  -- where the user was looking when they asked, not wherever the wallet row
+  -- points by the time it is paid; approval re-checks the two still agree.
+  destination text not null check (destination ~ '^0:[0-9a-f]{64}$'),
+  -- The comment the operator puts on the payment. It is how an outbound
+  -- transaction is tied back to this row.
+  memo text not null unique,
+  status text not null default 'requested' check (status in (
+    'requested', 'approved', 'sent', 'confirmed', 'rejected', 'cancelled'
+  )),
+  tx_hash text,
+  decided_by bigint references users(id) on delete set null,
+  reject_reason text,
+  approved_at timestamptz,
+  sent_at timestamptz,
+  closed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint billing_withdrawals_confirmed_hash_check
+    check ((status = 'confirmed') = (tx_hash is not null))
+);
+
+create unique index billing_withdrawals_open_idx
+  on billing_withdrawals(account_id) where status in ('requested', 'approved', 'sent');
+
+create index billing_withdrawals_user_idx on billing_withdrawals(user_id, id);
