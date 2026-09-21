@@ -40,6 +40,16 @@ export function resendApiKey() {
 // TON chain reads (which .ton domains an address owns). Not in the required
 // production secrets: without a key the public tier still answers, just more
 // slowly, and losing it degrades one optional feature rather than the service.
+// What the worker presents to the routes that write to the ledger: crediting a
+// deposit, confirming a payout, forfeiting a balance. Its own secret, held only
+// by app and worker. It used to be the analytics secret, which the proxy
+// attaches to a request on every page view and which is also handed to the
+// external analytics caller, so the key that can mint a balance was the most
+// widely held one in the deployment.
+export function internalBillingSecret() {
+  return env("INTERNAL_BILLING_SECRET");
+}
+
 export function tonIndexerUrl() {
   return env("TON_INDEXER_URL") || "https://toncenter.com/api/v3";
 }

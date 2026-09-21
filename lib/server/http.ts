@@ -88,6 +88,15 @@ export async function requestBody(req: NextRequest) {
   return {};
 }
 
+// Cloudflare stamps every request it forwards and a client cannot remove the
+// stamp, so a request carrying one came in from the internet. The worker
+// reaches the app over the compose network and carries none. The internal
+// routes share a port with everything else, which is why this is checked at
+// all: nothing else keeps them off the tunnel.
+export function cameThroughTunnel(req: NextRequest) {
+  return req.headers.has("cf-ray") || req.headers.has("cf-connecting-ip");
+}
+
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }

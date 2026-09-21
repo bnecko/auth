@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { env, isProduction } from "@/lib/server/config";
+import { safeEqual } from "@/lib/server/crypto";
 import { getTelegramQueue } from "@/lib/server/queue";
 
 export async function POST(req: Request) {
   const secret = env("INTERNAL_ANALYTICS_SECRET");
   if (secret) {
-    if (req.headers.get("x-bottleneck-internal-secret") !== secret) {
+    if (!safeEqual(req.headers.get("x-bottleneck-internal-secret") || "", secret)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   } else if (isProduction()) {
