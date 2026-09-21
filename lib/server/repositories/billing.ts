@@ -314,6 +314,16 @@ export async function listEntriesForUser(userId: number, limit = 25): Promise<Le
   }));
 }
 
+// A typed GRAM figure to nanocoins, or null for anything that is not a plain
+// positive decimal. Done on the string, never through a float: 0.1 + 0.2 is
+// not a number anyone should be owed.
+export function parseGram(input: string): bigint | null {
+  const match = /^(\d{1,12})(?:\.(\d{1,9}))?$/.exec(input.trim());
+  if (!match) return null;
+  const nano = BigInt(match[1]) * NANO_PER_GRAM + BigInt((match[2] ?? "").padEnd(9, "0"));
+  return nano > 0n ? nano : null;
+}
+
 // Nanocoins to a readable GRAM figure, integer maths throughout: a balance
 // crosses 2^53 at nine coins, so dividing as a float would drift.
 export function formatGram(nano: string): string {
