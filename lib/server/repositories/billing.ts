@@ -22,6 +22,19 @@ export class InsufficientBalance extends Error {
   }
 }
 
+// What one app may take from one user in any 24 hours on the strength of their
+// consent alone. Consent to be charged is given once, often for something
+// small, and without a ceiling it was also consent to have the whole balance
+// taken in a single call. Past this the user has to be asked again.
+export const CHARGE_DAILY_LIMIT_NANO = 25n * NANO_PER_GRAM;
+
+export class ChargeLimitExceeded extends Error {
+  constructor(readonly remainingNano: bigint) {
+    super("daily charge limit reached for this user and app");
+    this.name = "ChargeLimitExceeded";
+  }
+}
+
 export class ChargeNotAuthorized extends Error {
   constructor() {
     super("the user has not granted this app permission to charge");
@@ -83,6 +96,15 @@ export async function userAccountId(client: PoolClient, userId: number): Promise
  * nothing. That is deliberate: it stands for everything outside this service,
  * its balance is negative by design, and it is the one account with no floor.
  */
+// Always in ascending id order, so two transfers between the same pair of
+// accounts in opposite directions queue behind each other instead of each
+// holding the row the other wants.
+async function lockBalances(client: PoolClient, accountIds: number[]) {
+  for (const accountId of [...accountIds].sort((a, b) => a - b)) {
+    await client.query(`select 1 from billing_balances where account_id = $1 for update`, [accountId]);
+  }
+}
+
 async function postTransfer(
   client: PoolClient,
   input: {
@@ -97,9 +119,7 @@ async function postTransfer(
   if (input.amountNano <= 0n) throw new Error("transfer amount must be positive");
   if (input.fromAccountId === input.toAccountId) throw new Error("transfer to the same account");
 
-  for (const accountId of [input.fromAccountId, input.toAccountId].sort((a, b) => a - b)) {
-    await client.query(`select 1 from billing_balances where account_id = $1 for update`, [accountId]);
-  }
+  await lockBalances(client, [input.fromAccountId, input.toAccountId]);
 
   let transferId: string;
   try {
@@ -194,6 +214,30 @@ export async function chargeUser(input: {
 
     const payer = await userAccountId(client, input.userId);
     const owner = await userAccountId(client, Number(ownerId));
+
+    // A retry of a key that already charged has to get its usual answer, not a
+    // refusal because that very charge used up the day's allowance.
+    const replay = await client.query(
+      `select 1 from billing_transfers where kind = 'charge' and reference = $1`,
+      [input.idempotencyKey],
+    );
+    if ((replay.rowCount ?? 0) > 0) return { posted: false };
+
+    // Locked before the day is added up. Without that, two charges arriving
+    // together would each read a total that leaves out the other and both fit
+    // under the limit.
+    await lockBalances(client, [payer, owner]);
+    const spent = await client.query<{ nano: string }>(
+      `select coalesce(sum(-e.amount_nano), 0)::text as nano
+         from billing_entries e
+         join billing_transfers t on t.id = e.transfer_id
+        where t.kind = 'charge' and t.app_id = $1 and e.account_id = $2 and e.amount_nano < 0
+          and t.created_at > now() - interval '24 hours'`,
+      [input.appId, payer],
+    );
+    const remaining = CHARGE_DAILY_LIMIT_NANO - BigInt(spent.rows[0].nano);
+    if (input.amountNano > remaining) throw new ChargeLimitExceeded(remaining > 0n ? remaining : 0n);
+
     return postTransfer(client, {
       fromAccountId: payer,
       toAccountId: owner,

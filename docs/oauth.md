@@ -130,7 +130,11 @@ Supported scopes:
 - `subscription:read`
 - `telegram` / `telegram:read`
 - `billing:charge` (debit the user's btGRAM balance to the app owner; sensitive,
-  and the grant is the consent, so revoking the app stops the charges)
+  and the grant is the consent, so revoking the app stops the charges). One app
+  may take at most 25 GRAM from one user in any 24 hours. Past that,
+  `POST /api/billing/charge` answers `403` with `code: "daily_limit_exceeded"`
+  and `remainingNano`, the most it would still accept. A retry of a key that
+  already charged is answered as usual. Not available through the device flow.
 - `ton:read` (verified TON wallet address, and the .ton domain if the user is
   displaying one; both `null` when nothing is linked or shown)
 

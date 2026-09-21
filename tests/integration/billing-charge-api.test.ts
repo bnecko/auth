@@ -161,6 +161,99 @@ describeDb('billing charge API', () => {
     expect(await res.json()).toMatchObject({ code: 'invalid_amount' });
   });
 
+  // Consent to be charged is given once, often for something small. Without a
+  // ceiling it was also consent to have the whole balance taken in one call.
+  describe('daily limit of 25 GRAM per user and app', () => {
+    const gramNano = (n: number) => (BigInt(n) * NANO_PER_GRAM).toString();
+
+    // The owner already has a ledger account, as any app that has been paid
+    // before does. Opening one is an insert that a second transaction waits on,
+    // which would queue two charges behind each other by accident and hide
+    // whether the limit holds up when nothing else is in the way.
+    async function payerWith(balance: number) {
+      const payer = await seedUserId('payer');
+      const ownerUserId = await seedUserId('owner');
+      const { token, appId } = await seedToken({ userId: payer, ownerUserId, scopes: ['billing:charge'] });
+      await creditDeposit({ userId: ownerUserId, amountNano: NANO_PER_GRAM, txHash: `own_${randomToken(6)}` });
+      await creditDeposit({ userId: payer, amountNano: BigInt(balance) * NANO_PER_GRAM, txHash: `chg_${randomToken(6)}` });
+      return { payer, token, appId };
+    }
+
+    it('lets an app take up to the limit across a day, and no more', async () => {
+      const { payer, token } = await payerWith(40);
+
+      expect((await post(token, { amountNano: gramNano(20), idempotencyKey: key() })).status).toBe(200);
+      expect((await post(token, { amountNano: gramNano(5), idempotencyKey: key() })).status).toBe(200);
+      const over = await post(token, { amountNano: '1', idempotencyKey: key() });
+
+      expect(over.status).toBe(403);
+      expect(await over.json()).toMatchObject({
+        code: 'daily_limit_exceeded',
+        limitNano: gramNano(25),
+        remainingNano: '0',
+      });
+      expect(await getBalanceNano(payer)).toBe(gramNano(15));
+    });
+
+    it('refuses a single charge larger than the limit and says what is left', async () => {
+      const { payer, token } = await payerWith(40);
+
+      const res = await post(token, { amountNano: gramNano(26), idempotencyKey: key() });
+
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({ code: 'daily_limit_exceeded', remainingNano: gramNano(25) });
+      expect(await getBalanceNano(payer)).toBe(gramNano(40));
+    });
+
+    // The charge that used up the allowance is the one most likely to be
+    // retried, and a retry has to get the same answer it would have got.
+    it('still answers a retry of the charge that used up the allowance', async () => {
+      const { token } = await payerWith(40);
+      const idempotencyKey = key();
+
+      expect((await post(token, { amountNano: gramNano(25), idempotencyKey })).status).toBe(200);
+      const retry = await post(token, { amountNano: gramNano(25), idempotencyKey });
+
+      expect(retry.status).toBe(200);
+      expect(await retry.json()).toMatchObject({ charged: false });
+    });
+
+    // Each would fit on its own. Adding the day up before taking the lock would
+    // let both read a total that leaves the other out.
+    it('does not let two charges arriving together both slip under it', async () => {
+      const { payer, token } = await payerWith(40);
+
+      const results = await Promise.all([
+        post(token, { amountNano: gramNano(20), idempotencyKey: key() }),
+        post(token, { amountNano: gramNano(20), idempotencyKey: key() }),
+      ]);
+
+      expect(results.map(res => res.status).sort()).toEqual([200, 403]);
+      expect(await getBalanceNano(payer)).toBe(gramNano(20));
+    });
+
+    it('is rolling: a charge older than 24 hours no longer counts', async () => {
+      const { token, appId } = await payerWith(60);
+      expect((await post(token, { amountNano: gramNano(25), idempotencyKey: key() })).status).toBe(200);
+      expect((await post(token, { amountNano: gramNano(1), idempotencyKey: key() })).status).toBe(403);
+
+      await query(`update billing_transfers set created_at = now() - interval '25 hours' where app_id = $1`, [appId]);
+
+      expect((await post(token, { amountNano: gramNano(25), idempotencyKey: key() })).status).toBe(200);
+    });
+
+    it('is counted per app, so one app reaching it does not stop another', async () => {
+      const payer = await seedUserId('payer');
+      const first = await seedToken({ userId: payer, ownerUserId: await seedUserId('owner'), scopes: ['billing:charge'] });
+      const second = await seedToken({ userId: payer, ownerUserId: await seedUserId('owner'), scopes: ['billing:charge'] });
+      await creditDeposit({ userId: payer, amountNano: 60n * NANO_PER_GRAM, txHash: `chg_${randomToken(6)}` });
+
+      expect((await post(first.token, { amountNano: gramNano(25), idempotencyKey: key() })).status).toBe(200);
+      expect((await post(first.token, { amountNano: gramNano(1), idempotencyKey: key() })).status).toBe(403);
+      expect((await post(second.token, { amountNano: gramNano(25), idempotencyKey: key() })).status).toBe(200);
+    });
+  });
+
   it('refuses a missing or unknown token', async () => {
     expect((await post('', { amountNano: '1', idempotencyKey: key() })).status).toBe(401);
     expect((await post('not-a-token', { amountNano: '1', idempotencyKey: key() })).status).toBe(401);
