@@ -217,14 +217,14 @@ async function seedPrincipal(opts: Principal = {}) {
     [user.id, opts.role ?? null, opts.restricted ?? null, opts.status ?? null],
   );
   const token = randomToken();
-  await createSession({
+  const session = await createSession({
     userId: user.id,
     token,
     ip: '',
     userAgent: '',
     expiresAt: new Date(Date.now() + 3_600_000),
   });
-  return { user, cookie: `${sessionCookieName}=${token}` };
+  return { user, session, cookie: `${sessionCookieName}=${token}` };
 }
 
 async function body(res: Response) {
@@ -292,11 +292,35 @@ describeDb('admin routes deny non-admins and admins without step-up', () => {
     });
 
     it('lets a stepped-up admin through (positive control)', async () => {
-      const { user, cookie } = await seedPrincipal({ role: 'admin' });
-      await grantAdminStepUp(user.id);
+      const { user, session, cookie } = await seedPrincipal({ role: 'admin' });
+      await grantAdminStepUp({ user, session });
       const res = await invoke('app/admin/(panel)/security/export/route.ts', 'GET', cookie);
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toContain('text/csv');
+    });
+
+    // A stolen admin cookie used to inherit the step-up the real admin did in
+    // their own browser. Same admin, second session: it has to verify itself.
+    it('does not let one session ride a step-up earned by another', async () => {
+      const verified = await seedPrincipal({ role: 'admin' });
+      await grantAdminStepUp({ user: verified.user, session: verified.session });
+      const token = randomToken();
+      await createSession({
+        userId: verified.user.id,
+        token,
+        ip: '',
+        userAgent: '',
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+
+      const res = await invoke(
+        'app/admin/(panel)/security/export/route.ts',
+        'GET',
+        `${sessionCookieName}=${token}`,
+      );
+
+      expect(res.status).toBe(403);
+      expect((await body(res)).error).toBe('admin step-up required');
     });
   });
 });

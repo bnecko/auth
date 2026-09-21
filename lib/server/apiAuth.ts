@@ -34,7 +34,7 @@ export async function requireAdminStepUp(req: NextRequest) {
   if (auth.session.user.role !== "admin") {
     return { response: forbidden(), session: null };
   }
-  if (!(await isAdminStepUpVerified(auth.session.user.id))) {
+  if (!(await isAdminStepUpVerified(auth.session))) {
     return { response: forbidden("admin step-up required"), session: null };
   }
   return auth;
@@ -52,7 +52,7 @@ export async function requireAdminStepUpSession() {
   if (!current || current.user.role !== "admin" || current.user.restricted) {
     throw new Error("forbidden");
   }
-  if (!(await isAdminStepUpVerified(current.user.id))) {
+  if (!(await isAdminStepUpVerified(current))) {
     throw new Error("admin step-up required");
   }
   return current;

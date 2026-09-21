@@ -36,10 +36,13 @@ describe('requireAdminStepUpSession (server-action transport)', () => {
   });
 
   it('throws when an admin has not completed step-up', async () => {
-    mockGetCurrentSession.mockResolvedValue({ user: { id: 7, role: 'admin' } } as never);
+    const current = { user: { id: 7, role: 'admin' }, session: { id: 31 } };
+    mockGetCurrentSession.mockResolvedValue(current as never);
     mockStepUp.mockResolvedValue(false);
     await expect(requireAdminStepUpSession()).rejects.toThrow('admin step-up required');
-    expect(mockStepUp).toHaveBeenCalledWith(7);
+    // The whole session, not the user: the grant belongs to the session that
+    // earned it, so a second session of the same admin is asked again.
+    expect(mockStepUp).toHaveBeenCalledWith(current);
   });
 
   it('returns the session for an admin with a live step-up grant', async () => {
