@@ -168,6 +168,7 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
     const address = `0:${'c'.repeat(64)}`;
     const fixture = await seedClient(['profile:read', 'ton:read']);
     await linkTonWallet({ userId: fixture.userId, address, walletVersion: 'v4r2' });
+    await query(`update user_ton_wallets set display = 'address' where user_id = $1`, [fixture.userId]);
 
     const withoutScope = await issueAccessToken({ ...fixture, scopes: ['profile:read'] });
     expect(await oauthUserInfo(withoutScope.access_token)).not.toHaveProperty('ton_address');
@@ -177,8 +178,18 @@ describeOAuth('OAuth introspect / revoke / userinfo', () => {
     expect(info).toMatchObject({ ton_address: address, ton_domain: null });
   });
 
-  // A hidden wallet is still linked, so the address is shared under the scope,
-  // but a domain is only ever shared while it is the thing on display.
+  // The settings page tells the user that a hidden wallet is seen by nobody,
+  // and a newly linked wallet starts hidden. The scope is consent to read what
+  // the user shows, not a way around what they chose to hide.
+  it('userinfo does not share a wallet the user has hidden', async () => {
+    const fixture = await seedClient(['ton:read']);
+    await linkTonWallet({ userId: fixture.userId, address: `0:${'e'.repeat(64)}`, walletVersion: 'v4r2' });
+
+    const tokens = await issueAccessToken({ ...fixture, scopes: ['ton:read'] });
+    expect(await oauthUserInfo(tokens.access_token)).toMatchObject({ ton_address: null, ton_domain: null });
+  });
+
+  // A domain is only ever shared while it is the thing on display.
   it('userinfo shares a .ton domain only while it is being displayed', async () => {
     const address = `0:${'d'.repeat(64)}`;
     const fixture = await seedClient(['ton:read']);

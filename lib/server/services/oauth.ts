@@ -1272,7 +1272,7 @@ export async function oauthUserInfo(accessToken: string) {
   // while it is the thing on display, and a hidden wallet discloses nothing.
   if (cryptoEnabled() && hasScope(scopes, "ton:read", "ton:read")) {
     const wallet = await findTonWallet(user.id);
-    result.ton_address = wallet ? wallet.address : null;
+    result.ton_address = wallet && wallet.display !== "hidden" ? wallet.address : null;
     result.ton_domain = wallet && wallet.display === "domain" ? wallet.displayDomain : null;
   }
 
