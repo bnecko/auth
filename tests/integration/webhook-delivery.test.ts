@@ -40,8 +40,27 @@ let baseUrl = '';
 let responseStatus = 200;
 let received: ReceivedRequest[] = [];
 
+// A receiver that answers 200 and then never stops talking: far more than the
+// worker's container could hold if it buffered the body.
+const FLOOD_TOTAL_BYTES = 256 * 1024 * 1024;
+const FLOOD_CHUNK = Buffer.alloc(64 * 1024, 'x');
+let floodBytesSent = 0;
+
 beforeAll(async () => {
   server = createServer((req, res) => {
+    if (req.url === '/flood') {
+      res.statusCode = 200;
+      const pump = () => {
+        while (floodBytesSent < FLOOD_TOTAL_BYTES && !res.destroyed) {
+          floodBytesSent += FLOOD_CHUNK.length;
+          if (!res.write(FLOOD_CHUNK)) return void res.once('drain', pump);
+        }
+        res.end();
+      };
+      req.resume();
+      pump();
+      return;
+    }
     let body = '';
     req.on('data', chunk => (body += chunk));
     req.on('end', () => {
@@ -61,6 +80,7 @@ afterAll(() => new Promise<void>(resolve => server.close(() => resolve())));
 beforeEach(() => {
   responseStatus = 200;
   received = [];
+  floodBytesSent = 0;
 });
 
 async function seedApp() {
@@ -227,6 +247,32 @@ describeDb('webhook delivery loop', () => {
     const delivery = await readDelivery(deliveryId);
     expect(delivery?.status).toBe('cancelled');
     expect(delivery?.seconds_until_next).toBeNull();
+  });
+
+  // Any developer can register an endpoint and trigger an event against it. The
+  // worker runs in 128 MB, and fetch inflates a compressed body as it reads, so
+  // buffering the response let one endpoint take the worker down.
+  it('stops reading a response once it has what it keeps', async () => {
+    const { deliveryId, deliveryPublicId, endpointId, secret, url } = await seedPendingDelivery('/flood');
+
+    await worker.deliverOne({
+      id: deliveryId,
+      public_id: deliveryPublicId,
+      event_type: 'activation.approved',
+      payload: { id: 'act_test' },
+      attempt_count: 0,
+      webhook_endpoint_id: endpointId,
+      url,
+      secret,
+    });
+
+    const row = await queryOne<{ status: string; kept: number }>(
+      `select status, length(response_body) as kept from webhook_deliveries where id = $1`,
+      [deliveryId],
+    );
+    expect(row?.status).toBe('delivered');
+    expect(row?.kept).toBeLessThanOrEqual(4096);
+    expect(floodBytesSent).toBeLessThan(FLOOD_TOTAL_BYTES / 8);
   });
 
   it('reschedules a failed delivery with the first backoff step', async () => {

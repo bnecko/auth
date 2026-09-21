@@ -290,6 +290,29 @@ function signPayload(secret, timestamp, body) {
     .digest("hex");
 }
 
+// Reads what is kept and then hangs up. response.text() buffers the whole body
+// before anything can be cut from it, and fetch inflates gzip and brotli as it
+// reads, so an endpoint answering with a few kilobytes of compressed zeros could
+// fill this container's 128 MB. Any developer can register an endpoint and
+// trigger an event against it. Reading in pieces also keeps the inflating
+// incremental, so stopping early stops that too.
+async function readCapped(response, limit) {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  let text = "";
+  let kept = 0;
+  while (kept < limit) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const piece = value.subarray(0, limit - kept);
+    kept += piece.byteLength;
+    text += decoder.decode(piece, { stream: true });
+  }
+  await reader.cancel().catch(() => {});
+  return text + decoder.decode();
+}
+
 async function deliverOne(row) {
   const timestamp = Math.floor(Date.now() / 1000);
   const body = JSON.stringify({
@@ -313,6 +336,9 @@ async function deliverOne(row) {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        // Nothing here is worth compressing, and declining it removes the
+        // inflate step from the path altogether for receivers that honour it.
+        "accept-encoding": "identity",
         "x-bottleneck-timestamp": String(timestamp),
         "x-bottleneck-signature": signature,
         "x-bottleneck-event": row.event_type,
@@ -327,8 +353,7 @@ async function deliverOne(row) {
       lastError = `unexpected redirect: ${response.status}`;
       responseBody = "";
     } else {
-      const text = await response.text();
-      responseBody = text.slice(0, RESPONSE_BODY_LIMIT);
+      responseBody = await readCapped(response, RESPONSE_BODY_LIMIT);
       if (!response.ok) {
         lastError = `HTTP ${response.status}`;
       }
