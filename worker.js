@@ -141,6 +141,7 @@ const intervalIds = [];
 let bullWorker = null;
 let bullConnection = null;
 let notifyQueue = null;
+let forfeitBalance = null;
 
 // SSRF guard. Webhook URLs are user-supplied; refuse anything pointing at
 // localhost, RFC1918, link-local, cloud metadata, etc. Resolve-then-fetch
@@ -767,6 +768,25 @@ async function sweepPendingDeletions() {
       }
       const { public_id: publicId, telegram_id: telegramId } = locked.rows[0];
 
+      // Inside the lock, so the user cannot cancel their deletion between the
+      // scan and the transfer. Fails closed: a balance we could not move is a
+      // reason to leave the account alone and try again next sweep, never to
+      // delete the row and lose track of the money. The transfer is keyed on
+      // the user id, so a retry moves it once.
+      if (forfeitBalance) {
+        try {
+          const { movedNano } = await forfeitBalance(id);
+          if (movedNano && movedNano !== "0") {
+            logger.info("account_balance_forfeited", { userId: id, movedNano });
+          }
+        } catch (err) {
+          logger.error("account_forfeit_failed", { userId: id, error: err });
+          await client.query("rollback");
+          await alertLoopError("account_forfeit_failed", err);
+          continue;
+        }
+      }
+
       // "Delete my account" implies erasure: strip PII (IP / user-agent /
       // country / metadata) from this user's audit rows now, while user_id
       // still resolves - the delete below SET NULLs them, so they'd otherwise
@@ -1002,19 +1022,22 @@ function startWorker() {
   // Deposits are credited by the app, not here: the ledger's double-entry
   // logic lives in TypeScript the worker cannot import, and a second
   // implementation of it is how ledgers drift apart.
-  const creditDeposit = async ({ userId, amountNano, txHash }) => {
+  const internalPost = async (path, payload) => {
     const base = process.env.AUTH_INTERNAL_URL || "http://app:3000";
     const secret = process.env.INTERNAL_ANALYTICS_SECRET || "";
-    if (!secret) throw new Error("INTERNAL_ANALYTICS_SECRET is unset, cannot credit deposits");
-    const res = await fetch(`${base}/api/internal/billing/credit`, {
+    if (!secret) throw new Error("INTERNAL_ANALYTICS_SECRET is unset");
+    const res = await fetch(`${base}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-bottleneck-internal-secret": secret },
-      body: JSON.stringify({ userId, amountNano, txHash }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) throw new Error(`credit endpoint responded ${res.status}`);
+    if (!res.ok) throw new Error(`${path} responded ${res.status}`);
     return res.json();
   };
+  forfeitBalance = userId => internalPost("/api/internal/billing/forfeit", { userId });
+
+  const creditDeposit = payload => internalPost("/api/internal/billing/credit", payload);
 
   const tonDonations = () =>
     sweepTonDonations({

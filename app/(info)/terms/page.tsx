@@ -75,6 +75,10 @@ export default function TermsPage() {
             "Choosing to display an address or a .ton domain on your public profile makes your wallet's full balance and transaction history publicly linkable to your account, permanently. See the Privacy Policy before enabling it.",
             "Donations are voluntary and non-refundable. A donor badge is cosmetic: it is not a purchase, subscription, security, or investment, grants no ownership, entitlement, or claim against us, and can be removed if the Rules are broken.",
             "You are responsible for the security of your own wallet and for any tax obligations that arise from your use of it.",
+            "btGRAM is an internal balance, not a currency or a deposit. One btGRAM corresponds to one GRAM you sent us. It earns no interest, and we do not lend or invest it.",
+            "Withdrawing a balance requires a verified identity. Verification is carried out by a third-party provider who checks your document and tells us only whether you passed.",
+            "If you delete your account, you can withdraw your balance at any point during the grace period before deletion completes. Any balance still held when deletion completes is forfeited and transferred to the public pool. It cannot be recovered after that, and we warn you of this before you confirm deletion.",
+            "The public pool is a shared balance funded by forfeited balances and voluntary donations. It is used at our discretion for giveaways and similar activities, and its total is shown publicly.",
           ]}
         />
       </DocSection>

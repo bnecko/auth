@@ -68,6 +68,12 @@ export default function PrivacyPage() {
           hidden automatically if the domain stops belonging to your address.
         </p>
         <p>
+          If you verify your identity to withdraw, the document you submit goes to our
+          verification provider, not to us. We receive only the outcome and a reference to
+          their session, and we store no document, photograph, name or date of birth from that
+          check.
+        </p>
+        <p>
           If you donate, the sending address is recorded and linked to your account so we can
           credit the donation. Donation records are kept as financial records after an account is
           deleted, with the link to the account removed.
