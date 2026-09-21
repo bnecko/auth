@@ -129,6 +129,8 @@ Supported scopes:
 - `dob:read`
 - `subscription:read`
 - `telegram` / `telegram:read`
+- `billing:charge` (debit the user's btGRAM balance to the app owner; sensitive,
+  and the grant is the consent, so revoking the app stops the charges)
 - `ton:read` (verified TON wallet address, and the .ton domain if the user is
   displaying one; both `null` when nothing is linked or shown)
 

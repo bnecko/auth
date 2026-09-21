@@ -227,6 +227,7 @@ export const OAUTH_SCOPE_LIST = [
   "subscription:read",
   "telegram:read",
   "ton:read",
+  "billing:charge",
 ] as const;
 
 const OAUTH_SCOPES = new Set<string>(OAUTH_SCOPE_LIST);

@@ -57,6 +57,7 @@ const ROUTES: Record<string, GuardClass> = {
   'app/api/activation-requests/[id]/cancel/route.ts': 'client-credential',
   'app/api/activation-requests/[id]/revoke/route.ts': 'client-credential',
   'app/api/apps/me/route.ts': 'client-credential',
+  'app/api/billing/charge/route.ts': 'client-credential',
   'app/api/authorizations/route.ts': 'client-credential',
   'app/api/oauth/userinfo/route.ts': 'client-credential',
 

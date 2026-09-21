@@ -26,6 +26,7 @@ const scopeLabels: Record<string, { label: string; sensitive?: boolean }> = {
   telegram: { label: "Telegram account", sensitive: true },
   "telegram:read": { label: "Telegram account", sensitive: true },
   "ton:read": { label: "TON wallet address", sensitive: true },
+  "billing:charge": { label: "charge your btGRAM balance", sensitive: true },
 };
 
 export default async function OAuthAuthorizePage({
