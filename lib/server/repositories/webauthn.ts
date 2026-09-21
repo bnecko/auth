@@ -1,5 +1,9 @@
 import { query, queryOne } from "../db";
 
+// Far more than anyone has devices, and a bound on what one account can store.
+export const MAX_PASSKEYS_PER_USER = 10;
+export const MAX_PASSKEY_NAME_LENGTH = 64;
+
 export type WebauthnCredential = {
   id: number;
   userId: number;
@@ -94,6 +98,16 @@ export async function updateWebauthnCredentialSignCount(credentialId: string, si
       where credential_id = $1`,
     [credentialId, signCount]
   );
+}
+
+// For when the account is being taken back: a password reset is how an owner
+// evicts someone, and a passkey that person added would otherwise survive it.
+export async function deleteWebauthnCredentialsForUser(userId: number) {
+  const rows = await query<{ id: string }>(
+    `delete from webauthn_credentials where user_id = $1 returning id`,
+    [userId],
+  );
+  return rows.length;
 }
 
 export async function deleteWebauthnCredential(credentialId: string, userId: number) {
