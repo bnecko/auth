@@ -4,49 +4,89 @@ The reference deployment runs the Compose stack on a single small host behind
 a Cloudflare Tunnel. The app is not published on a host port; the tunnel
 connects to it inside the Compose network.
 
-## Environment file
+## Environment files
 
 Production secrets live outside the checkout, in a directory only the deploying
-user can read:
+user can read, split by concern:
 
 ```text
 ~/.config/bottleneck-auth/           # mode 0700
-    prod.env                         # mode 0600, the values from .env.example
+    core.env                         # mode 0600: database, sessions, OIDC, OAuth, Turnstile, email
+    telegram.env                     # the bot identity and the chats it talks to
+    crypto.env                       # CRYPTO_ENABLED, TON, Didit
+    ops.env                          # tunnel token, heartbeats, digest, backups
     oidc-private.pem                 # if the OIDC key is kept as a file
     oidc-public.pem
 ```
 
-Compose finds the file through `COMPOSE_ENV_FILES`, exported once in the
-deploying user's shell:
+Each mirrors an example in `deploy/`, which is also what says which file a
+variable belongs in. A deployment with no crypto features keeps `crypto.env` as
+the example ships it.
+
+The split organises secrets on the host: who can rotate what, what a backup
+holds, what a non-crypto deployment can ignore. It is not what isolates one
+container from another. Compose reads these files on the host and hands each
+container only the variables its `environment:` block names, so the worker
+never received the OIDC key under one file and does not under four.
+
+Compose finds them through `COMPOSE_ENV_FILES`, a comma-separated list exported
+once in the deploying user's shell:
 
 ```sh
-export COMPOSE_ENV_FILES="$HOME/.config/bottleneck-auth/prod.env"
+d="$HOME/.config/bottleneck-auth"
+export COMPOSE_ENV_FILES="$d/core.env,$d/telegram.env,$d/crypto.env,$d/ops.env"
 ```
 
-Every `docker compose` command then reads it. Without the export, the first
+Every `docker compose` command then reads all four. Every listed file must
+exist, or compose refuses to start. Without the export, the first
 `${POSTGRES_PASSWORD:?...}` interpolation fails closed with "set
 POSTGRES_PASSWORD" rather than silently using stale values; the per-command
-form is `docker compose --env-file "$HOME/.config/bottleneck-auth/prod.env"
-...`. A `.env` in the repo root is not used and should not exist there: it is
-readable by anything with the checkout, and `docker compose config` prints
-every value it resolves, so run that with `--quiet` on the host.
+form repeats `--env-file` once per file. A `.env` in the repo root is not used
+and should not exist there: it is readable by anything with the checkout, and
+`docker compose config` prints every value it resolves, so run that with
+`--quiet` on the host.
 
-Moving an existing deployment (no container restart needed, the values do not
-change):
+A new deployment copies the examples and fills them in:
 
 ```sh
 mkdir -p ~/.config/bottleneck-auth && chmod 700 ~/.config/bottleneck-auth
-mv .env ~/.config/bottleneck-auth/prod.env && chmod 600 ~/.config/bottleneck-auth/prod.env
-mv oidc-private.pem oidc-public.pem ~/.config/bottleneck-auth/ 2>/dev/null || true
-echo 'export COMPOSE_ENV_FILES="$HOME/.config/bottleneck-auth/prod.env"' >> ~/.zshrc
-# new shell, then:
-docker compose config --quiet && docker compose ps
+for f in deploy/*.env.example; do
+  install -m 600 "$f" ~/.config/bottleneck-auth/"$(basename "$f" .example)"
+done
 ```
 
-Development-only values (`TEST_BEARER`, a scratch `DATABASE_URL`) belong in a
-separate file passed with `--env-file`, not in `prod.env`.
+An existing deployment with a single `prod.env` is split by script. It moves
+lines verbatim and never prints a value; a key that no example declares is kept
+in `core.env` and named, not dropped. Without `--write` it only reports:
 
-Copy `.env.example` and set at least:
+```sh
+node scripts/split-env.mjs ~/.config/bottleneck-auth/prod.env           # dry run
+node scripts/split-env.mjs ~/.config/bottleneck-auth/prod.env --write   # backs up, then writes
+```
+
+It prints the `COMPOSE_ENV_FILES` line to export. Before relying on the new
+files, prove they resolve to exactly what the old one did, without printing
+anything:
+
+```sh
+# from the checkout, where docker-compose.yml is
+d="$HOME/.config/bottleneck-auth"
+docker compose --env-file "$d/prod.env" config | shasum -a 256
+docker compose --env-file "$d/core.env" --env-file "$d/telegram.env" \
+  --env-file "$d/crypto.env" --env-file "$d/ops.env" config | shasum -a 256
+```
+
+`--env-file` takes precedence over `COMPOSE_ENV_FILES`, so this works whatever
+the shell has exported. The two digests must match. Then update the export in `~/.zshrc`, open a new
+shell, run `docker compose config --quiet && docker compose ps`, re-run
+`scripts/install-backup.sh` so the scheduled backup picks up every file, and
+only then remove `prod.env`. No container restart is needed for the split
+itself, because the values do not change.
+
+Development-only values (a scratch `DATABASE_URL`) belong in a separate file
+passed with `--env-file`, not in these.
+
+Set at least:
 
 - `POSTGRES_PASSWORD`
 - `OIDC_PRIVATE_KEY_PEM` (an RSA private key; `OIDC_KEY_ID` to name it)

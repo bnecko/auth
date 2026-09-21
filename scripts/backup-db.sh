@@ -25,7 +25,6 @@ set -euo pipefail
 # is reached by container name rather than through the compose file, and the
 # secrets are read from ~/.config.
 SECRETS_DIR_SRC="${BACKUP_SECRETS_DIR:-$HOME/.config/bottleneck-auth}"
-ENV_FILE="${BACKUP_ENV_FILE:-$SECRETS_DIR_SRC/prod.env}"
 DB_CONTAINER="${BACKUP_DB_CONTAINER:-auth-db-1}"
 STAGING="${BACKUP_STAGING_DIR:-$HOME/auth-backups}"
 RECIPIENT_FILE="${BACKUP_RECIPIENT_FILE:-$SECRETS_DIR_SRC/backup-age-recipient.txt}"
@@ -34,11 +33,24 @@ RECIPIENT_FILE="${BACKUP_RECIPIENT_FILE:-$SECRETS_DIR_SRC/backup-age-recipient.t
 # containing spaces or angle brackets (EMAIL_FROM_ADDRESS holds both) makes
 # bash try to redirect. Read the few keys this script needs instead, preferring
 # anything already exported.
+#
+# Every *.env in the secrets directory counts: the scoped files (core, telegram,
+# crypto, ops) or a single prod.env on the older layout. The glob leaves out the
+# timestamped .bak copies. BACKUP_ENV_FILE still pins one file.
+env_files() {
+  if [ -n "${BACKUP_ENV_FILE:-}" ]; then printf '%s\n' "$BACKUP_ENV_FILE"; return 0; fi
+  ls "$SECRETS_DIR_SRC"/*.env 2>/dev/null || true
+}
+
 env_get() {
-  local key="$1" current="${!1:-}"
+  local key="$1" current="${!1:-}" file found value=""
   if [ -n "$current" ]; then printf '%s' "$current"; return 0; fi
-  [ -f "$ENV_FILE" ] || return 0
-  sed -n "s/^[[:space:]]*${key}=//p" "$ENV_FILE" | tail -1
+  while IFS= read -r file; do
+    [ -f "$file" ] || continue
+    found="$(sed -n "s/^[[:space:]]*${key}=//p" "$file" | tail -1)"
+    [ -n "$found" ] && value="$found"
+  done < <(env_files)
+  printf '%s' "$value"
 }
 
 TELEGRAM_BOT_TOKEN="$(env_get TELEGRAM_BOT_TOKEN)"
@@ -91,7 +103,14 @@ log "dump holds $TABLES tables, $(du -h "$WORK/auth.dump" | cut -f1)"
 log "bundling secrets"
 SECRETS_DIR="$WORK/secrets"
 mkdir -p "$SECRETS_DIR"
-cp "$ENV_FILE" "$SECRETS_DIR/prod.env" 2>/dev/null || fail "could not read $ENV_FILE"
+# A restore needs every one of them, so a file that cannot be read fails the
+# run rather than producing a backup that looks whole and is not.
+BUNDLED=0
+while IFS= read -r env_file; do
+  cp "$env_file" "$SECRETS_DIR/" 2>/dev/null || fail "could not read $env_file"
+  BUNDLED=$((BUNDLED + 1))
+done < <(env_files)
+[ "$BUNDLED" -gt 0 ] || fail "no env files found in $SECRETS_DIR_SRC"
 for pem in "$SECRETS_DIR_SRC"/oidc-*.pem; do
   [ -f "$pem" ] && cp "$pem" "$SECRETS_DIR/" || true
 done

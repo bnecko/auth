@@ -57,12 +57,21 @@ honest account of what is and is not implemented, and
 ## Run it locally
 
 ```sh
-cp .env.example .env
+mkdir -p ~/.config/bottleneck-auth && chmod 700 ~/.config/bottleneck-auth
+for f in deploy/*.env.example; do
+  install -m 600 "$f" ~/.config/bottleneck-auth/"$(basename "$f" .example)"
+done
+d=~/.config/bottleneck-auth
+export COMPOSE_ENV_FILES="$d/core.env,$d/telegram.env,$d/crypto.env,$d/ops.env"
 docker compose up --build
 ```
 
-Set `POSTGRES_PASSWORD`, `OIDC_PRIVATE_KEY_PEM`, and `OAUTH_CSRF_SECRET`
-before starting. The app listens on port 3000 inside the Compose network. For
+The env files live outside the checkout on purpose, split by concern; nothing
+reads a `.env` in the repo root. Set `POSTGRES_PASSWORD`, `OIDC_PRIVATE_KEY_PEM`
+and `OAUTH_CSRF_SECRET` in `core.env` before starting. Compose stops and names
+any other required value that is still empty. Crypto features (TON wallets, the
+btGRAM ledger, withdrawals) are off unless `crypto.env` sets
+`CRYPTO_ENABLED=true`. The app listens on port 3000 inside the Compose network. For
 the Cloudflare Tunnel setup, host tuning, and the full environment list, see
 [`docs/deployment.md`](docs/deployment.md).
 

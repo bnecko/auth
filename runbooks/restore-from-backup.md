@@ -40,8 +40,10 @@ day's backup is intact and you have time to think.
        age -d -i /path/to/identity.txt -o ~/auth-restore/auth.dump ~/auth-restore/auth-<stamp>.dump.age
        age -d -i /path/to/identity.txt ~/auth-restore/auth-<stamp>.secrets.age | tar -xzf - -C ~/auth-restore/
 
-   Expect a readable dump and a `secrets/` folder holding `prod.env`,
-   `oidc-private.pem`, `oidc-public.pem`. If age says "no identity matched",
+   Expect a readable dump and a `secrets/` folder holding the env files
+   (`core.env`, `telegram.env`, `crypto.env`, `ops.env`; a backup taken before
+   the split holds a single `prod.env` instead), `oidc-private.pem` and
+   `oidc-public.pem`. If age says "no identity matched",
    you have the wrong identity file, not a corrupt backup.
 
 3. Confirm the dump is intact before touching anything live.
@@ -51,16 +53,23 @@ day's backup is intact and you have time to think.
    Expect 30 or more. If it errors, use the previous stamp and note that the
    verification step in `scripts/backup-db.sh` did not catch it.
 
-4. Stop the services that write to the database. Leave `db` running.
+4. Stop the services that write to the database. Leave `db` running. Point
+   compose at the env files first, in this shell, so every command below
+   finds them. Every file in the list has to exist.
 
        cd ~/Documents/auth
-       docker compose --env-file ~/.config/bottleneck-auth/prod.env stop app worker bot
+       d=~/.config/bottleneck-auth
+       export COMPOSE_ENV_FILES="$d/core.env,$d/telegram.env,$d/crypto.env,$d/ops.env"
+       docker compose stop app worker bot
+
+   If this host still runs on a single file, the export is
+   `COMPOSE_ENV_FILES="$d/prod.env"` instead.
 
 5. Restore. This drops and recreates the schema, so be sure about step 3.
 
-       docker compose --env-file ~/.config/bottleneck-auth/prod.env exec -T db \
+       docker compose exec -T db \
          psql -U auth -d postgres -c "drop database auth with (force); create database auth owner auth;"
-       docker compose --env-file ~/.config/bottleneck-auth/prod.env exec -T db \
+       docker compose exec -T db \
          pg_restore -U auth -d auth --no-owner < ~/auth-restore/auth.dump
 
    Ownership warnings are normal. Any error mentioning "relation already
@@ -70,14 +79,17 @@ day's backup is intact and you have time to think.
    different OIDC signing key cannot validate tokens issued before the loss,
    and every existing session breaks.
 
-       cp ~/auth-restore/secrets/prod.env ~/.config/bottleneck-auth/prod.env
+       install -m 600 ~/auth-restore/secrets/*.env ~/.config/bottleneck-auth/
        cp ~/auth-restore/secrets/oidc-*.pem ~/Documents/auth/
+
+   If what came back is a single `prod.env`, re-export `COMPOSE_ENV_FILES` to
+   name it, as in step 4.
 
 7. Start back up. The app runs migrations on boot, so a backup older than the
    current code catches up by itself.
 
-       docker compose --env-file ~/.config/bottleneck-auth/prod.env up -d app
-       docker compose --env-file ~/.config/bottleneck-auth/prod.env up -d --no-deps worker bot
+       docker compose up -d app
+       docker compose up -d --no-deps worker bot
 
 8. Shred the plaintext. It is the whole database sitting unencrypted on disk.
 
@@ -89,7 +101,7 @@ day's backup is intact and you have time to think.
 
 Expect 200. Then confirm the data is really there, not just the schema:
 
-    docker compose --env-file ~/.config/bottleneck-auth/prod.env exec -T db psql -U auth -d auth -t -A -c \
+    docker compose exec -T db psql -U auth -d auth -t -A -c \
       "select (select count(*) from users), (select count(*) from ton_donations), (select max(version) from schema_migrations);"
 
 Sign in on the web as a real account. If sign-in fails but health is 200, the

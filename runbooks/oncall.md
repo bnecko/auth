@@ -34,9 +34,11 @@ docker compose logs app | grep '"level":"error"'
    `docker compose restart db && docker compose up -d app`.
 4. If the app crash-loops at boot with "missing required environment
    variables", or the bot with "<NAME> is required", a secret is unset — see
-   the env file (`docs/deployment.md`, Environment file) against
-   `.env.example`. `docker compose` refusing to start with "set <NAME>" is the
-   same cause, and so is a shell without `COMPOSE_ENV_FILES` exported.
+   the env files (`docs/deployment.md`, Environment files) against the examples
+   in `deploy/`, which also say which file a variable belongs in. `docker
+   compose` refusing to start with "set <NAME>" is the same cause, and so is a
+   shell without `COMPOSE_ENV_FILES` exported, or one whose list names a file
+   that does not exist.
 
 ### Webhook backlog or an auto-disabled endpoint
 - `webhook_endpoint_auto_disabled` in the worker logs (and a Telegram alert if
@@ -62,10 +64,12 @@ docker compose logs app | grep '"level":"error"'
 ## Secrets
 
 ### Where they live
-`~/.config/bottleneck-auth/prod.env` (0600, directory 0700), loaded through
-`COMPOSE_ENV_FILES`; see `docs/deployment.md`. Values still reach `docker
-inspect` of each container, so a host-level compromise is a compromise of
-every secret below regardless of the file's mode.
+`~/.config/bottleneck-auth/{core,telegram,crypto,ops}.env` (0600, directory
+0700), loaded together through `COMPOSE_ENV_FILES`; see `docs/deployment.md`.
+The split is for the operator, not a boundary: compose reads all four on the
+host, and values still reach `docker inspect` of each container that is handed
+them, so a host-level compromise is a compromise of every secret below
+regardless of how many files there are or their mode.
 
 ### Rotation matrix
 Restart sets use `--no-deps` on purpose: a bare `docker compose up -d` after
