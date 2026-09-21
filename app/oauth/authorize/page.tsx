@@ -3,6 +3,7 @@ import { Alert } from "@/components/Alert";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Tag } from "@/components/Tag";
+import { scopeLabels } from "@/lib/oauthScopeLabels";
 import { getCurrentSession } from "@/lib/server/session";
 import { mintAuthorizeCsrf } from "@/lib/server/oauthCsrf";
 import {
@@ -13,21 +14,6 @@ import {
 } from "@/lib/server/services/oauth";
 
 export const dynamic = "force-dynamic";
-
-const scopeLabels: Record<string, { label: string; sensitive?: boolean }> = {
-  openid: { label: "account identifier" },
-  profile: { label: "profile" },
-  email: { label: "email address", sensitive: true },
-  birthdate: { label: "date of birth", sensitive: true },
-  "profile:read": { label: "public profile" },
-  "email:read": { label: "email address", sensitive: true },
-  "dob:read": { label: "date of birth", sensitive: true },
-  "subscription:read": { label: "subscription status" },
-  telegram: { label: "Telegram account", sensitive: true },
-  "telegram:read": { label: "Telegram account", sensitive: true },
-  "ton:read": { label: "TON wallet address", sensitive: true },
-  "billing:charge": { label: "charge your btGRAM balance", sensitive: true },
-};
 
 export default async function OAuthAuthorizePage({
   searchParams,

@@ -732,15 +732,17 @@ export async function updateDeviceCodeStatus(
   userCode: string,
   status: "approved" | "denied",
   userId: number
-) {
-  await query(
+): Promise<boolean> {
+  const rows = await query<{ id: string }>(
     `update oauth_device_codes
         set status = $2, user_id = $3
       where user_code_hash = $1
         and status = 'pending'
-        and expires_at > now()`,
+        and expires_at > now()
+      returning id`,
     [hashToken(userCode), status, userId]
   );
+  return rows.length > 0;
 }
 
 export async function markDeviceCodePolled(id: number) {

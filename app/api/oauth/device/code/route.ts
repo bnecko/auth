@@ -41,6 +41,16 @@ export async function POST(req: NextRequest) {
     enforceClientGrant(app, "urn:ietf:params:oauth:grant-type:device_code");
     const scopes = parseOAuthScopes(typeof body.scope === "string" ? body.scope : "");
     enforceClientScopes(app, scopes);
+    // The approval happens on another screen from a typed code, often at the
+    // prompting of whoever sent the link, which is too little ceremony for
+    // permission to move money. An app that charges asks through the
+    // authorization code flow, where the user sees what they are agreeing to.
+    if (scopes.includes("billing:charge")) {
+      return NextResponse.json(
+        { error: "invalid_scope", error_description: "billing:charge cannot be granted through the device flow" },
+        { status: 400 },
+      );
+    }
     
     const deviceCode = randomBytes(32).toString("hex");
     const userCode = generateUserCode();

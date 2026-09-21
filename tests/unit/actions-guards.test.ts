@@ -21,9 +21,10 @@ const ALLOW: Record<string, 'public' | 'session-only'> = {
   'app/restricted/actions.ts#restrictedReplyAction': 'session-only',
 };
 
-// Pages with inline "use server" closures. Each closure trusts the session
-// state the page resolved at render time, so a new one needs a decision.
-const INLINE_ALLOW = ['app/device/page.tsx'];
+// Pages with inline "use server" closures. There are none, on purpose. A
+// closure acts as whoever the page resolved at render time: its captured values
+// travel to the browser and back, so they outlive sign-out and a restriction.
+const INLINE_ALLOW: string[] = [];
 
 function appFiles(predicate: (rel: string) => boolean) {
   return readdirSync(path.join(ROOT, 'app'), { recursive: true, encoding: 'utf8' })

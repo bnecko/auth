@@ -3,11 +3,11 @@ import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
+import { Tag } from "@/components/Tag";
+import { scopeLabels } from "@/lib/oauthScopeLabels";
 import { getCurrentSession, assertNotRestricted } from "@/lib/server/session";
-import {
-  findDeviceCodeByUserCode,
-  updateDeviceCodeStatus,
-} from "@/lib/server/repositories/oauth";
+import { findDeviceCodeByUserCode } from "@/lib/server/repositories/oauth";
+import { approveCodeAction, denyCodeAction, submitCodeAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,32 +24,6 @@ export default async function DevicePage({
 
   const resolvedParams = await searchParams;
   const { user_code } = resolvedParams;
-
-  async function submitCode(formData: FormData) {
-    "use server";
-    const code = formData.get("user_code")?.toString().toUpperCase().trim();
-    if (code) {
-      redirect(`/device?user_code=${code}`);
-    }
-  }
-
-  async function approveCode(formData: FormData) {
-    "use server";
-    const code = formData.get("user_code")?.toString().toUpperCase().trim();
-    if (code && current) {
-      await updateDeviceCodeStatus(code, "approved", current.user.id);
-      redirect("/device?success=true");
-    }
-  }
-
-  async function denyCode(formData: FormData) {
-    "use server";
-    const code = formData.get("user_code")?.toString().toUpperCase().trim();
-    if (code && current) {
-      await updateDeviceCodeStatus(code, "denied", current.user.id);
-      redirect("/device");
-    }
-  }
 
   const isSuccess = resolvedParams.success === "true";
 
@@ -95,25 +69,29 @@ export default async function DevicePage({
           {deviceCode.appName}
         </h1>
         <p className="text-[14px] text-secondary mb-5">
-          This device is requesting access with the following scopes:
+          This device is asking for access to:
         </p>
 
         <div className="bg-card border border-rule rounded-lg mb-6 divide-y divide-rule">
-          {deviceCode.scopes.map((scope) => (
-            <div key={scope} className="flex items-center gap-3 px-4 py-3">
-              <span className="text-[13px] text-fg">{scope}</span>
-            </div>
-          ))}
+          {deviceCode.scopes.map((scope) => {
+            const item = scopeLabels[scope] || { label: scope };
+            return (
+              <div key={scope} className="flex items-center gap-3 px-4 py-3">
+                <span className="text-[13px] text-fg flex-1">{item.label}</span>
+                {item.sensitive && <Tag tone="warning">Sensitive</Tag>}
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <form action={denyCode}>
+          <form action={denyCodeAction}>
             <input type="hidden" name="user_code" value={user_code} />
             <Button variant="ghost" type="submit" className="w-full">
               Deny
             </Button>
           </form>
-          <form action={approveCode}>
+          <form action={approveCodeAction}>
             <input type="hidden" name="user_code" value={user_code} />
             <Button type="submit" className="w-full">
               Approve
@@ -133,7 +111,7 @@ export default async function DevicePage({
         The code is displayed on your device screen
       </p>
 
-      <form action={submitCode} className="space-y-5">
+      <form action={submitCodeAction} className="space-y-5">
         <div className="border border-rule rounded-md bg-card">
           <input
             name="user_code"
