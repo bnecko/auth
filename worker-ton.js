@@ -136,6 +136,21 @@ async function resolveMemo(pool, memo) {
   return null;
 }
 
+// A comment is bytes the sender chose. Postgres refuses a NUL in a text
+// parameter, and the memo is looked up before the cursor moves past its
+// transaction, so a single one-nano transfer carrying one would throw on every
+// tick and stall deposit crediting and payout confirmation until someone edited
+// the cursor by hand. Control characters cannot be part of a memo issued here,
+// so dropping them loses nothing, and the cap keeps a junk comment from being
+// stored whole.
+const MEMO_MAX_LENGTH = 64;
+
+function normalizeMemo(comment) {
+  if (!comment) return null;
+  const memo = comment.replace(/\p{Cc}/gu, "").trim().toUpperCase().slice(0, MEMO_MAX_LENGTH);
+  return memo || null;
+}
+
 /**
  * Decides whether one transaction is a GRAM payment to the donation address,
  * and returns what to record. Everything that is not plainly that is refused:
@@ -170,7 +185,7 @@ function parseDonation(tx, ownerAddress) {
     txLt: String(tx.lt),
     amountNano,
     sender: String(msg.source || "").toLowerCase(),
-    memo: comment ? comment.trim().toUpperCase() : null,
+    memo: normalizeMemo(comment),
     txTime: Number(tx.now) || null,
   };
 }
@@ -198,10 +213,10 @@ function parsePayouts(tx, ownerAddress) {
 
     const destination = normalizeAddress(msg.destination);
     const amountNano = BigInt(msg.value || "0");
-    const comment = textComment(msg.message_content && msg.message_content.body);
-    if (!destination || amountNano <= 0n || !comment) continue;
+    const memo = normalizeMemo(textComment(msg.message_content && msg.message_content.body));
+    if (!destination || amountNano <= 0n || !memo) continue;
 
-    payouts.push({ txHash: tx.hash, destination, amountNano, memo: comment.trim().toUpperCase() });
+    payouts.push({ txHash: tx.hash, destination, amountNano, memo });
   }
   return payouts;
 }

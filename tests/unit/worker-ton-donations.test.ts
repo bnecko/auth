@@ -65,6 +65,26 @@ describe('normalizeAddress', () => {
   });
 });
 
+// A comment is bytes the sender chose. Postgres refuses a NUL in a text
+// parameter, and the memo is looked up before the cursor moves, so one such
+// comment used to throw on every tick and stall crediting for good.
+describe('a hostile comment', () => {
+  const nul = String.fromCharCode(0);
+  const withComment = (text: string) => transaction({}, { message_content: { body: commentBody(text) } });
+
+  it('loses its control characters before it becomes a memo', () => {
+    expect(parseDonation(withComment(`ab${nul}cd1234ef\n`), OWNER).memo).toBe('ABCD1234EF');
+  });
+
+  it('is no memo at all when nothing else is left', () => {
+    expect(parseDonation(withComment(`${nul}${nul}`), OWNER).memo).toBeNull();
+  });
+
+  it('is cut to a length no memo of ours reaches', () => {
+    expect(parseDonation(withComment('x'.repeat(500)), OWNER).memo).toHaveLength(64);
+  });
+});
+
 describe('textComment', () => {
   it('reads a comment out of the message body', () => {
     expect(textComment(commentBody('HELLO'))).toBe('HELLO');

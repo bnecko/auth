@@ -86,6 +86,29 @@ describeDb('TON donation ingestion', () => {
     expect(indexer.accountTransactions).not.toHaveBeenCalled();
   });
 
+  // Anyone can send one nano with any bytes as the comment. It must not stop
+  // the honest payment queued behind it from being credited.
+  it('is not stalled by a comment Postgres cannot store', async () => {
+    const memo = `N${randomToken(4).toUpperCase().replace(/[^A-Z0-9]/g, 'X')}`;
+    const userId = await seedUserWithMemo(memo);
+    await pool.query(`insert into worker_cursors (name, value) values ($1, '1')`, [DONATION_CURSOR]);
+    const poison = `${String.fromCharCode(0)}oops`;
+
+    const swept = await sweepTonDonations({
+      pool,
+      indexer: indexerOf([
+        transfer({ lt: '20', value: '1', memo: poison, hash: `poison_${randomToken(6)}` }),
+        transfer({ lt: '21', value: '1000000000', memo, hash: `honest_${randomToken(6)}` }),
+      ]),
+      log,
+      ownerAddress: OWNER,
+    });
+
+    expect(swept).toBe(true);
+    expect(await cursorValue(pool)).toBe('21');
+    expect(await donorSince(userId)).not.toBeNull();
+  });
+
   it('credits a transfer whose memo matches, and grants the badge at one GRAM', async () => {
     const memo = `M${randomToken(4).toUpperCase().replace(/[^A-Z0-9]/g, 'X')}`;
     const userId = await seedUserWithMemo(memo);
