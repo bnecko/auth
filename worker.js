@@ -1076,8 +1076,8 @@ function startWorker() {
   // implementation of it is how ledgers drift apart.
   const internalPost = async (path, payload) => {
     const base = process.env.AUTH_INTERNAL_URL || "http://app:3000";
-    const secret = process.env.INTERNAL_ANALYTICS_SECRET || "";
-    if (!secret) throw new Error("INTERNAL_ANALYTICS_SECRET is unset");
+    const secret = process.env.INTERNAL_BILLING_SECRET || "";
+    if (!secret) throw new Error("INTERNAL_BILLING_SECRET is unset");
     const res = await fetch(`${base}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-bottleneck-internal-secret": secret },

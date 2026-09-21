@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
-import { cryptoEnabled } from "@/lib/server/config";
+import { cryptoEnabled, internalBillingSecret } from "@/lib/server/config";
 import { safeEqual } from "@/lib/server/crypto";
-import { badRequest, forbidden, json, notFound, requestBody } from "@/lib/server/http";
+import { badRequest, cameThroughTunnel, forbidden, json, notFound, requestBody } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
 import { notifyUser } from "@/lib/server/notifications";
 import { formatGram } from "@/lib/server/repositories/billing";
@@ -24,9 +24,9 @@ export const runtime = "nodejs";
  * received, and the worker is the one who tells the operator.
  */
 export async function POST(req: NextRequest) {
-  const secret = process.env.INTERNAL_ANALYTICS_SECRET || "";
+  const secret = internalBillingSecret();
   const presented = req.headers.get("x-bottleneck-internal-secret") || "";
-  if (!secret || !safeEqual(presented, secret)) return forbidden();
+  if (!secret || !safeEqual(presented, secret) || cameThroughTunnel(req)) return forbidden();
   if (!cryptoEnabled()) return notFound();
 
   const body = await requestBody(req);

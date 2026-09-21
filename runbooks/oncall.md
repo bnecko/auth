@@ -84,6 +84,7 @@ changed), which is a short outage you should schedule, not trip over.
 | `TELEGRAM_BOT_TOKEN` | `app`, `worker`, `bot`, monitor Worker (`wrangler secret put`) | `up -d --no-deps app worker bot`, then `wrangler secret put TELEGRAM_BOT_TOKEN` in `monitor/` | 2FA prompts, notifications, bot sign-in fail; queued jobs retry; monitor alerts fail until its secret is updated | edit env, then BotFather revoke |
 | `TELEGRAM_BOT_WEBHOOK_SECRET` | `app`, `bot` | `up -d --no-deps app bot` | a tap in the gap fails; retry works | none |
 | `INTERNAL_ANALYTICS_SECRET` | `app`, the external analytics caller | `up -d --no-deps app` and the caller | analytics posts 401 until the caller updates | none |
+| `INTERNAL_BILLING_SECRET` | `app`, `worker`, nobody else | `up -d --no-deps app worker`, together | the worker stops crediting deposits and confirming payouts until both hold the new value; the sweep resumes from its cursor, nothing is lost | none |
 | `TURNSTILE_SECRET_KEY`, `TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `app` (read at runtime) | `up -d --no-deps app` | forms fail closed until restart | create the new widget first |
 | `CLOUDFLARED_TOKEN` | `cloudflared` | `up -d --no-deps cloudflared` | seconds of tunnel outage | second tunnel + DNS cutover; rarely worth it |
 | `RESEND_API_KEY` | `app` | `up -d --no-deps app` | verification emails fail | create new, deploy, delete old |
