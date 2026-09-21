@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TonConnect, { type IStorage, type Wallet } from "@tonconnect/sdk";
 import { Button } from "@/components/Button";
+import { PasswordField } from "@/components/PasswordField";
 import { QrCode } from "@/components/QrCode";
 import { TON_CONNECT_WALLETS, type TonConnectWallet } from "@/lib/tonConnectWallets";
 
@@ -35,6 +36,7 @@ export function TonConnectPanel() {
   const [error, setError] = useState<string | null>(null);
   const [qrLink, setQrLink] = useState<string | null>(null);
   const [cspBlocked, setCspBlocked] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const connector = useRef<TonConnect | null>(null);
 
   // A soft navigation keeps the CSP of whichever document loaded first, so
@@ -99,7 +101,11 @@ export function TonConnectPanel() {
 
       let payload: string;
       try {
-        const res = await fetch("/api/ton/proof/payload", { method: "POST" });
+        const res = await fetch("/api/ton/proof/payload", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ currentPassword }),
+        });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || "Could not start a connection.");
         payload = body.payload;
@@ -138,7 +144,7 @@ export function TonConnectPanel() {
         setQrLink(link);
       }
     },
-    [submit],
+    [submit, currentPassword],
   );
 
   if (cspBlocked) {
@@ -160,16 +166,32 @@ export function TonConnectPanel() {
     <div className="flex flex-col gap-3 px-4 py-4">
       <p className="text-[13px] text-secondary">
         Connect a wallet to sign a one-off message proving you hold its key. Nothing is sent
-        and no transaction is made.
+        and no transaction is made. Withdrawals are paid to the wallet you link, so linking
+        one needs your password.
       </p>
+
+      <PasswordField
+        label="Current password"
+        name="currentPassword"
+        autoComplete="current-password"
+        fillOnRequest
+        value={currentPassword}
+        onChange={event => setCurrentPassword(event.target.value)}
+      />
 
       <div className="flex flex-wrap gap-2">
         {TON_CONNECT_WALLETS.map(wallet => (
-          <Button key={wallet.id} variant="secondary" size="sm" onClick={() => void start(wallet)}>
+          <Button
+            key={wallet.id}
+            variant="secondary"
+            size="sm"
+            disabled={!currentPassword}
+            onClick={() => void start(wallet)}
+          >
             {wallet.name}
           </Button>
         ))}
-        <Button variant="ghost" size="sm" onClick={() => void start(null)}>
+        <Button variant="ghost" size="sm" disabled={!currentPassword} onClick={() => void start(null)}>
           Show QR code
         </Button>
       </div>

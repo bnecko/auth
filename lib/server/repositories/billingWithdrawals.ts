@@ -79,8 +79,10 @@ const pgError = (err: unknown) => err as { code?: string; constraint?: string };
  * to be charged by an app.
  *
  * The destination is never an input. It is whatever wallet the user proved
- * they control, read here, so there is no field for an attacker with a stolen
- * session to type their own address into.
+ * they control, read here, so there is no field to type an address into. That
+ * alone does not stop someone holding a stolen session, who could link their
+ * own wallet first: linking and unlinking ask for the account password, which
+ * is what keeps the wallet read here the owner's.
  *
  * Throws WithdrawalRefused for a gate that is not met, and InsufficientBalance
  * from the ledger if the amount is more than the account holds.
@@ -322,18 +324,28 @@ export type QueuedWithdrawal = Withdrawal & {
   username: string | null;
   identityApproved: boolean;
   walletStillLinked: boolean;
+  // When the wallet being paid was proved, or null once it is no longer the
+  // linked one. A wallet linked moments before the request is the pattern a
+  // taken-over account produces, and the operator is the last check.
+  walletLinkedAt: Date | null;
 };
 
 // The operator's view: open requests oldest first, because the person who has
 // waited longest is the one to pay next, then what was closed recently.
 export async function listWithdrawalQueue(): Promise<QueuedWithdrawal[]> {
   const rows = await query<
-    WithdrawalRow & { username: string | null; identity_approved: boolean; wallet_still_linked: boolean }
+    WithdrawalRow & {
+      username: string | null;
+      identity_approved: boolean;
+      wallet_still_linked: boolean;
+      wallet_linked_at: Date | null;
+    }
   >(
     `select w.id, w.amount_nano, w.destination, w.memo, w.status, w.tx_hash, w.reject_reason,
             w.created_at, u.username,
             coalesce(k.status = 'approved', false) as identity_approved,
-            coalesce(t.address = w.destination, false) as wallet_still_linked
+            coalesce(t.address = w.destination, false) as wallet_still_linked,
+            case when t.address = w.destination then t.verified_at end as wallet_linked_at
        from billing_withdrawals w
        left join users u on u.id = w.user_id
        left join kyc_applications k on k.user_id = w.user_id
@@ -348,5 +360,6 @@ export async function listWithdrawalQueue(): Promise<QueuedWithdrawal[]> {
     username: row.username,
     identityApproved: row.identity_approved,
     walletStillLinked: row.wallet_still_linked,
+    walletLinkedAt: row.wallet_linked_at,
   }));
 }
