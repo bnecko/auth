@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
-    "@simplewebauthn/server": "^13.3.3",
+    "@simplewebauthn/server": "^14.0.1",
     "@ton/core": "0.63.1",
     "@ton/crypto": "3.3.0",
     "@tonconnect/sdk": "4.0.2",
