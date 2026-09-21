@@ -17,6 +17,7 @@ function Monogram() {
 const NAV = [
   { href: "/docs", label: "Docs" },
   { href: "/faq", label: "FAQ" },
+  { href: "/pool", label: "Pool" },
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
   { href: "/rules", label: "Rules" },

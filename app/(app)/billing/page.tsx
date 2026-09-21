@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, Coins, Download } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
@@ -77,6 +78,15 @@ export default async function BillingPage() {
           <RowValue>
             <span className="text-[18px] text-fg">{formatGram(balanceNano)}</span>
             <span className="text-[13px] text-muted"> btGRAM</span>
+          </RowValue>
+          <span />
+        </Row>
+        <Row>
+          <RowLabel>Public pool</RowLabel>
+          <RowValue>
+            <Link href="/pool" className="text-accent hover:underline">
+              See what the shared pool holds, or contribute to it
+            </Link>
           </RowValue>
           <span />
         </Row>
