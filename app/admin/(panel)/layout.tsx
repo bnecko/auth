@@ -16,7 +16,7 @@ export default async function AdminPanelLayout({
   if (!current || current.user.role !== "admin") {
     redirect("/");
   }
-  if (!(await isAdminStepUpVerified(current.user.id))) {
+  if (!(await isAdminStepUpVerified(current))) {
     redirect("/admin/verify");
   }
 

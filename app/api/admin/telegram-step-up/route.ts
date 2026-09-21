@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     return redirectTo("/admin/verify?error=identity_mismatch");
   }
 
-  await grantAdminStepUp(session.user.id);
+  await grantAdminStepUp(session);
 
   return redirectTo("/admin");
 }

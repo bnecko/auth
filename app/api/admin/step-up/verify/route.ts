@@ -23,6 +23,6 @@ export async function POST(req: NextRequest) {
     return json({ error: "invalid or expired code" }, 400);
   }
 
-  await grantAdminStepUp(session.user.id);
+  await grantAdminStepUp(session);
   return json({ ok: true });
 }
