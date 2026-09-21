@@ -3,7 +3,9 @@ import { Download, PauseCircle, TriangleAlert } from "lucide-react";
 import { Section, Row, RowLabel, RowValue } from "@/components/Section";
 import { Button } from "@/components/Button";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { Alert } from "@/components/Alert";
 import { getCurrentSession } from "@/lib/server/session";
+import { formatGram, getBalanceNano } from "@/lib/server/repositories/billing";
 import { deactivateAccountAction } from "./actions";
 import { DeleteAccountFlow } from "./DeleteAccountFlow";
 
@@ -12,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function DangerZonePage() {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
+  const balanceNano = await getBalanceNano(current.user.id);
 
   return (
     <>
@@ -64,6 +67,15 @@ export default async function DangerZonePage() {
         hint="Permanent after a 30-day grace period"
         tone="danger"
       >
+        {balanceNano !== "0" && (
+          <div className="px-4 pt-4">
+            <Alert tone="danger">
+              You hold {formatGram(balanceNano)} btGRAM. Withdraw it before the grace period
+              ends: any balance still here when deletion completes goes to the public pool and
+              cannot be recovered.
+            </Alert>
+          </div>
+        )}
         <DeleteAccountFlow hasTelegram={!!current.user.telegramId} />
       </Section>
     </>
