@@ -1,9 +1,10 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { QrCode } from "@/components/QrCode";
 import { Empty, Section } from "@/components/Section";
 import { Tag } from "@/components/Tag";
 import { CopyValue } from "@/app/(app)/developers/apps/[slug]/CopyValue";
+import { cryptoEnabled } from "@/lib/server/config";
 import { formatGram } from "@/lib/server/repositories/billing";
 import {
   listWithdrawalQueue,
@@ -156,6 +157,7 @@ function OpenWithdrawal({ withdrawal }: { withdrawal: QueuedWithdrawal }) {
 export default async function AdminWithdrawalsPage() {
   const current = await getCurrentSession();
   if (!current || current.user.role !== "admin") redirect("/");
+  if (!cryptoEnabled()) notFound();
 
   const queue = await listWithdrawalQueue();
   const open = queue.filter(w => OPEN_WITHDRAWAL_STATUSES.includes(w.status));

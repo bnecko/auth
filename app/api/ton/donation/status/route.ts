@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
-import { json } from "@/lib/server/http";
+import { cryptoEnabled } from "@/lib/server/config";
+import { json, notFound } from "@/lib/server/http";
 import { donatedTotalNano } from "@/lib/server/repositories/tonDonations";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   const { response, session } = await requireUser(req);
   if (response) return response;
+  if (!cryptoEnabled()) return notFound();
 
   return json({
     donor: Boolean(session.user.donorSince),

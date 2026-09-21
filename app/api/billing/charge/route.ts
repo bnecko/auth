@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { bearerToken } from "@/lib/server/apiAuth";
+import { cryptoEnabled } from "@/lib/server/config";
 import { apiError, json, requestBody } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
 import { rateLimit } from "@/lib/server/rateLimit";
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
   ) {
     return apiError("invalid or expired token", "invalid_token", 401);
   }
+
+  if (!cryptoEnabled()) return apiError("billing is not enabled on this server", "not_found", 404);
 
   if (!grant.scopes.includes("billing:charge")) {
     return apiError("token is missing the billing:charge scope", "insufficient_scope", 403);

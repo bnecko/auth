@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { cryptoEnabled } from "@/lib/server/config";
 import { getCurrentSession } from "@/lib/server/session";
 import { canHandleSecurity } from "@/lib/server/supporterAuth";
 
@@ -27,6 +28,7 @@ export default async function AppLayout({
       user={{ name: current.user.firstName, username: current.user.username }}
       isAdmin={current.user.role === "admin"}
       isSecurity={isSecurity}
+      cryptoEnabled={cryptoEnabled()}
     >
       {children}
     </AppShell>

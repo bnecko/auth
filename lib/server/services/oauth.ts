@@ -9,6 +9,7 @@ import type { NextRequest } from "next/server";
 import {
   activeOidcSigningKey,
   authBaseUrl,
+  cryptoEnabled,
   currentOAuthProfileVersion,
   legacyOAuthProfileVersion,
   oauthAccessTokenTtlSeconds,
@@ -231,6 +232,14 @@ export const OAUTH_SCOPE_LIST = [
 ] as const;
 
 const OAUTH_SCOPES = new Set<string>(OAUTH_SCOPE_LIST);
+
+// Left in the list above even while the crypto switch is off: apps store their
+// allowed scopes, and parsing rejects unknown ones, so dropping these would
+// fail authorization for an app that was granted them earlier. With the switch
+// off they are inert instead: not advertised, not offered, and they unlock
+// nothing.
+const CRYPTO_SCOPES: readonly string[] = ["ton:read", "billing:charge"];
+const CRYPTO_CLAIMS: readonly string[] = ["ton_address", "ton_domain"];
 
 export const OAUTH_GRANT_TYPES = [
   "authorization_code",
@@ -1254,7 +1263,7 @@ export async function oauthUserInfo(accessToken: string) {
   // not, so it needs its own scope rather than riding along with the profile.
   // Only what the user chose to publish is shared: the domain appears only
   // while it is the thing on display, and a hidden wallet discloses nothing.
-  if (hasScope(scopes, "ton:read", "ton:read")) {
+  if (cryptoEnabled() && hasScope(scopes, "ton:read", "ton:read")) {
     const wallet = await findTonWallet(user.id);
     result.ton_address = wallet ? wallet.address : null;
     result.ton_domain = wallet && wallet.display === "domain" ? wallet.displayDomain : null;
@@ -1321,6 +1330,7 @@ export async function revokeOAuthToken(
 }
 
 export function oauthServerMetadata() {
+  const cryptoOn = cryptoEnabled();
   const issuer = authBaseUrl();
   const metadata: Record<string, unknown> = {
     issuer,
@@ -1352,7 +1362,7 @@ export function oauthServerMetadata() {
       legacyOAuthProfileVersion,
     ],
     oauth_profile_version_current: currentOAuthProfileVersion,
-    scopes_supported: [...OAUTH_SCOPE_LIST],
+    scopes_supported: OAUTH_SCOPE_LIST.filter(scope => cryptoOn || !CRYPTO_SCOPES.includes(scope)),
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["RS256"],
     claims_supported: [
@@ -1374,7 +1384,7 @@ export function oauthServerMetadata() {
       "telegram_verified",
       "ton_address",
       "ton_domain",
-    ],
+    ].filter(claim => cryptoOn || !CRYPTO_CLAIMS.includes(claim)),
   };
 
   if (oauthDynamicRegistrationToken()) {

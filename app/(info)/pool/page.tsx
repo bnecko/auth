@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Coins, Gift, HandCoins } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
+import { cryptoEnabled } from "@/lib/server/config";
 import { randomToken } from "@/lib/server/crypto";
 import { formatGram, getBalanceNano, getPoolBalanceNano } from "@/lib/server/repositories/billing";
 import { getCurrentSession } from "@/lib/server/session";
@@ -18,6 +20,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function PoolPage() {
+  if (!cryptoEnabled()) notFound();
+
   const [poolNano, current] = await Promise.all([getPoolBalanceNano(), getCurrentSession()]);
   const balanceNano = current ? await getBalanceNano(current.user.id) : null;
 

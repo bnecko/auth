@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
+import { cryptoEnabled } from "@/lib/server/config";
 import {
   donateToPool,
   formatGram,
@@ -20,6 +22,7 @@ export async function contributeToPoolAction(
   const current = await getCurrentSession();
   if (!current) return { error: "sign in to contribute" };
   assertNotRestricted(current);
+  if (!cryptoEnabled()) notFound();
 
   const amountNano = parseGram(String(formData.get("amount") ?? ""));
   if (!amountNano) return { error: "enter an amount in btGRAM, for example 0.5" };

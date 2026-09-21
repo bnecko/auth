@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
+import { cryptoEnabled } from "@/lib/server/config";
 import { requestContextFromHeaders } from "@/lib/server/http";
 import { notifyUser } from "@/lib/server/notifications";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
@@ -26,6 +28,7 @@ export async function updateTonDisplayAction(
   const current = await getCurrentSession();
   if (!current) return { error: "not signed in" };
   assertNotRestricted(current);
+  if (!cryptoEnabled()) notFound();
 
   const wallet = await findTonWallet(current.user.id);
   if (!wallet) return { error: "link a wallet first" };
@@ -73,6 +76,7 @@ export async function unlinkTonWalletAction() {
   const current = await getCurrentSession();
   if (!current) return;
   assertNotRestricted(current);
+  if (!cryptoEnabled()) notFound();
 
   if (await unlinkTonWallet(current.user.id)) {
     await recordSecurityEvent({

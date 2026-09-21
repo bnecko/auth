@@ -111,6 +111,10 @@ export function forbidden(message = "forbidden") {
   return json({ error: message }, 403);
 }
 
+export function notFound(message = "not found") {
+  return json({ error: message }, 404);
+}
+
 export function tooManyRequests(message = "too many requests") {
   return json({ error: message }, 429);
 }

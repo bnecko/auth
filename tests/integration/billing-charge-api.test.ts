@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/server/db';
 import { hashToken, publicId, randomToken } from '@/lib/server/crypto';
@@ -75,6 +75,25 @@ describeDb('billing charge API', () => {
     const res = await post(token, { amountNano: '1', idempotencyKey: key() });
     expect(res.status).toBe(403);
     expect(await getBalanceNano(payer)).toBe('1000000000');
+  });
+
+  // The flag is checked after the token, so a caller without one learns
+  // nothing about whether billing exists here.
+  it('charges nothing while crypto is switched off', async () => {
+    const payer = await seedUserId('payer');
+    const owner = await seedUserId('owner');
+    const { token } = await seedToken({ userId: payer, ownerUserId: owner, scopes: ['billing:charge'] });
+    await creditDeposit({ userId: payer, amountNano: NANO_PER_GRAM, txHash: `chg_${randomToken(6)}` });
+    vi.stubEnv('CRYPTO_ENABLED', 'false');
+
+    const refused = await post(token, { amountNano: '1', idempotencyKey: key() });
+    const anonymous = await post('not-a-token', { amountNano: '1', idempotencyKey: key() });
+    vi.unstubAllEnvs();
+
+    expect(refused.status).toBe(404);
+    expect(anonymous.status).toBe(401);
+    expect(await getBalanceNano(payer)).toBe('1000000000');
+    expect(await getBalanceNano(owner)).toBe('0');
   });
 
   it('refuses a missing or unknown token', async () => {

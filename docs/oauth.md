@@ -134,6 +134,10 @@ Supported scopes:
 - `ton:read` (verified TON wallet address, and the .ton domain if the user is
   displaying one; both `null` when nothing is linked or shown)
 
+`billing:charge` and `ton:read` exist only on a server running with
+`CRYPTO_ENABLED=true`. Elsewhere they are left out of `scopes_supported`, the
+charge endpoint answers 404, and `ton:read` adds no claims.
+
 On approval, the browser redirects to:
 
 ```text

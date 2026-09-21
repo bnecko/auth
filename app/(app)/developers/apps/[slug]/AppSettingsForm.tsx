@@ -7,6 +7,8 @@ import { Field } from "@/components/Field";
 import { Section } from "@/components/Section";
 import { updateAppAction } from "./actions";
 
+const CRYPTO_SCOPES = new Set(["ton:read", "billing:charge"]);
+
 const SCOPE_OPTIONS = [
   { value: "openid", label: "OpenID Connect (issues ID tokens)" },
   { value: "profile", label: "Public profile" },
@@ -42,6 +44,7 @@ export function AppSettingsForm({
   allowedScopes,
   allowedGrantTypes,
   issueRefreshTokens,
+  cryptoEnabled,
 }: {
   appId: number;
   name: string;
@@ -51,9 +54,16 @@ export function AppSettingsForm({
   allowedScopes: string[];
   allowedGrantTypes: string[];
   issueRefreshTokens: boolean;
+  cryptoEnabled: boolean;
 }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  // A scope the app already holds stays listed even with the crypto switch
+  // off: an unrendered checkbox is not submitted, so hiding it would strip the
+  // scope from the app the next time this form is saved.
+  const scopeOptions = SCOPE_OPTIONS.filter(
+    opt => cryptoEnabled || !CRYPTO_SCOPES.has(opt.value) || allowedScopes.includes(opt.value),
+  );
 
   function save(key: string) {
     return async (formData: FormData) => {
@@ -138,7 +148,7 @@ export function AppSettingsForm({
               Allowed scopes
             </label>
             <div className="border-t border-rule sm:grid sm:grid-cols-2 sm:gap-x-6">
-              {SCOPE_OPTIONS.map(opt => (
+              {scopeOptions.map(opt => (
                 <label
                   key={opt.value}
                   className="flex items-baseline gap-3 py-2.5 border-b border-rule cursor-pointer group"

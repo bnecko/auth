@@ -58,6 +58,39 @@ If `TURNSTILE_SECRET_KEY` is set, also set `TURNSTILE_SITE_KEY` and
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; the forms fetch the site key at runtime. In
 production a missing Turnstile secret fails closed.
 
+## Crypto features
+
+Everything that touches money or a chain sits behind one variable,
+`CRYPTO_ENABLED`: TON wallet linking, donations and the donor badge, the btGRAM
+ledger, the public pool, withdrawals, and the identity check that gates them.
+Only the exact value `true` turns it on. Unset, or any other value, leaves it
+off, so a fresh deployment does not start holding funds by accident and a typo
+fails towards off. Both `app` and `worker` read it, so rebuild or recreate both
+after changing it.
+
+While it is off:
+
+- `/billing`, `/settings/ton`, `/pool` and `/admin/withdrawals` answer 404 and
+  their links are hidden. The crypto API routes answer 404 after their usual
+  authentication, so a caller without credentials learns nothing from them.
+- `ton:read` and `billing:charge` are not advertised in discovery or offered to
+  new apps. They still parse, so an app that was granted one earlier keeps
+  working; the scopes simply unlock nothing.
+- The worker does not start the `.ton` domain, donation or reconciliation loops,
+  and does not list them for the heartbeat, so nothing waits on a loop that
+  never runs. It logs `crypto_disabled` once at start.
+
+Three things are deliberately not behind the switch, because they only tidy the
+ledger and are no-ops when there are no balances: forfeiting a leftover balance
+when an account is purged, the wallet and donation rows in the data export, and
+the balance warning on the danger page.
+
+Turning it off on a deployment that already holds balances is a hard stop, not
+a wind-down: users cannot see or withdraw their balance until it is back on.
+Stored balances are untouched, and deposits that arrive meanwhile are credited
+from the saved cursor once it is on again. Do not use it as a panic button on a
+live custodial deployment without accepting that.
+
 ## Cloudflare Tunnel
 
 In the tunnel's public hostname settings, point the service at the app inside

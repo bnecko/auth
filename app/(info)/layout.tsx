@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cryptoEnabled } from "@/lib/server/config";
 import { TERMS_EFFECTIVE, TERMS_VERSION } from "@/lib/server/terms";
 
 // Public chrome for the information pages. These are reachable without a
@@ -24,6 +25,8 @@ const NAV = [
 ];
 
 export default function InfoLayout({ children }: { children: React.ReactNode }) {
+  const nav = cryptoEnabled() ? NAV : NAV.filter(item => item.href !== "/pool");
+
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
       <header className="border-b border-rule bg-card">
@@ -33,7 +36,7 @@ export default function InfoLayout({ children }: { children: React.ReactNode }) 
             <span className="text-[15px] font-semibold tracking-tight text-fg">bottleneck</span>
           </Link>
           <nav className="flex items-center gap-4 text-[13px]">
-            {NAV.map(item => (
+            {nav.map(item => (
               <Link
                 key={item.href}
                 href={item.href}
