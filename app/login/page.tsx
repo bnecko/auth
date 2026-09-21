@@ -5,6 +5,7 @@ import { useState } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { AuthShell } from "@/components/AuthShell";
 import { Field } from "@/components/Field";
+import { PasswordField } from "@/components/PasswordField";
 import { Button } from "@/components/Button";
 import { Divider } from "@/components/Divider";
 import { Alert } from "@/components/Alert";
@@ -117,10 +118,9 @@ export default function LoginPage() {
           placeholder="alex@example.com"
           required
         />
-        <Field
+        <PasswordField
           label="Password"
           name="password"
-          type="password"
           autoComplete="current-password"
           placeholder="••••••••"
           required

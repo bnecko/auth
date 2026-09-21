@@ -131,6 +131,13 @@ input:-webkit-autofill:focus {
   transition: background-color 9999s ease-in-out 0s;
 }
 
+/* Edge draws its own reveal button inside a password input, which would sit
+   under ours. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 *:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

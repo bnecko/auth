@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Field } from "@/components/Field";
+import { PasswordField } from "@/components/PasswordField";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 
@@ -91,11 +91,11 @@ export function DeleteAccountFlow({ hasTelegram }: { hasTelegram: boolean }) {
             Deletion needs Telegram approval and your current password. Your account is then
             scheduled for removal in 30 days; signing in before then cancels it.
           </p>
-          <Field
+          <PasswordField
             label="Current password"
             name="password"
-            type="password"
             autoComplete="current-password"
+            fillOnRequest
             value={password}
             onChange={e => setPassword(e.target.value)}
             required

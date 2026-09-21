@@ -5,13 +5,16 @@ type FieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
   hint?: string;
   error?: string;
   optional?: boolean;
+  // A control drawn over the right edge of the input, such as the reveal
+  // button on a password.
+  trailing?: React.ReactNode;
 };
 
 // A bordered, rounded input with the label sitting above it. The border picks
 // up the accent on focus with a soft ring; the error state swaps to danger and
 // wires the message to the input for screen readers.
 export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
-  { label, hint, error, optional, id, className = "", ...props },
+  { label, hint, error, optional, trailing, id, className = "", ...props },
   ref,
 ) {
   const inputId = id ?? props.name;
@@ -25,23 +28,27 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
         </label>
         {optional && <span className="text-[12px] text-muted">Optional</span>}
       </div>
-      <input
-        ref={ref}
-        id={inputId}
-        aria-describedby={
-          [hintId, errorId].filter(Boolean).join(" ") || undefined
-        }
-        aria-invalid={!!error}
-        className={[
-          "w-full h-10 px-3 text-[14px] rounded-md bg-card text-fg",
-          "placeholder:text-faint border",
-          error ? "border-danger" : "border-rule",
-          "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25",
-          "transition",
-          className,
-        ].join(" ")}
-        {...props}
-      />
+      <div className="relative">
+        <input
+          ref={ref}
+          id={inputId}
+          aria-describedby={
+            [hintId, errorId].filter(Boolean).join(" ") || undefined
+          }
+          aria-invalid={!!error}
+          className={[
+            "w-full h-10 px-3 text-[14px] rounded-md bg-card text-fg",
+            trailing ? "pr-10" : "",
+            "placeholder:text-faint border",
+            error ? "border-danger" : "border-rule",
+            "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25",
+            "transition",
+            className,
+          ].join(" ")}
+          {...props}
+        />
+        {trailing}
+      </div>
       {hint && !error && (
         <p id={hintId} className="mt-1.5 text-[12px] text-muted">
           {hint}
