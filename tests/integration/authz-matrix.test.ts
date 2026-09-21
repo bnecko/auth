@@ -64,6 +64,7 @@ const ROUTES: Record<string, GuardClass> = {
   'app/api/internal/analytics/route.ts': 'shared-secret',
   'app/api/internal/billing/credit/route.ts': 'shared-secret',
   'app/api/internal/billing/forfeit/route.ts': 'shared-secret',
+  'app/api/internal/billing/withdrawal-paid/route.ts': 'shared-secret',
   'app/api/telegram/bearer/decision/route.ts': 'shared-secret',
   'app/api/telegram/bot/verify/route.ts': 'shared-secret',
   'app/api/telegram/confirm/decision/route.ts': 'shared-secret',
