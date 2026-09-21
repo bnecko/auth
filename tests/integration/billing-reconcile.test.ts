@@ -127,6 +127,30 @@ describeDb('billing reconciliation', () => {
     expect(alertText(quiet)).not.toContain('exceeds');
   });
 
+  // A request with no hold behind it is a payout queued against money that is
+  // still free to be spent.
+  it('reports open withdrawals that escrow does not cover', async () => {
+    const userId = await seedUserId();
+    await creditDeposit({ userId, amountNano: NANO_PER_GRAM, txHash: `rec_${randomToken(6)}` });
+    const unbacked = await queryOne<{ id: string }>(
+      `insert into billing_withdrawals (account_id, user_id, amount_nano, destination, memo)
+       select id, $1, 700, $2, $3 from billing_accounts where user_id = $1
+       returning id`,
+      [userId, `0:${'a'.repeat(64)}`, `REC${randomToken(4)}`],
+    );
+
+    const alerts = { send: vi.fn() };
+    await reconcileBilling({ pool, indexer: plenty, log: logger(), alerts, ownerAddress: OWNER });
+
+    expect(alerts.send).toHaveBeenCalledWith(
+      'billing_drift',
+      expect.stringContaining('open withdrawals total'),
+      expect.anything(),
+    );
+
+    await query(`delete from billing_withdrawals where id = $1`, [unbacked!.id]);
+  });
+
   // An unreachable vendor is not a discrepancy and must not page anyone.
   it('stays quiet when the chain cannot be read', async () => {
     const log = logger();

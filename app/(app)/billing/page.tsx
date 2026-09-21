@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, Coins, Download } from "lucide-react";
+import { BadgeCheck, Coins, Download, Upload } from "lucide-react";
+import { Button } from "@/components/Button";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
+import { Tag } from "@/components/Tag";
 import { QrCode } from "@/components/QrCode";
 import { CopyValue } from "@/app/(app)/developers/apps/[slug]/CopyValue";
 import { tonDonationAddress } from "@/lib/server/config";
@@ -9,14 +11,27 @@ import {
   formatGram,
   getBalanceNano,
   listEntriesForUser,
+  type LedgerEntry,
 } from "@/lib/server/repositories/billing";
+import {
+  listWithdrawalsForUser,
+  MIN_WITHDRAWAL_NANO,
+  OPEN_WITHDRAWAL_STATUSES,
+  type WithdrawalStatus,
+} from "@/lib/server/repositories/billingWithdrawals";
 import { getOrCreateDepositMemo } from "@/lib/server/repositories/tonDonations";
+import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 import { findKycApplication } from "@/lib/server/repositories/kyc";
 import { isDiditConfigured } from "@/lib/server/kyc/didit";
 import { VerifyIdentityForm } from "./VerifyIdentityForm";
-import { startVerificationAction } from "./actions";
+import { WithdrawForm } from "./WithdrawForm";
+import {
+  cancelWithdrawalAction,
+  requestWithdrawalAction,
+  startVerificationAction,
+} from "./actions";
 import { getCurrentSession } from "@/lib/server/session";
-import { parseAddress } from "@/lib/server/ton/address";
+import { parseAddress, shortFriendlyAddress } from "@/lib/server/ton/address";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +46,19 @@ const KYC_HINT: Record<string, string> = {
   abandoned: "Not finished",
 };
 
+const WITHDRAWAL_STATUS: Record<WithdrawalStatus, { label: string; tone: "neutral" | "success" | "danger" | "warning" | "info" }> = {
+  requested: { label: "Waiting for review", tone: "warning" },
+  approved: { label: "Approved, being sent", tone: "info" },
+  sent: { label: "Sent, confirming", tone: "info" },
+  confirmed: { label: "Paid", tone: "success" },
+  rejected: { label: "Declined", tone: "danger" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+};
+
+// The indexer reports transaction hashes in base64 and explorers want hex.
+const transactionUrl = (hash: string) =>
+  `https://tonviewer.com/transaction/${Buffer.from(hash, "base64").toString("hex")}`;
+
 const LABELS: Record<string, string> = {
   deposit: "Deposit",
   charge: "Charge",
@@ -40,6 +68,13 @@ const LABELS: Record<string, string> = {
   pool_donation: "Donated to public pool",
   adjustment: "Adjustment",
 };
+
+// A withdrawal has two legs on the user's account: the hold going out, and the
+// same amount coming back if the request was cancelled or declined.
+function entryLabel(entry: LedgerEntry) {
+  if (entry.kind === "withdrawal" && !entry.amountNano.startsWith("-")) return "Withdrawal returned";
+  return LABELS[entry.kind] ?? entry.kind;
+}
 
 export default async function BillingPage() {
   const current = await getCurrentSession();
@@ -53,13 +88,16 @@ export default async function BillingPage() {
   // something once someone is looking at it.
   const memo = depositTo ? await getOrCreateDepositMemo(current.user.id) : null;
 
-  const [balanceNano, entries, kyc] = await Promise.all([
+  const [balanceNano, entries, kyc, wallet, withdrawals] = await Promise.all([
     getBalanceNano(current.user.id),
     listEntriesForUser(current.user.id),
     findKycApplication(current.user.id),
+    findTonWallet(current.user.id),
+    listWithdrawalsForUser(current.user.id, 5),
   ]);
 
   const kycStatus = kyc?.status ?? "not_started";
+  const hasOpenWithdrawal = withdrawals.some(w => OPEN_WITHDRAWAL_STATUSES.includes(w.status));
   // Re-verifying after passing only risks losing the approval, and a finished
   // submission is waiting on a reviewer rather than on the user.
   const canStartVerification =
@@ -132,6 +170,80 @@ export default async function BillingPage() {
       )}
 
       <div className="mt-6">
+        <Section title="Withdraw" icon={Upload} hint="To your verified wallet">
+          {kycStatus !== "approved" ? (
+            <Row>
+              <RowLabel>Not yet</RowLabel>
+              <RowValue>Verify your identity below and withdrawals open up.</RowValue>
+              <span />
+            </Row>
+          ) : !wallet ? (
+            <Row>
+              <RowLabel>No wallet</RowLabel>
+              <RowValue>
+                Withdrawals are only paid to a wallet you have proved is yours.{" "}
+                <Link href="/settings/ton" className="text-accent hover:underline">
+                  Link a TON wallet
+                </Link>
+              </RowValue>
+              <span />
+            </Row>
+          ) : (
+            !hasOpenWithdrawal && (
+              <WithdrawForm
+                action={requestWithdrawalAction}
+                destination={shortFriendlyAddress(wallet.address)}
+                minimum={formatGram(MIN_WITHDRAWAL_NANO.toString())}
+              />
+            )
+          )}
+
+          {withdrawals.map(withdrawal => (
+            <Row key={withdrawal.id}>
+              <RowLabel>
+                <Tag tone={WITHDRAWAL_STATUS[withdrawal.status].tone}>
+                  {WITHDRAWAL_STATUS[withdrawal.status].label}
+                </Tag>
+              </RowLabel>
+              <RowValue>
+                <span className="text-fg">{formatGram(withdrawal.amountNano)} GRAM</span>
+                <span className="text-[12px] text-muted">
+                  {" "}
+                  to {shortFriendlyAddress(withdrawal.destination)}
+                </span>
+                {withdrawal.txHash && (
+                  <a
+                    href={transactionUrl(withdrawal.txHash)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[12px] text-accent hover:underline"
+                  >
+                    {" "}
+                    view transaction
+                  </a>
+                )}
+                {withdrawal.rejectReason && (
+                  <span className="block text-[12px] text-muted">{withdrawal.rejectReason}</span>
+                )}
+              </RowValue>
+              {withdrawal.status === "requested" ? (
+                <form action={cancelWithdrawalAction}>
+                  <input type="hidden" name="withdrawalId" value={withdrawal.id} />
+                  <Button type="submit" variant="ghost" size="sm">
+                    Cancel
+                  </Button>
+                </form>
+              ) : (
+                <span className="text-[12px] text-muted">
+                  {withdrawal.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+            </Row>
+          ))}
+        </Section>
+      </div>
+
+      <div className="mt-6">
         <Section title="Identity" icon={BadgeCheck} hint={KYC_HINT[kycStatus] ?? kycStatus}>
           {kycStatus === "approved" ? (
             <Row>
@@ -171,7 +283,7 @@ export default async function BillingPage() {
           ) : (
             entries.map((entry, index) => (
               <Row key={index}>
-                <RowLabel>{LABELS[entry.kind] ?? entry.kind}</RowLabel>
+                <RowLabel>{entryLabel(entry)}</RowLabel>
                 <RowValue>
                   <span className={entry.amountNano.startsWith("-") ? "text-secondary" : "text-fg"}>
                     {formatGram(entry.amountNano)} btGRAM

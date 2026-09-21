@@ -21,7 +21,7 @@ function formatGram(nano) {
 }
 
 async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {}) {
-  const [events, deliveries, endpoints, users, donations] = await Promise.all([
+  const [events, deliveries, endpoints, users, donations, withdrawals] = await Promise.all([
     pool.query(
       `select event_type, count(*)::int as count
          from security_events
@@ -57,6 +57,14 @@ async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {})
               coalesce(sum(amount_nano) filter (where status = 'unmatched'), 0)::text as unmatched_nano
          from ton_donations`,
     ),
+    // The request alert is best effort, and a withdrawal nobody saw is someone
+    // waiting on their money. This line is how a missed alert gets noticed.
+    pool.query(
+      `select count(*)::int as open,
+              coalesce(sum(amount_nano), 0)::text as open_nano
+         from billing_withdrawals
+        where status in ('requested', 'approved', 'sent')`,
+    ),
   ]);
 
   const day = new Date(now()).toISOString().slice(0, 10);
@@ -73,11 +81,13 @@ async function buildDailyDigest(pool, { redis, startedAt, now = Date.now } = {})
   const e = endpoints.rows[0];
   const u = users.rows[0];
   const t = donations.rows[0];
+  const w = withdrawals.rows[0];
   const lines = [
     `Daily digest auth.bneck.com (${day} UTC)`,
     `worker up ${startedAt ? formatUptime(now() - startedAt) : "n/a"}, alerts sent today: ${alertsSent}`,
     `users: ${u.total} total, ${u.new_today} new, ${u.pending_deletion} pending deletion`,
     `donations: ${t.credited_today} credited today, ${t.unmatched_total} unmatched (${formatGram(t.unmatched_nano)})`,
+    `withdrawals: ${w.open} open (${formatGram(w.open_nano)})`,
     `webhooks: ${d.delivered} delivered, ${d.failed} failed, ${d.cancelled} cancelled, ${d.overdue} overdue; endpoints ${e.active} active, ${e.disabled_today} disabled today`,
     "events (24h):",
     ...(events.rows.length

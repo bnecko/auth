@@ -1042,6 +1042,7 @@ function startWorker() {
   forfeitBalance = userId => internalPost("/api/internal/billing/forfeit", { userId });
 
   const creditDeposit = payload => internalPost("/api/internal/billing/credit", payload);
+  const confirmWithdrawal = payload => internalPost("/api/internal/billing/withdrawal-paid", payload);
 
   const tonDonations = () =>
     sweepTonDonations({
@@ -1052,13 +1053,14 @@ function startWorker() {
       alerts,
       ownerAddress: donationAddress,
       creditDeposit,
+      confirmWithdrawal,
     });
   intervalIds.push(setInterval(() => runBatch(tonDonations, "ton_donations_loop_error", "ton_donations"), 60 * 1000));
   runBatch(tonDonations, "initial_ton_donations_error", "ton_donations");
   logger.info("ton_donation_sweep_started", { configured: Boolean(donationAddress) });
 
-  // Reconciliation runs before withdrawals exist on purpose: drift should be
-  // detected while the only way money leaves is by hand.
+  // Reconciliation only reports. Money leaves by the operator's hand, so a
+  // discrepancy is for the same person to look at, not for a loop to repair.
   const reconcile = () =>
     reconcileBilling({ pool, indexer: tonIndexer, log: logger, alerts, ownerAddress: donationAddress });
   intervalIds.push(setInterval(() => runBatch(reconcile, "billing_reconcile_error", "billing_reconcile"), 60 * 60 * 1000));

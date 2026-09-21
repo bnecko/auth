@@ -175,6 +175,37 @@ function parseDonation(tx, ownerAddress) {
   };
 }
 
+/**
+ * The outbound side of the same transaction: GRAM the operator's wallet sent,
+ * which is how a withdrawal gets paid. One entry per plain transfer carrying a
+ * comment, because the comment is what ties a payment to a request and a
+ * payment without one cannot settle anything.
+ *
+ * A wallet can pay several people in one transaction, so this is a list. The
+ * refusals mirror the inbound ones: an aborted transaction or a failed action
+ * phase sent nothing, and a non-zero opcode is some other kind of message.
+ */
+function parsePayouts(tx, ownerAddress) {
+  const description = (tx && tx.description) || {};
+  if (description.aborted) return [];
+  if (description.compute_ph && description.compute_ph.success === false) return [];
+  if (description.action && description.action.success === false) return [];
+
+  const payouts = [];
+  for (const msg of (tx && tx.out_msgs) || []) {
+    if (!sameAddress(msg.source, ownerAddress)) continue;
+    if (msg.opcode && msg.opcode !== TEXT_COMMENT_OPCODE) continue;
+
+    const destination = normalizeAddress(msg.destination);
+    const amountNano = BigInt(msg.value || "0");
+    const comment = textComment(msg.message_content && msg.message_content.body);
+    if (!destination || amountNano <= 0n || !comment) continue;
+
+    payouts.push({ txHash: tx.hash, destination, amountNano, memo: comment.trim().toUpperCase() });
+  }
+  return payouts;
+}
+
 // Two quick retries inside the tick. A vendor blip should not cost a user
 // their displayed domain for six hours, and should not be reported as a fault
 // of ours either.
@@ -354,14 +385,78 @@ async function recordDonation({ pool, donation, userId, log }) {
 }
 
 /**
+ * Reports each outbound payment in a transaction so the withdrawal it pays can
+ * be settled. What the payment means is decided by the app, which owns the
+ * ledger; this only says what the chain showed.
+ *
+ * Resolves false when a report could not be delivered. The caller stops the
+ * pass there, so the cursor stays behind the transaction and the next tick
+ * retries it: a payout that was made but never recorded would leave the user's
+ * balance held forever.
+ *
+ * A refused payment is the operator's wallet having done something the queue
+ * did not ask for. It moves nothing, and it is loud.
+ */
+async function reportPayouts({ tx, ownerAddress, confirmWithdrawal, log, alerts }) {
+  for (const payout of parsePayouts(tx, ownerAddress)) {
+    if (!confirmWithdrawal) {
+      log.warn("ton_payout_skipped_no_confirmer", { txHash: payout.txHash });
+      return false;
+    }
+
+    let result;
+    try {
+      result = await confirmWithdrawal({
+        memo: payout.memo,
+        txHash: payout.txHash,
+        destination: payout.destination,
+        amountNano: payout.amountNano.toString(),
+      });
+    } catch (err) {
+      log.error("ton_payout_report_failed", { txHash: payout.txHash, error: err });
+      return false;
+    }
+
+    if (result.outcome === "confirmed") {
+      log.info("ton_withdrawal_confirmed", { withdrawalId: result.withdrawalId, txHash: payout.txHash });
+    }
+    if (result.outcome === "refused") {
+      log.error("ton_withdrawal_payment_refused", {
+        withdrawalId: result.withdrawalId,
+        reason: result.reason,
+        txHash: payout.txHash,
+      });
+      if (alerts) {
+        await alerts.send(
+          `withdrawal_payment_refused:${payout.txHash}`,
+          `Withdrawal payment not accepted\nwithdrawal #${result.withdrawalId}: ${result.reason}\ntx ${payout.txHash}`,
+          { windowSeconds: 3600 },
+        );
+      }
+    }
+  }
+  return true;
+}
+
+/**
  * Reads new transactions at the donation address and records the ones that are
- * genuinely inbound GRAM payments.
+ * genuinely inbound GRAM payments, and reports the outbound ones that pay a
+ * withdrawal.
  *
  * The cursor only ever moves across transactions that are final. A transaction
  * that is still emulated or unfinalised stops the pass where it is, because
  * advancing past one would lose it the moment it settles for real.
  */
-async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddress, creditDeposit }) {
+async function sweepTonDonations({
+  pool,
+  indexer,
+  log,
+  notify,
+  alerts,
+  ownerAddress,
+  creditDeposit,
+  confirmWithdrawal,
+}) {
   if (!ownerAddress || !indexer) return true;
 
   const cursor = await readCursor(pool);
@@ -427,6 +522,8 @@ async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddr
       }
     }
 
+    if (!(await reportPayouts({ tx, ownerAddress, confirmWithdrawal, log, alerts }))) break;
+
     const lt = BigInt(tx.lt);
     if (lt > highest) highest = lt;
   }
@@ -438,7 +535,7 @@ async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddr
 /**
  * Checks the ledger against itself and against the chain.
  *
- * Three invariants, each of which is a different kind of wrong:
+ * Four invariants, each of which is a different kind of wrong:
  *
  *   the whole ledger nets to zero      a transfer posted one leg and not the
  *                                      other, so money was invented
@@ -447,6 +544,15 @@ async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddr
  *                                      is not backed by the entries
  *   owed <= what the address holds     we claim to owe more btGRAM than there
  *                                      is GRAM to pay it with
+ *   escrow equals open withdrawals     a request changed state without its
+ *                                      ledger movement, or the reverse, so
+ *                                      money is held for nobody or a payout is
+ *                                      queued with nothing behind it
+ *
+ * Escrow counts as owed: a held amount is still GRAM we have to pay until the
+ * watcher has seen it leave. Between the operator sending a payout and the
+ * watcher confirming it the address is briefly lighter than the books, which
+ * only shows if the float is already that tight.
  *
  * The third is one-directional on purpose: the deposit address also receives
  * donations, which are gifts rather than obligations, so holding more than is
@@ -473,8 +579,19 @@ async function reconcileBilling({ pool, indexer, log, alerts, ownerAddress }) {
     `select coalesce(sum(balance_nano), 0)::text as owed from billing_balances`,
   );
 
+  const { rows: escrowRows } = await pool.query(
+    `select (select coalesce(sum(b.balance_nano), 0)
+               from billing_balances b
+               join billing_accounts a on a.id = b.account_id
+              where a.kind = 'escrow')::text as held,
+            (select coalesce(sum(amount_nano), 0)
+               from billing_withdrawals
+              where status in ('requested', 'approved', 'sent'))::text as open`,
+  );
+
   const net = BigInt(totals[0].net);
   const owed = BigInt(owedRows[0].owed);
+  const { held, open } = escrowRows[0];
   const problems = [];
 
   if (drift.length > 0) {
@@ -482,6 +599,7 @@ async function reconcileBilling({ pool, indexer, log, alerts, ownerAddress }) {
       drift.map(r => `#${r.account_id} cached ${r.cached} vs ${r.summed}`).join(", "));
   }
   if (net !== 0n) problems.push(`ledger does not net to zero (${net})`);
+  if (held !== open) problems.push(`escrow holds ${held} but open withdrawals total ${open}`);
 
   if (ownerAddress && indexer && indexer.accountBalance) {
     try {
@@ -525,6 +643,7 @@ module.exports = {
   sweepTonDonations,
   resolveMemo,
   parseDonation,
+  parsePayouts,
   textComment,
   recordDonation,
   checkWithRetries,

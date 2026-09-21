@@ -25,7 +25,10 @@ export class InsufficientBalance extends Error {
 const pgCode = (err: unknown) =>
   err instanceof Error ? (err as Error & { code?: string }).code : undefined;
 
-async function singletonAccountId(client: PoolClient, kind: "pool" | "chain"): Promise<number> {
+async function singletonAccountId(
+  client: PoolClient,
+  kind: "pool" | "chain" | "escrow",
+): Promise<number> {
   const { rows } = await client.query<{ id: string }>(
     `select id from billing_accounts where kind = $1`,
     [kind],
@@ -36,7 +39,7 @@ async function singletonAccountId(client: PoolClient, kind: "pool" | "chain"): P
 
 // Created on first use rather than at sign-up, because most accounts never
 // touch billing. Concurrent first uses are arbitrated by the unique index.
-async function userAccountId(client: PoolClient, userId: number): Promise<number> {
+export async function userAccountId(client: PoolClient, userId: number): Promise<number> {
   const created = await client.query<{ id: string }>(
     `insert into billing_accounts (kind, user_id) values ('user', $1)
      on conflict do nothing returning id`,
@@ -234,6 +237,76 @@ export async function forfeitToPool(userId: number): Promise<{ movedNano: string
       reference: `user:${userId}`,
     });
     return { movedNano: balance.toString() };
+  });
+}
+
+/**
+ * The ledger side of a withdrawal: hold, then either release or settle.
+ *
+ * Each takes the caller's client, because the movement has to commit or roll
+ * back together with the state change on billing_withdrawals that justifies
+ * it. A hold with no request behind it, or a confirmed request with no
+ * settlement, is money in the wrong place with nothing to explain why.
+ *
+ * All three are kind 'withdrawal' and are told apart by reference, so each can
+ * post once per withdrawal however many times it is retried.
+ */
+export async function holdForWithdrawal(
+  client: PoolClient,
+  input: { accountId: number; amountNano: bigint; withdrawalId: number },
+): Promise<void> {
+  await postTransfer(client, {
+    fromAccountId: input.accountId,
+    toAccountId: await singletonAccountId(client, "escrow"),
+    amountNano: input.amountNano,
+    kind: "withdrawal",
+    reference: `${input.withdrawalId}:hold`,
+  });
+}
+
+// A withdrawal that will not be paid gives the hold back. If the account was
+// purged while the request sat open there is nobody to give it back to, and it
+// goes where the rest of a departing balance went.
+export async function releaseWithdrawalHold(
+  client: PoolClient,
+  input: { accountId: number; amountNano: bigint; withdrawalId: number },
+): Promise<void> {
+  const { rows } = await client.query<{ user_id: string | null }>(
+    `select user_id from billing_accounts where id = $1`,
+    [input.accountId],
+  );
+  const escrow = await singletonAccountId(client, "escrow");
+
+  if (rows[0]?.user_id == null) {
+    await postTransfer(client, {
+      fromAccountId: escrow,
+      toAccountId: await singletonAccountId(client, "pool"),
+      amountNano: input.amountNano,
+      kind: "forfeit",
+      reference: `withdrawal:${input.withdrawalId}`,
+    });
+    return;
+  }
+
+  await postTransfer(client, {
+    fromAccountId: escrow,
+    toAccountId: input.accountId,
+    amountNano: input.amountNano,
+    kind: "withdrawal",
+    reference: `${input.withdrawalId}:release`,
+  });
+}
+
+export async function settleWithdrawal(
+  client: PoolClient,
+  input: { amountNano: bigint; withdrawalId: number },
+): Promise<void> {
+  await postTransfer(client, {
+    fromAccountId: await singletonAccountId(client, "escrow"),
+    toAccountId: await singletonAccountId(client, "chain"),
+    amountNano: input.amountNano,
+    kind: "withdrawal",
+    reference: `${input.withdrawalId}:settle`,
   });
 }
 
