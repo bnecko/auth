@@ -20,7 +20,15 @@ async function seedUserId(prefix: string) {
 
 // An access token that already binds an app, a user and a set of scopes, which
 // is what the route reads instead of trusting anything in the body.
-async function seedToken(input: { userId: number; ownerUserId: number; scopes: string[] }) {
+// Consent leaves two things behind: the token, whose scopes are a snapshot, and
+// the authorization row, which is the live grant. `grant` lets a case pull them
+// apart, the way re-consenting with less or revoking the app does.
+async function seedToken(input: {
+  userId: number;
+  ownerUserId: number;
+  scopes: string[];
+  grant?: { scopes: string[]; revoked?: boolean };
+}) {
   const suffix = randomToken(6);
   const app = await queryOne<{ id: string }>(
     `insert into external_apps (public_id, name, slug, api_key_hash, oauth_client_secret_hash, owner_user_id, status)
@@ -32,6 +40,12 @@ async function seedToken(input: { userId: number; ownerUserId: number; scopes: s
     `insert into oauth_access_tokens (token_hash, external_app_id, user_id, subject, token_kind, scopes, expires_at)
      values ($1, $2, $3, $4, 'user', $5, now() + interval '1 hour')`,
     [hashToken(token), app!.id, input.userId, `usr_${suffix}`, input.scopes],
+  );
+  const grant = input.grant ?? { scopes: input.scopes };
+  await query(
+    `insert into app_authorizations (user_id, external_app_id, scopes, revoked_at)
+     values ($1, $2, $3, case when $4 then now() end)`,
+    [input.userId, app!.id, grant.scopes, grant.revoked === true],
   );
   return { token, appId: Number(app!.id) };
 }
@@ -94,6 +108,57 @@ describeDb('billing charge API', () => {
     expect(anonymous.status).toBe(401);
     expect(await getBalanceNano(payer)).toBe('1000000000');
     expect(await getBalanceNano(owner)).toBe('0');
+  });
+
+  // The token still says billing:charge. What the user has agreed to since
+  // is what counts, or taking the permission back would do nothing until the
+  // refresh-token family expired.
+  it('stops charging once the user consents again without the charge permission', async () => {
+    const payer = await seedUserId('payer');
+    const { token } = await seedToken({
+      userId: payer,
+      ownerUserId: await seedUserId('owner'),
+      scopes: ['profile:read', 'billing:charge'],
+      grant: { scopes: ['profile:read'] },
+    });
+    await creditDeposit({ userId: payer, amountNano: NANO_PER_GRAM, txHash: `chg_${randomToken(6)}` });
+
+    const res = await post(token, { amountNano: '1', idempotencyKey: key() });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: 'insufficient_scope' });
+    expect(await getBalanceNano(payer)).toBe('1000000000');
+  });
+
+  // A refresh that straddles the revoke can leave a live token behind it.
+  it('stops charging once the user revokes the app, even with a token that survived', async () => {
+    const payer = await seedUserId('payer');
+    const { token } = await seedToken({
+      userId: payer,
+      ownerUserId: await seedUserId('owner'),
+      scopes: ['billing:charge'],
+      grant: { scopes: ['billing:charge'], revoked: true },
+    });
+    await creditDeposit({ userId: payer, amountNano: NANO_PER_GRAM, txHash: `chg_${randomToken(6)}` });
+
+    const res = await post(token, { amountNano: '1', idempotencyKey: key() });
+
+    expect(res.status).toBe(403);
+    expect(await getBalanceNano(payer)).toBe('1000000000');
+  });
+
+  it('refuses an amount too long to be a balance as a bad request', async () => {
+    const payer = await seedUserId('payer');
+    const { token } = await seedToken({
+      userId: payer,
+      ownerUserId: await seedUserId('owner'),
+      scopes: ['billing:charge'],
+    });
+
+    const res = await post(token, { amountNano: '9'.repeat(41), idempotencyKey: key() });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: 'invalid_amount' });
   });
 
   it('refuses a missing or unknown token', async () => {

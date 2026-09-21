@@ -505,6 +505,13 @@ export async function approveOAuthAuthorization(
     authTime: new Date(sessionCreatedAt),
   });
 
+  // Consenting again with less is the user taking something back. Tokens
+  // issued under the wider grant still carry it for their whole lifetime, so
+  // they go now and the app continues on the code it is about to receive.
+  if (view.existingScopes.some(scope => !scopes.includes(scope))) {
+    await revokeAllTokensForUserAndApp({ appId: view.app.id, userId: user.id });
+  }
+
   await upsertAuthorization({
     userId: user.id,
     appId: view.app.id,
