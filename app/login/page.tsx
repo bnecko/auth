@@ -10,10 +10,7 @@ import { Button } from "@/components/Button";
 import { Divider } from "@/components/Divider";
 import { Alert } from "@/components/Alert";
 import { TurnstileField } from "@/components/TurnstileField";
-
-function safeNext(value: string | null | undefined) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
-}
+import { safeNext } from "@/lib/safeNext";
 
 export default function LoginPage() {
   const [error, setError] = useState("");
@@ -54,14 +51,14 @@ export default function LoginPage() {
       const params = new URLSearchParams(window.location.search);
       sessionStorage.setItem(
         `bn_login_next_${data.challengeId}`,
-        safeNext(params.get("next") || data.redirectTo),
+        safeNext(params.get("next") || data.redirectTo, window.location.origin),
       );
       window.location.href = `/login/telegram?id=${encodeURIComponent(data.challengeId)}`;
       return;
     }
 
     const params = new URLSearchParams(window.location.search);
-    window.location.href = safeNext(params.get("next") || data.redirectTo);
+    window.location.href = safeNext(params.get("next") || data.redirectTo, window.location.origin);
   }
 
   async function onPasskeyLogin() {
@@ -87,7 +84,7 @@ export default function LoginPage() {
       }
 
       const params = new URLSearchParams(window.location.search);
-      window.location.href = safeNext(params.get("next") || verifyData.redirectTo);
+      window.location.href = safeNext(params.get("next") || verifyData.redirectTo, window.location.origin);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Passkey login failed");
       setLoading(false);
