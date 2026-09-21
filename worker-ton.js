@@ -94,7 +94,14 @@ function createIndexer({ baseUrl, apiKey, fetchImpl = fetch }) {
     return tx ? String(tx.lt) : "0";
   }
 
-  return { ownsDomain, accountTransactions, latestLt };
+  // Native balance of an account, in nanocoins, as a decimal string.
+  async function accountBalance(address) {
+    const body = await getJson("/accountStates", { address, include_boc: "false" });
+    const account = body && body.accounts && body.accounts[0];
+    return account && account.balance ? String(account.balance) : null;
+  }
+
+  return { ownsDomain, accountTransactions, latestLt, accountBalance };
 }
 
 // Reads the comment out of the message body rather than believing the
@@ -428,8 +435,86 @@ async function sweepTonDonations({ pool, indexer, log, notify, alerts, ownerAddr
   return true;
 }
 
+/**
+ * Checks the ledger against itself and against the chain.
+ *
+ * Three invariants, each of which is a different kind of wrong:
+ *
+ *   the whole ledger nets to zero      a transfer posted one leg and not the
+ *                                      other, so money was invented
+ *   every balance equals its legs      the cached balance and its entries
+ *                                      disagree, so a figure shown to a user
+ *                                      is not backed by the entries
+ *   owed <= what the address holds     we claim to owe more btGRAM than there
+ *                                      is GRAM to pay it with
+ *
+ * The third is one-directional on purpose: the deposit address also receives
+ * donations, which are gifts rather than obligations, so holding more than is
+ * owed is the normal state and only the reverse is a problem.
+ *
+ * Read only. It never corrects anything, because a discrepancy in a money
+ * ledger is something a person needs to look at, not something a loop should
+ * quietly paper over.
+ */
+async function reconcileBilling({ pool, indexer, log, alerts, ownerAddress }) {
+  const { rows: drift } = await pool.query(
+    `select b.account_id, b.balance_nano::text as cached,
+            coalesce(sum(e.amount_nano), 0)::text as summed
+       from billing_balances b
+       left join billing_entries e on e.account_id = b.account_id
+      group by b.account_id, b.balance_nano
+     having b.balance_nano <> coalesce(sum(e.amount_nano), 0)`,
+  );
+
+  const { rows: totals } = await pool.query(
+    `select coalesce(sum(amount_nano), 0)::text as net from billing_entries`,
+  );
+  const { rows: owedRows } = await pool.query(
+    `select coalesce(sum(balance_nano), 0)::text as owed from billing_balances`,
+  );
+
+  const net = BigInt(totals[0].net);
+  const owed = BigInt(owedRows[0].owed);
+  const problems = [];
+
+  if (drift.length > 0) {
+    problems.push(`${drift.length} balance(s) disagree with their entries: ` +
+      drift.map(r => `#${r.account_id} cached ${r.cached} vs ${r.summed}`).join(", "));
+  }
+  if (net !== 0n) problems.push(`ledger does not net to zero (${net})`);
+
+  if (ownerAddress && indexer && indexer.accountBalance) {
+    try {
+      const onChain = await indexer.accountBalance(ownerAddress);
+      if (onChain === null) {
+        log.warn("billing_reconcile_no_balance", { ownerAddress });
+      } else if (owed > BigInt(onChain)) {
+        problems.push(`owed ${owed} exceeds the ${onChain} held on chain`);
+      }
+    } catch (err) {
+      // A vendor being unreachable is not a discrepancy. Say so and move on
+      // rather than paging someone about the ledger.
+      log.warn("billing_reconcile_chain_unreachable", { error: err });
+    }
+  }
+
+  if (problems.length === 0) {
+    log.info("billing_reconciled", { owedNano: owed.toString() });
+    return true;
+  }
+
+  log.error("billing_reconcile_failed", { problems });
+  if (alerts) {
+    await alerts.send("billing_drift", `Billing ledger discrepancy\n${problems.join("\n")}`, {
+      windowSeconds: 3600,
+    });
+  }
+  return true;
+}
+
 module.exports = {
   TON_DNS_COLLECTION,
+  reconcileBilling,
   normalizeAddress,
   DONATION_CURSOR,
   DONOR_THRESHOLD_NANO,
