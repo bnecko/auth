@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Field } from "./Field";
+import { PasswordField } from "./PasswordField";
 import { Button } from "./Button";
 import { Alert } from "./Alert";
 import type { ChangePasswordState } from "@/app/security/actions";
@@ -21,17 +21,16 @@ export function ChangePasswordForm({
           Password changed. Your other sessions were signed out.
         </Alert>
       )}
-      <Field
+      <PasswordField
         label="Current password"
         name="currentPassword"
-        type="password"
         autoComplete="current-password"
+        fillOnRequest
         required
       />
-      <Field
+      <PasswordField
         label="New password"
         name="newPassword"
-        type="password"
         autoComplete="new-password"
         minLength={10}
         maxLength={256}

@@ -5,8 +5,20 @@ test("login keeps remember-me visible and enabled", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "sign in" })).toBeVisible();
   await expect(page.getByLabel("email or username")).toBeVisible();
-  await expect(page.getByLabel("password")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Password" })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /remember/i })).toBeChecked();
+});
+
+test("the password can be revealed and hidden again", async ({ page }) => {
+  await page.goto("/login");
+  const password = page.locator('input[name="password"]');
+  await password.fill("not-a-real-password");
+
+  await page.getByRole("button", { name: "Show password" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+
+  await page.getByRole("button", { name: "Hide password" }).click();
+  await expect(password).toHaveAttribute("type", "password");
 });
 
 test("telegram 2fa waiting screen prompts for the pushed approval", async ({ page }) => {

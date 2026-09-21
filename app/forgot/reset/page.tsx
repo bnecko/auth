@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/AuthShell";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
-import { Field } from "@/components/Field";
+import { PasswordField } from "@/components/PasswordField";
 import { resetPasswordAction } from "./actions";
 
 function ResetPasswordForm() {
@@ -60,10 +60,9 @@ function ResetPasswordForm() {
           <input type="hidden" name="token" value={token} />
           
           <div className="mb-5">
-            <Field
+            <PasswordField
               label="New Password"
               name="password"
-              type="password"
               required
               autoComplete="new-password"
             />

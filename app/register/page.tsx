@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { AuthShell } from "@/components/AuthShell";
 import { Field } from "@/components/Field";
+import { PasswordField } from "@/components/PasswordField";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { TurnstileField } from "@/components/TurnstileField";
@@ -117,10 +118,9 @@ export default function RegisterPage() {
           error={errors.dob}
           optional
         />
-        <Field
+        <PasswordField
           label="Password"
           name="password"
-          type="password"
           autoComplete="new-password"
           error={errors.password}
           required

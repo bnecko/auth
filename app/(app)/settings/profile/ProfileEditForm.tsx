@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field } from "@/components/Field";
+import { PasswordField } from "@/components/PasswordField";
 import { Button } from "@/components/Button";
 import { Alert } from "@/components/Alert";
 import { Identicon } from "@/components/Identicon";
@@ -220,11 +221,11 @@ export function IdentityChangeForm({
         defaultValue=""
         required
       />
-      <Field
+      <PasswordField
         label="Current password"
         name="currentPassword"
-        type="password"
         autoComplete="current-password"
+        fillOnRequest
         required
       />
       <p className="text-[12px] text-muted">
