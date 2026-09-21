@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { Eye, Heart, Wallet } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
-import { Button } from "@/components/Button";
 import { findTonWallet } from "@/lib/server/repositories/tonWallets";
 import { getOrCreateDonationMemo } from "@/lib/server/repositories/tonDonations";
 import { cryptoEnabled, tonDonationAddress } from "@/lib/server/config";
@@ -9,6 +8,7 @@ import { getCurrentSession } from "@/lib/server/session";
 import { parseAddress, shortFriendlyAddress } from "@/lib/server/ton/address";
 import { TonConnectPanel } from "./TonConnectPanel";
 import { DonateSection } from "./DonateSection";
+import { UnlinkWalletForm } from "./UnlinkWalletForm";
 import { WalletDisplayForm } from "./WalletDisplayForm";
 import { unlinkTonWalletAction, updateTonDisplayAction } from "./actions";
 
@@ -44,11 +44,7 @@ export default async function TonWalletPage() {
                   {shortFriendlyAddress(wallet.address)}
                 </code>
               </RowValue>
-              <form action={unlinkTonWalletAction}>
-                <Button type="submit" variant="ghost" size="sm">
-                  Unlink
-                </Button>
-              </form>
+              <span />
             </Row>
             <Row>
               <RowLabel>Wallet</RowLabel>
@@ -66,6 +62,7 @@ export default async function TonWalletPage() {
               </RowValue>
               <span />
             </Row>
+            <UnlinkWalletForm action={unlinkTonWalletAction} />
           </>
         ) : (
           <TonConnectPanel />

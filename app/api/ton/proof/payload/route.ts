@@ -1,8 +1,10 @@
 import { type NextRequest } from "next/server";
 import { requireUser } from "@/lib/server/apiAuth";
 import { cryptoEnabled } from "@/lib/server/config";
-import { json, notFound, tooManyRequests, requestContext } from "@/lib/server/http";
+import { forbidden, json, notFound, requestBody, tooManyRequests, requestContext } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/rateLimit";
+import { isCurrentPassword } from "@/lib/server/reauth";
+import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
 import { createTonProofNonce } from "@/lib/server/ton/proofChallenge";
 
 export const runtime = "nodejs";
@@ -31,6 +33,25 @@ export async function POST(req: NextRequest) {
   }
   if (!byIp.success) {
     return tooManyRequests("Too many requests from this network. Try again later.");
+  }
+
+  // The linked wallet is where withdrawals are paid, so linking one is asked of
+  // the account holder, not of whoever holds the session cookie. The password
+  // is taken here rather than with the proof: the nonce is single use, short
+  // lived and returned only to whoever asked for it, so nobody can build a
+  // proof this server accepts without having passed this check first, and a
+  // mistyped password costs nothing the user has already signed. The limits
+  // above also bound guessing.
+  const body = await requestBody(req);
+  const currentPassword = typeof body.currentPassword === "string" ? body.currentPassword : "";
+  if (!(await isCurrentPassword(session.user.id, currentPassword))) {
+    await recordSecurityEvent({
+      userId: session.user.id,
+      eventType: "ton_wallet_link",
+      result: "invalid_password",
+      context: ctx,
+    });
+    return forbidden("Current password is incorrect.");
   }
 
   return json({ payload: await createTonProofNonce(session.user.id) });

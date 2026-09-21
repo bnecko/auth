@@ -75,6 +75,19 @@ function PaymentInstructions({ withdrawal }: { withdrawal: QueuedWithdrawal }) {
   );
 }
 
+const FRESH_WALLET_MS = 24 * 60 * 60 * 1000;
+
+// How long the wallet had been linked when the request was made, in words, if
+// that was under a day. Null otherwise, including when it is no longer linked,
+// which the gate already reports.
+function wasLinkedJustBefore(withdrawal: QueuedWithdrawal) {
+  if (!withdrawal.walletLinkedAt) return null;
+  const heldFor = withdrawal.createdAt.getTime() - withdrawal.walletLinkedAt.getTime();
+  if (heldFor >= FRESH_WALLET_MS) return null;
+  const minutes = Math.max(1, Math.round(heldFor / 60_000));
+  return minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} h`;
+}
+
 function OpenWithdrawal({ withdrawal }: { withdrawal: QueuedWithdrawal }) {
   const gateProblem = !withdrawal.identityApproved
     ? "identity is no longer approved"
@@ -82,6 +95,7 @@ function OpenWithdrawal({ withdrawal }: { withdrawal: QueuedWithdrawal }) {
       ? "the destination is no longer this user's linked wallet"
       : null;
   const fields = { withdrawalId: withdrawal.id };
+  const linkedJustBefore = wasLinkedJustBefore(withdrawal);
 
   return (
     <div className="border-t border-rule first:border-t-0 px-4 py-4">
@@ -143,6 +157,13 @@ function OpenWithdrawal({ withdrawal }: { withdrawal: QueuedWithdrawal }) {
 
       {gateProblem && withdrawal.status === "requested" && (
         <p className="mt-2 text-[12px] text-danger">Cannot be approved: {gateProblem}.</p>
+      )}
+      {linkedJustBefore && (
+        <p className="mt-2 text-[12px] text-danger">
+          The wallet was linked {linkedJustBefore} before this request. A wallet added moments
+          before a withdrawal is what a taken-over account looks like: confirm with the user
+          before paying.
+        </p>
       )}
       {withdrawal.status === "approved" && <PaymentInstructions withdrawal={withdrawal} />}
       {withdrawal.status === "sent" && (

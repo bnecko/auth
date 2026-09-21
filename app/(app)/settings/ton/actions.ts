@@ -15,8 +15,12 @@ import {
 } from "@/lib/server/repositories/tonWallets";
 import { listOwnedDomains, normalizeDomainLabel, ownsDomain } from "@/lib/server/ton/dns";
 import { rateLimit } from "@/lib/server/rateLimit";
+import { isCurrentPassword } from "@/lib/server/reauth";
 import { assertNotRestricted, getCurrentSession } from "@/lib/server/session";
 import type { DisplayState } from "./WalletDisplayForm";
+
+const UNLINK_LIMIT = 10;
+const UNLINK_WINDOW_MS = 10 * 60 * 1000;
 
 const LOOKUP_LIMIT = 10;
 const LOOKUP_WINDOW_MS = 10 * 60 * 1000;
@@ -72,21 +76,41 @@ export async function updateTonDisplayAction(
   return { ok: true };
 }
 
-export async function unlinkTonWalletAction() {
+export type UnlinkState = { error?: string } | null;
+
+// Unlinking is half of replacing the payout wallet, so it asks for the password
+// like linking does. Otherwise a stolen session could clear the way and the
+// owner would be the one locked out of withdrawing.
+export async function unlinkTonWalletAction(_prev: UnlinkState, formData: FormData): Promise<UnlinkState> {
   const current = await getCurrentSession();
-  if (!current) return;
+  if (!current) return { error: "not signed in" };
   assertNotRestricted(current);
   if (!cryptoEnabled()) notFound();
+
+  const context = requestContextFromHeaders(await headers());
+  const limit = await rateLimit(`rl:tonunlink:user:${current.user.id}`, UNLINK_LIMIT, UNLINK_WINDOW_MS);
+  if (!limit.success) return { error: "too many attempts, wait a few minutes" };
+
+  if (!(await isCurrentPassword(current.user.id, formData.get("currentPassword")?.toString() ?? ""))) {
+    await recordSecurityEvent({
+      userId: current.user.id,
+      eventType: "ton_wallet_unlinked",
+      result: "invalid_password",
+      context,
+    });
+    return { error: "current password is incorrect" };
+  }
 
   if (await unlinkTonWallet(current.user.id)) {
     await recordSecurityEvent({
       userId: current.user.id,
       eventType: "ton_wallet_unlinked",
       result: "self",
-      context: requestContextFromHeaders(await headers()),
+      context,
     });
     await notifyUser(current.user.id, { type: "ton_wallet_unlinked" });
   }
 
   revalidatePath("/settings/ton");
+  return null;
 }
