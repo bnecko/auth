@@ -122,12 +122,17 @@ function OpenWithdrawal({ withdrawal }: { withdrawal: QueuedWithdrawal }) {
             <ConfirmButton
               action={rejectWithdrawalAction}
               fields={fields}
-              extraInput={{ name: "reason", label: "Reason, shown to the user", placeholder: "Optional" }}
+              extraInput={{
+                name: "reason",
+                label: "Reason for declining",
+                placeholder: "Optional. The user sees this on their billing page and in Telegram.",
+                multiline: true,
+              }}
               label="Reject"
               triggerVariant="ghost"
               tone="danger"
               title="Reject this withdrawal?"
-              message="The held amount goes back to the user's balance."
+              message="The held amount goes back to the user's balance, and they are told on Telegram."
               preview={<Summary withdrawal={withdrawal} />}
               confirmLabel="Reject"
             />

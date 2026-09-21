@@ -4,12 +4,16 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireAdminStepUpSession } from "@/lib/server/apiAuth";
 import { requestContextFromHeaders } from "@/lib/server/http";
+import { notifyUser } from "@/lib/server/notifications";
+import { formatGram } from "@/lib/server/repositories/billing";
 import {
   approveWithdrawal,
   markWithdrawalSent,
   rejectWithdrawal,
 } from "@/lib/server/repositories/billingWithdrawals";
 import { recordSecurityEvent } from "@/lib/server/repositories/securityEvents";
+
+const MAX_REASON_LENGTH = 300;
 
 async function recordDecision(adminId: number, eventType: string, withdrawalId: number) {
   await recordSecurityEvent({
@@ -37,9 +41,19 @@ export async function rejectWithdrawalAction(formData: FormData) {
   const withdrawalId = Number(formData.get("withdrawalId"));
   if (!withdrawalId) return;
 
-  const reason = String(formData.get("reason") || "").trim() || null;
-  if (await rejectWithdrawal({ withdrawalId, adminId: current.user.id, reason })) {
+  // The reason is repeated to the user on their billing page and in a Telegram
+  // message, so it is kept to something that fits in both.
+  const reason = String(formData.get("reason") || "").trim().slice(0, MAX_REASON_LENGTH) || null;
+  const rejected = await rejectWithdrawal({ withdrawalId, adminId: current.user.id, reason });
+  if (rejected) {
     await recordDecision(current.user.id, "withdrawal_rejected", withdrawalId);
+    if (rejected.userId !== null) {
+      await notifyUser(rejected.userId, {
+        type: "withdrawal_declined",
+        amount: formatGram(rejected.amountNano),
+        reason,
+      });
+    }
   }
   revalidatePath("/admin/withdrawals");
 }

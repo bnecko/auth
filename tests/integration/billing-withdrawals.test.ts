@@ -186,10 +186,10 @@ describeDb('btGRAM withdrawals', () => {
       const { userId } = await seedWithdrawer(5);
       const withdrawal = await requestWithdrawal({ userId, amountNano: gram(2) });
 
-      expect(
-        await rejectWithdrawal({ withdrawalId: withdrawal.id, adminId: userId, reason: 'test' }),
-      ).toBe(true);
+      const rejected = await rejectWithdrawal({ withdrawalId: withdrawal.id, adminId: userId, reason: 'test' });
 
+      // Whose it was and how much, which is what the decline notice is built from.
+      expect(rejected).toEqual({ userId, amountNano: '2000000000' });
       expect((await statusOf(withdrawal.id)).status).toBe('rejected');
       expect(await getBalanceNano(userId)).toBe('5000000000');
     });
@@ -204,7 +204,7 @@ describeDb('btGRAM withdrawals', () => {
 
       expect(
         await rejectWithdrawal({ withdrawalId: withdrawal.id, adminId: userId, reason: null }),
-      ).toBe(false);
+      ).toBeNull();
       expect(await getBalanceNano(userId)).toBe('3000000000');
     });
 
