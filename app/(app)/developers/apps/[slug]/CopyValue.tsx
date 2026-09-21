@@ -24,6 +24,7 @@ export function CopyValue({ value, label }: { value: string; label?: string }) {
         type="button"
         variant="ghost"
         size="sm"
+        className="shrink-0"
         onClick={copy}
         aria-label={`copy ${label || "value"}`}
       >
