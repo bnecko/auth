@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Coins, Download } from "lucide-react";
+import { BadgeCheck, Coins, Download } from "lucide-react";
 import { Row, RowLabel, RowValue, Section } from "@/components/Section";
 import { QrCode } from "@/components/QrCode";
 import { CopyValue } from "@/app/(app)/developers/apps/[slug]/CopyValue";
@@ -10,10 +10,25 @@ import {
   listEntriesForUser,
 } from "@/lib/server/repositories/billing";
 import { getOrCreateDepositMemo } from "@/lib/server/repositories/tonDonations";
+import { findKycApplication } from "@/lib/server/repositories/kyc";
+import { isDiditConfigured } from "@/lib/server/kyc/didit";
+import { VerifyIdentityForm } from "./VerifyIdentityForm";
+import { startVerificationAction } from "./actions";
 import { getCurrentSession } from "@/lib/server/session";
 import { parseAddress } from "@/lib/server/ton/address";
 
 export const dynamic = "force-dynamic";
+
+const KYC_HINT: Record<string, string> = {
+  not_started: "Needed to withdraw",
+  in_progress: "Started",
+  awaiting_user: "Waiting on you",
+  in_review: "Being reviewed",
+  approved: "Verified",
+  declined: "Declined",
+  expired: "Expired",
+  abandoned: "Not finished",
+};
 
 const LABELS: Record<string, string> = {
   deposit: "Deposit",
@@ -37,10 +52,17 @@ export default async function BillingPage() {
   // something once someone is looking at it.
   const memo = depositTo ? await getOrCreateDepositMemo(current.user.id) : null;
 
-  const [balanceNano, entries] = await Promise.all([
+  const [balanceNano, entries, kyc] = await Promise.all([
     getBalanceNano(current.user.id),
     listEntriesForUser(current.user.id),
+    findKycApplication(current.user.id),
   ]);
+
+  const kycStatus = kyc?.status ?? "not_started";
+  // Re-verifying after passing only risks losing the approval, and a finished
+  // submission is waiting on a reviewer rather than on the user.
+  const canStartVerification =
+    isDiditConfigured() && !["approved", "in_review", "awaiting_user"].includes(kycStatus);
 
   return (
     <>
@@ -98,6 +120,33 @@ export default async function BillingPage() {
           </Section>
         </div>
       )}
+
+      <div className="mt-6">
+        <Section title="Identity" icon={BadgeCheck} hint={KYC_HINT[kycStatus] ?? kycStatus}>
+          {kycStatus === "approved" ? (
+            <Row>
+              <RowLabel>Status</RowLabel>
+              <RowValue>Verified, so withdrawals are available to you.</RowValue>
+              <span />
+            </Row>
+          ) : canStartVerification ? (
+            <VerifyIdentityForm
+              action={startVerificationAction}
+              label={kycStatus === "not_started" ? "Verify identity" : "Try again"}
+            />
+          ) : (
+            <Row>
+              <RowLabel>Status</RowLabel>
+              <RowValue>
+                {isDiditConfigured()
+                  ? "Your submission is with our verification partner. Nothing more to do."
+                  : "Identity verification is not available yet."}
+              </RowValue>
+              <span />
+            </Row>
+          )}
+        </Section>
+      </div>
 
       <div className="mt-6">
         <Section title="History" icon={Coins} hint="Most recent first">
