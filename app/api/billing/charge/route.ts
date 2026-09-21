@@ -6,6 +6,8 @@ import { log } from "@/lib/server/log";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { findAccessToken } from "@/lib/server/repositories/oauth";
 import {
+  CHARGE_DAILY_LIMIT_NANO,
+  ChargeLimitExceeded,
   ChargeNotAuthorized,
   chargeUser,
   getBalanceNano,
@@ -99,6 +101,17 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof InsufficientBalance) {
       return apiError("the user does not have that much btGRAM", "insufficient_balance", 402);
+    }
+    if (err instanceof ChargeLimitExceeded) {
+      return json(
+        {
+          error: "this app has reached what it may charge this user in 24 hours",
+          code: "daily_limit_exceeded",
+          limitNano: CHARGE_DAILY_LIMIT_NANO.toString(),
+          remainingNano: err.remainingNano.toString(),
+        },
+        403,
+      );
     }
     if (err instanceof ChargeNotAuthorized) {
       return apiError("the user has not granted this app permission to charge", "insufficient_scope", 403);
